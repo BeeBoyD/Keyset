@@ -1,0 +1,42 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            url = "https://maven.fabricmc.net/"
+        }
+        maven {
+            url = "https://maven.minecraftforge.net/"
+        }
+        maven {
+            url = "https://maven.neoforged.net/releases/"
+        }
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode = RepositoriesMode.PREFER_PROJECT
+    repositories {
+        mavenCentral()
+        maven {
+            url = "https://maven.fabricmc.net/"
+        }
+        maven {
+            url = "https://libraries.minecraft.net/"
+        }
+        maven {
+            url = "https://maven.minecraftforge.net/"
+        }
+        maven {
+            url = "https://maven.neoforged.net/releases/"
+        }
+    }
+}
+
+rootProject.name = "Keyset"
+
+include("core")
+include("common-v1_20_1-to-v1_20_2")
+include("platform-fabric-1_20_1")
+include("platform-forge-1_20_1")
+include("platform-neoforge-1_20_1")

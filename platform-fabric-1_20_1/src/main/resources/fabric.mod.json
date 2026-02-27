@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "${modId}",
+  "version": "${modVersion}",
+  "name": "${modName}",
+  "description": "${modDescription}",
+  "authors": [
+    "BeeBoyD"
+  ],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "net.beeboyd.keyset.platform.fabric.KeysetFabricClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.18.4",
+    "minecraft": "${minecraftVersion}",
+    "java": ">=17",
+    "fabric-api": "*"
+  }
+}

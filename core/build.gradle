@@ -1,0 +1,16 @@
+plugins {
+    id "java-library"
+    id "com.diffplug.spotless"
+}
+
+base {
+    archivesName = "keyset-core"
+}
+
+dependencies {
+    api "com.google.code.gson:gson:2.10.1"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 8
+}

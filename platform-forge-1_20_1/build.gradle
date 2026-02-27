@@ -1,0 +1,16 @@
+plugins {
+    id "java-library"
+    id "com.diffplug.spotless"
+}
+
+base {
+    archivesName = "keyset-forge-1.20.1-placeholder"
+}
+
+dependencies {
+    implementation project(":common-v1_20_1-to-v1_20_2")
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+}
