@@ -1,7 +1,7 @@
 plugins {
     id "base"
     id "com.diffplug.spotless" version "6.25.0" apply false
-    id "fabric-loom" version "1.8.13" apply false
+    id "fabric-loom" version "1.15.4" apply false
 }
 
 allprojects {
@@ -23,6 +23,7 @@ subprojects {
         dependencies {
             testImplementation platform("org.junit:junit-bom:5.10.3")
             testImplementation "org.junit.jupiter:junit-jupiter"
+            testRuntimeOnly "org.junit.platform:junit-platform-launcher"
         }
 
         tasks.withType(JavaCompile).configureEach {
@@ -58,8 +59,18 @@ subprojects {
 
 tasks.register("buildRepresentativeTarget") {
     group = "verification"
-    description = "Builds the first fully wired target jar."
-    dependsOn(":platform-fabric-1_20_1:build")
+    description = "Builds the primary fully wired Fabric target jar."
+    dependsOn(":platform-fabric-1_21_11:build")
+}
+
+tasks.register("buildFabricTargets") {
+    group = "verification"
+    description = "Builds every currently wired Fabric target jar."
+    dependsOn(
+        ":platform-fabric-1_20_1:build",
+        ":platform-fabric-1_20_6:build",
+        ":platform-fabric-1_21_11:build"
+    )
 }
 
 tasks.register("buildTargetJars") {
@@ -67,6 +78,8 @@ tasks.register("buildTargetJars") {
     description = "Builds the current target jars for all scaffolded modules."
     dependsOn(
         ":platform-fabric-1_20_1:remapJar",
+        ":platform-fabric-1_20_6:remapJar",
+        ":platform-fabric-1_21_11:remapJar",
         ":platform-forge-1_20_1:jar",
         ":platform-neoforge-1_20_1:jar"
     )

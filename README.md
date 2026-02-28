@@ -4,7 +4,8 @@ Keybind profiles and conflict resolution for Minecraft (client-side).
 
 ## Features
 - Multiple keybind profiles with instant switching
-- Conflict visualization with grouping and search
+- Cleaner Fabric UI with tooltips, profile status badges, and inline guidance
+- Conflict visualization with grouping, search, and per-profile previews
 - Scrollable conflict list with jump, clear, and reassign actions
 - One-click auto-resolve with preview and undo
 - Export/import profiles (JSON + clipboard)
@@ -13,29 +14,34 @@ Keybind profiles and conflict resolution for Minecraft (client-side).
 ## Supported Versions / Loaders
 | Minecraft | Fabric / Quilt | Forge | NeoForge | Status |
 | --- | --- | --- | --- | --- |
-| 1.16.5-1.18.x | Planned | Planned | N/A | Planned |
-| 1.19.x | Planned | Planned | N/A | Planned |
-| 1.20.1-1.20.2 | Playable on Fabric 1.20.1 | Scaffolded | Scaffolded | Vertical slice |
-| 1.20.3-1.20.6 | Planned | Planned | Planned | Planned |
+| 1.16.5-1.18.x | Legacy shim planned | Planned | N/A | Pending |
+| 1.19.x | Legacy shim planned | Planned | N/A | Pending |
+| 1.20.1-1.20.2 | Supported | Scaffolded | Scaffolded | Wired |
+| 1.20.3-1.20.6 | Supported | Planned | Planned | Wired |
+| 1.21-1.21.11 | Supported | Planned | Planned | Wired |
 
-Current build validation target: Fabric 1.20.1.
+Current Fabric validation targets: `1.20.1-1.20.2`, `1.20.3-1.20.6`, and `1.21-1.21.11`.
 
 ## Architecture
 - `core`: shared Java module for data models, JSON persistence, conflict detection, auto-resolve, and UI-facing contracts.
 - `common-v1_20_1-to-v1_20_2`: first version-range adapter shared by loader leaf modules.
-- `platform-fabric-1_20_1`: first fully wired mod target used to validate the scaffold.
+- `common-v1_20_3-to-v1_20_6`: modern Fabric shim for the post-1.20.3 GUI/input changes.
+- `common-v1_21-to-v1_21_11`: modern Fabric shim for the 1.21.x GUI/input and keybinding API changes.
+- `platform-fabric-1_20_1`: Fabric target for `1.20.1-1.20.2`.
+- `platform-fabric-1_20_6`: Fabric target for `1.20.3-1.20.6`.
+- `platform-fabric-1_21_11`: Fabric target for `1.21-1.21.11`.
 - `platform-forge-1_20_1`: Forge placeholder module reserved for loader glue.
 - `platform-neoforge-1_20_1`: NeoForge placeholder module reserved for loader glue.
 
-This scaffold keeps feature logic out of loader modules and keeps version shims isolated so later Minecraft bumps can stay narrow.
+This keeps feature logic out of loader modules and isolates version shims so later Minecraft bumps stay narrow. Older Fabric `1.16.5-1.19.x` still need dedicated legacy GUI/input shims because the client APIs diverge more sharply there.
 
 ## How To Use
 1. Open Controls.
-2. Click the new "Keyset" button.
-3. Pick a profile or create one.
-4. Review conflicts grouped by key or by category, then use search to narrow the list.
-5. Select a conflicting bind to jump into the vanilla keybind editor, clear it, or open direct reassignment.
-6. Capture the current layout, export/import via clipboard, or preview and apply auto-resolve changes.
+2. Hover the new `Keyset` button if you want a quick summary, then open it.
+3. Pick a profile on the left. The badge shows whether you are editing the active profile or only previewing a saved one.
+4. Use search and the group toggle on the right to narrow the visible conflicts for that profile.
+5. Select a conflicting bind to see what it does, then use `Find In Controls`, `Clear Key`, or `Rebind`.
+6. Use `Apply` to make a saved profile live, `Save Current` to capture the current controls, or `Preview Auto-Fix` to review safe automated changes before applying them.
 
 ## Profile Rules
 - First-run config seeds four starter profiles: `Default`, `PvP`, `Building`, and `Tech`.
@@ -60,6 +66,7 @@ This scaffold keeps feature logic out of loader modules and keeps version shims 
 - Conflict grouping supports both assigned-key clusters and category-based views.
 - Grouping uses stable internal binding/category ids while still exposing display names for UI.
 - Search can match key labels, binding names, category names, and internal ids.
+- The current Fabric screen now shows conflicts for the selected profile instead of always mirroring the live active profile.
 - The current Fabric screen caches the conflict report and only reruns shared conflict analysis after state-changing actions.
 - Binding quick actions operate on the active profile and sync manual edits made in the vanilla keybind editor back into `keybindprofiles.json`.
 
@@ -73,8 +80,9 @@ This scaffold keeps feature logic out of loader modules and keeps version shims 
 - Client-side only; safe to include on servers.
 
 ## Development
-- Use JDK 17 for the current 1.20.1 validation target.
+- Use JDK 17 for `1.20.1-1.20.2` and JDK 21 for `1.20.3+` Fabric targets.
 - `./gradlew build` builds every scaffolded module.
-- `./gradlew buildRepresentativeTarget` validates the Fabric 1.20.1 target.
+- `./gradlew buildRepresentativeTarget` validates the latest wired Fabric target.
+- `./gradlew buildFabricTargets` validates every wired Fabric target.
 - `./gradlew buildTargetJars` produces the currently wired jar outputs.
 - `./gradlew verifyWorkspace` runs formatting and checks.
