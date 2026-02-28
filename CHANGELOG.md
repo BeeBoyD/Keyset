@@ -57,3 +57,5 @@
 - Fixed the legacy Forge bootstrap shims for `1.17.1`, `1.18.2`, and `1.19.2` so the current loader APIs compile cleanly across those ranges.
 - Fixed NeoForge bootstrap wiring so `1.20.1` and `1.20.4` initialize from the root client mod instead of relying on the wrong `DistExecutor` path.
 - Fixed NeoForge `1.20.4` metadata so the dev runtime now uses `META-INF/mods.toml`, the newer dependency `type = "required"` field, and the correct `javafml` loader range.
+- Fixed Forge and NeoForge dev resource roots by adding valid `pack.mcmeta` metadata, removing the `failed to load a valid ResourcePackInfo` warning from current `1.20.x` launches.
+- Fixed the shared modern `1.20.4+` Keyset screen shell so its custom panels render from `renderBackground(...)`, keeping NeoForge `1.20.4` and the other modern leaves from painting widgets over missing chrome.

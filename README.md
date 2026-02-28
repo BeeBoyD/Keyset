@@ -104,6 +104,8 @@ This keeps feature logic out of loader modules and isolates version shims so lat
 - Modern Fabric leaves now draw custom Keyset labels and conflict-row text with explicit opaque colors so the post-`1.20.1` GUI pipeline does not turn them into blank interactive regions.
 - The `1.21.11` Fabric conflict list now uses the row entry geometry provided by Minecraft's newer widget API, so hovered conflict rows stay anchored instead of rendering at mouse-relative positions.
 - The injected `Keyset` button on the vanilla Controls screen now chooses a non-overlapping slot based on the existing vanilla widgets instead of assuming one fixed top-right position.
+- Forge and NeoForge runtime resource roots now include valid `pack.mcmeta` metadata, so dev launches no longer warn that Keyset's generated resources failed to load as a resource pack.
+- The shared modern `1.20.4+` Keyset screen chrome now renders from `renderBackground(...)`, which keeps the custom frames and cards visible on NeoForge and other modern leaves whose base `Screen.render(...)` repaints the background.
 
 ## Config
 - Stored at `config/keybindprofiles.json` with schema versioning.
