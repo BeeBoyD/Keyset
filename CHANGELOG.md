@@ -15,6 +15,7 @@
 - Fabric leaf modules for `1.20.3-1.20.6` and `1.21-1.21.11`, each backed by their own thin version shim.
 - Legacy Fabric leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, and `1.19.x`, backed by dedicated `common-v1_16_5-to-v1_18_x` and `common-v1_19_x` shims.
 - Exact Fabric leaf modules for `1.19.2`, `1.20.4`, `1.21.1`, `1.21.4`, and `1.21.9`, so the current Fabric matrix can be verified against real API breakpoints instead of optimistic shared ranges.
+- A root `run-fabric.sh` helper that maps requested Fabric Minecraft versions to the correct dev-launch leaf module.
 
 ### Changed
 - Defined the support matrix and documented the multi-loader architecture in the README.

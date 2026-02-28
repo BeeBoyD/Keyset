@@ -111,3 +111,4 @@ This keeps feature logic out of loader modules and isolates version shims so lat
 - `./gradlew buildFabricTargets` validates every wired Fabric leaf target.
 - `./gradlew buildTargetJars` produces the currently wired jar outputs.
 - `./gradlew verifyWorkspace` runs formatting and checks.
+- `./run-fabric.sh 1.21.3` resolves a requested Fabric Minecraft version to the nearest supported leaf module and launches its `runClient` task.
