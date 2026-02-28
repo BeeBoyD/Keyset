@@ -14,6 +14,8 @@
 - A scrollable conflict list with per-binding jump, clear, and reassign actions wired into the vanilla keybind editor.
 - Fabric leaf modules for `1.20.3-1.20.6` and `1.21-1.21.11`, each backed by their own thin version shim.
 - Legacy Fabric leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, and `1.19.x`, backed by dedicated `common-v1_16_5-to-v1_18_x` and `common-v1_19_x` shims.
+- Exact Fabric leaf modules for `1.19.2`, `1.20.4`, `1.21.1`, `1.21.4`, and `1.21.9`, so the current Fabric matrix can be verified against real API breakpoints instead of optimistic shared ranges.
+- A root `run-fabric.sh` helper that maps requested Fabric Minecraft versions to the correct dev-launch leaf module.
 
 ### Changed
 - Defined the support matrix and documented the multi-loader architecture in the README.
@@ -26,8 +28,24 @@
 - Upgraded the Fabric build stack to Gradle `9.2.0` and Loom `1.15.4` so the latest wired Fabric range can build cleanly.
 - The Fabric UI now adapts better to short screens by shrinking the detail card, preserving the conflict list, and moving more guidance into contextual copy and hover tooltips.
 - Documented the per-range Java toolchain strategy, including the Java 17 Loom dev-launch requirement for `1.16.5` and `1.17.1`.
+- Updated the README to list the exact Fabric versions that now compile and dev-launch cleanly.
+- Unified the Fabric Keyset screen layout across every currently wired Fabric leaf so the compact two-pane flow, footer actions, and selection summary behave consistently from `1.16.5` through `1.21.11`.
+- Tuned the Fabric selection card layout across all wired leaves so helper text wraps inside the available space above the quick-action row instead of assuming a fixed one-line height.
+- Tightened the visible Fabric copy and status banner so higher GUI scales no longer rely on long instructional sentences that overflow the top bar or detail card.
 
 ### Fixed
 - Core JUnit tests now run correctly under the newer Gradle wrapper by including the JUnit Platform launcher at runtime.
 - Fixed the `1.21.11` crash caused by applying background blur twice in one frame.
 - Fixed legacy Fabric metadata so `1.16.5` and `1.17.1` depend on the correct aggregator mod id (`fabric`) instead of the newer `fabric-api` id.
+- Fixed Fabric version-leaf wiring so `1.19.2`, `1.20.4`, `1.21.1`, `1.21.4`, and `1.21.9` all use the correct screen/input/keybinding APIs for their exact Minecraft versions.
+- Fixed the Fabric screen UX on both legacy and modern versions with contextual footer help, more actionable tooltips, and clearer conflict summary text.
+- Fixed overlapping and clipped controls on the Fabric Keyset screen across legacy and modern versions by moving auto-fix actions into a shared footer row, trimming verbose copy, and preserving list space on short windows.
+- Fixed Fabric screen text layering so custom labels, summaries, and empty-state copy render above child widgets instead of disappearing on newer GUI implementations.
+- Fixed the injected `Keyset` button placement on the vanilla Controls screen by selecting a non-overlapping slot across old and new Fabric client layouts.
+- Fixed the remaining modern Fabric screen crash by replacing the Keyset background blur call with a custom shaded backdrop, avoiding `Can only blur once per frame` on newer Minecraft GUI renderers.
+- Fixed Fabric selection-panel copy overflowing into the `Find`, `Clear Key`, and `Rebind` row at larger GUI scales by growing the card and constraining wrapped text to the space above the buttons.
+- Fixed the newer Fabric leaves so the static Keyset labels render consistently again by drawing the screen chrome before widget rendering instead of after the newer GUI pipeline clips it.
+- Fixed several Fabric UI text overflows by shortening visible copy for the category toggle, selection card, empty states, and default helper/status strings.
+- Fixed Fabric UI fitting across every wired leaf so profile badges, selection copy, header summaries, and conflict-row labels are trimmed to the available panel width instead of overflowing or disappearing at larger GUI scales.
+- Fixed modern Fabric custom text rendering so badges, headers, empty states, conflict rows, and rebind helper text use opaque colors and no longer appear as blank hit targets on `1.20.1+`.
+- Fixed the `1.21.11` conflict list renderer so modern row text uses entry geometry instead of the hover mouse coordinates, preventing conflict labels from drifting and overlapping while hovered.

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import net.beeboyd.keyset.core.binding.KeysetBindingDescriptor;
+import net.beeboyd.keyset.core.conflict.KeysetConflict;
 import net.beeboyd.keyset.core.conflict.KeysetConflictGroup;
 import net.beeboyd.keyset.core.conflict.KeysetConflictGroupMode;
 import net.beeboyd.keyset.core.conflict.KeysetConflictQuery;
@@ -20,6 +21,7 @@ import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 
 /** Main Keyset screen for the representative Fabric target. */
@@ -27,9 +29,9 @@ public final class KeysetScreen extends Screen {
   private static final int PANEL_PADDING = 12;
   private static final int PANEL_GAP = 8;
   private static final int ROW_GAP = 4;
-  private static final int BUTTON_HEIGHT = 20;
-  private static final int STATUS_SUCCESS_COLOR = 0x8FD98F;
-  private static final int STATUS_ERROR_COLOR = 0xFF9A8A;
+  private static final int BUTTON_HEIGHT = 18;
+  private static final int STATUS_SUCCESS_COLOR = 0xFF8FD98F;
+  private static final int STATUS_ERROR_COLOR = 0xFFFF9A8A;
   private static final int PANEL_FILL = 0xA0141820;
   private static final int PANEL_BORDER = 0xCC455364;
   private static final int CARD_FILL = 0x99222933;
@@ -38,9 +40,10 @@ public final class KeysetScreen extends Screen {
   private static final int CHIP_BORDER = 0xFF7C8EA3;
   private static final int CHIP_ACTIVE_FILL = 0xAA314622;
   private static final int CHIP_ACTIVE_BORDER = 0xFF90C06E;
-  private static final int SECTION_TITLE_COLOR = 0xE8D7A0;
-  private static final int BODY_COLOR = 0xD8DEE7;
-  private static final int MUTED_COLOR = 0xA9B8C9;
+  private static final int SECTION_TITLE_COLOR = 0xFFE8D7A0;
+  private static final int BODY_COLOR = 0xFFD8DEE7;
+  private static final int MUTED_COLOR = 0xFFA9B8C9;
+  private static final int SCREEN_BACKDROP = 0xB010141A;
 
   private final Screen parent;
   private final KeysetFabricService service;
@@ -55,6 +58,7 @@ public final class KeysetScreen extends Screen {
   private int mainWidth;
   private int mainInnerX;
   private int mainInnerWidth;
+  private int panelBottom;
   private int detailY;
   private int detailHeight;
   private int listTop;
@@ -87,6 +91,8 @@ public final class KeysetScreen extends Screen {
   private boolean errorStatus;
   private Text emptyStateTitle = Text.empty();
   private Text emptyStateBody = Text.empty();
+  private int visibleConflictGroups;
+  private int visibleConflictBindings;
 
   public KeysetScreen(Screen parent, KeysetFabricService service) {
     super(Text.translatable("keyset.title"));
@@ -99,21 +105,23 @@ public final class KeysetScreen extends Screen {
     computeLayout();
 
     int halfSidebarButtonWidth = (sidebarInnerWidth - ROW_GAP) / 2;
-    int searchWidth = mainInnerWidth - 112;
-    int sidebarFieldY = sidebarY + 20;
-    int sidebarRow1Y = sidebarY + 44;
-    int sidebarRow2Y = sidebarY + 66;
-    int sidebarRow3Y = sidebarY + 88;
-    int sidebarRow4Y = sidebarY + 110;
-    int sidebarRow5Y = sidebarY + 132;
-    int sidebarRow6Y = sidebarY + 154;
+    int searchWidth = mainInnerWidth - 84;
+    int searchY = mainY + 24;
+    int sidebarFieldY = sidebarY + 42;
+    int sidebarRow1Y = sidebarY + 64;
+    int sidebarRow2Y = sidebarRow1Y + BUTTON_HEIGHT + ROW_GAP;
+    int sidebarRow3Y = sidebarRow2Y + BUTTON_HEIGHT + ROW_GAP;
+    int sidebarRow4Y = sidebarRow3Y + BUTTON_HEIGHT + ROW_GAP;
+    int sidebarRow5Y = sidebarRow4Y + BUTTON_HEIGHT + ROW_GAP;
+    int footerButtonWidth = (width - (PANEL_PADDING * 2) - (ROW_GAP * 3)) / 4;
+    int detailActionsY = detailActionY();
 
     searchField =
         addDrawableChild(
             new TextFieldWidget(
                 textRenderer,
                 mainInnerX,
-                mainY + 24,
+                searchY,
                 searchWidth,
                 BUTTON_HEIGHT,
                 Text.translatable("keyset.search")));
@@ -130,7 +138,7 @@ public final class KeysetScreen extends Screen {
         addDrawableChild(
             ButtonWidget.builder(
                     Text.translatable("keyset.group.by_key"), button -> toggleGroupMode())
-                .dimensions(mainInnerX + searchWidth + ROW_GAP, mainY + 24, 108, BUTTON_HEIGHT)
+                .dimensions(mainInnerX + searchWidth + ROW_GAP, searchY, 80, BUTTON_HEIGHT)
                 .build());
     setTooltip(groupToggleButton, "keyset.tip.group");
 
@@ -238,27 +246,27 @@ public final class KeysetScreen extends Screen {
         addDrawableChild(
             button(
                 "keyset.resolve.preview",
-                sidebarInnerX,
-                sidebarRow6Y,
-                halfSidebarButtonWidth,
+                PANEL_PADDING,
+                footerY,
+                footerButtonWidth,
                 button -> previewResolve(),
                 "keyset.tip.resolve_preview"));
     applyPreviewButton =
         addDrawableChild(
             button(
                 "keyset.resolve.apply",
-                sidebarInnerX + halfSidebarButtonWidth + ROW_GAP,
-                sidebarRow6Y,
-                halfSidebarButtonWidth,
+                PANEL_PADDING + footerButtonWidth + ROW_GAP,
+                footerY,
+                footerButtonWidth,
                 button -> applyPreview(),
                 "keyset.tip.resolve_apply"));
     undoButton =
         addDrawableChild(
             button(
                 "keyset.resolve.undo",
-                width - PANEL_PADDING - 200,
+                PANEL_PADDING + (footerButtonWidth + ROW_GAP) * 2,
                 footerY,
-                108,
+                footerButtonWidth,
                 button -> undoResolve(),
                 "keyset.tip.resolve_undo"));
 
@@ -268,7 +276,7 @@ public final class KeysetScreen extends Screen {
             button(
                 "keyset.binding.jump",
                 mainInnerX,
-                detailY + detailHeight - 26,
+                detailActionsY,
                 detailButtonWidth,
                 button -> jumpToBinding(),
                 "keyset.tip.binding_jump"));
@@ -277,7 +285,7 @@ public final class KeysetScreen extends Screen {
             button(
                 "keyset.binding.clear",
                 mainInnerX + detailButtonWidth + ROW_GAP,
-                detailY + detailHeight - 26,
+                detailActionsY,
                 detailButtonWidth,
                 button -> clearSelectedBinding(),
                 "keyset.tip.binding_clear"));
@@ -286,7 +294,7 @@ public final class KeysetScreen extends Screen {
             button(
                 "keyset.binding.reassign",
                 mainInnerX + (detailButtonWidth + ROW_GAP) * 2,
-                detailY + detailHeight - 26,
+                detailActionsY,
                 detailButtonWidth,
                 button -> reassignSelectedBinding(),
                 "keyset.tip.binding_reassign"));
@@ -294,9 +302,9 @@ public final class KeysetScreen extends Screen {
     addDrawableChild(
         button(
             "gui.done",
-            width - PANEL_PADDING - 88,
+            PANEL_PADDING + (footerButtonWidth + ROW_GAP) * 3,
             footerY,
-            88,
+            footerButtonWidth,
             button -> close(),
             "keyset.tip.done"));
 
@@ -334,21 +342,23 @@ public final class KeysetScreen extends Screen {
 
   @Override
   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    drawBackdrop(context);
     drawShell(context);
     super.render(context, mouseX, mouseY, delta);
+    drawForeground(context);
   }
 
   private void computeLayout() {
     int availableWidth = width - PANEL_PADDING * 2;
-    int proposedSidebarWidth = Math.max(182, Math.min(206, availableWidth / 3));
-    int minimumMainWidth = 276;
+    int proposedSidebarWidth = Math.max(176, Math.min(208, availableWidth / 3));
+    int minimumMainWidth = 230;
     if (availableWidth - proposedSidebarWidth - PANEL_GAP < minimumMainWidth) {
-      proposedSidebarWidth = Math.max(170, availableWidth - minimumMainWidth - PANEL_GAP);
+      proposedSidebarWidth = Math.max(168, availableWidth - minimumMainWidth - PANEL_GAP);
     }
 
-    compactLayout = height < 300;
+    compactLayout = height < 260;
     sidebarX = PANEL_PADDING;
-    sidebarY = compactLayout ? 34 : 42;
+    sidebarY = compactLayout ? 28 : 30;
     sidebarWidth = proposedSidebarWidth;
     sidebarInnerX = sidebarX + 10;
     sidebarInnerWidth = sidebarWidth - 20;
@@ -360,14 +370,15 @@ public final class KeysetScreen extends Screen {
     mainInnerWidth = mainWidth - 20;
 
     footerY = height - PANEL_PADDING - BUTTON_HEIGHT;
-    listBottom = footerY - 8;
-    detailY = mainY + (compactLayout ? 50 : 56);
-    int preferredDetailHeight = compactLayout ? 60 : 96;
-    int minDetailHeight = compactLayout ? 54 : 78;
-    int minListHeight = compactLayout ? 52 : 88;
-    int maxDetailHeight = Math.max(minDetailHeight, listBottom - detailY - minListHeight - 10);
-    detailHeight = Math.min(preferredDetailHeight, maxDetailHeight);
-    listTop = detailY + detailHeight + 10;
+    panelBottom = footerY - 6;
+    detailHeight = compactLayout ? 64 : 72;
+    detailY = panelBottom - detailHeight - 8;
+    listTop = mainY + 52;
+    listBottom = detailY - 8;
+  }
+
+  private int detailActionY() {
+    return detailY + detailHeight - BUTTON_HEIGHT - 6;
   }
 
   private ButtonWidget button(
@@ -386,18 +397,26 @@ public final class KeysetScreen extends Screen {
   }
 
   private void setTooltip(ClickableWidget widget, String translationKey) {
-    widget.setTooltip(Tooltip.of(Text.translatable(translationKey)));
+    setTooltip(widget, Text.translatable(translationKey));
+  }
+
+  private void setTooltip(ClickableWidget widget, Text tooltipText) {
+    widget.setTooltip(Tooltip.of(tooltipText));
+  }
+
+  private void drawBackdrop(DrawContext context) {
+    context.fill(0, 0, width, height, SCREEN_BACKDROP);
   }
 
   private void drawShell(DrawContext context) {
-    drawFrame(context, sidebarX, sidebarY, sidebarWidth, footerY - sidebarY - 8);
-    drawFrame(context, mainX, mainY, mainWidth, listBottom - mainY + 8);
+    drawFrame(context, sidebarX, sidebarY, sidebarWidth, panelBottom - sidebarY);
+    drawFrame(context, mainX, mainY, mainWidth, panelBottom - mainY);
+    drawFrame(context, mainInnerX, listTop - 4, mainInnerWidth, listBottom - listTop + 8);
     drawFrame(context, mainInnerX, detailY, mainInnerWidth, detailHeight);
+  }
 
-    context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 10, 0xFFFFFF);
-    context.drawCenteredTextWithShadow(
-        textRenderer, Text.translatable("keyset.subtitle"), width / 2, 22, MUTED_COLOR);
-
+  private void drawForeground(DrawContext context) {
+    context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 10, 0xFFFFFFFF);
     drawSidebar(context);
     drawMainPane(context);
     drawFooter(context);
@@ -407,9 +426,9 @@ public final class KeysetScreen extends Screen {
     drawSectionTitle(context, "keyset.section.profile", sidebarInnerX, sidebarY + 10);
     drawChip(
         context,
-        sidebarInnerX + 92,
-        sidebarY + 8,
-        sidebarInnerWidth - 92,
+        sidebarInnerX,
+        sidebarY + 22,
+        sidebarInnerWidth,
         config != null
                 && selectedProfileId != null
                 && selectedProfileId.equals(config.getActiveProfileId())
@@ -418,29 +437,11 @@ public final class KeysetScreen extends Screen {
         config != null
             && selectedProfileId != null
             && selectedProfileId.equals(config.getActiveProfileId()));
-    drawSectionTitle(context, "keyset.section.transfer", sidebarInnerX, sidebarY + 122);
-    drawSectionTitle(context, "keyset.section.resolve", sidebarInnerX, sidebarY + 144);
-    if (!compactLayout) {
-      drawSectionTitle(context, "keyset.section.help", sidebarInnerX, sidebarY + 180);
-      context.drawWrappedTextWithShadow(
-          textRenderer,
-          Text.translatable("keyset.help.steps"),
-          sidebarInnerX,
-          sidebarY + 194,
-          sidebarInnerWidth,
-          BODY_COLOR);
-      context.drawWrappedTextWithShadow(
-          textRenderer,
-          Text.translatable("keyset.help.active_profile"),
-          sidebarInnerX,
-          sidebarY + 230,
-          sidebarInnerWidth,
-          MUTED_COLOR);
-    }
   }
 
   private void drawMainPane(DrawContext context) {
     drawSectionTitle(context, "keyset.section.conflicts", mainInnerX, mainY + 10);
+    drawMainSummary(context);
     drawSelectionPanel(context);
     if (conflictReport.isEmpty() && previewPlan == null) {
       drawEmptyState(context, listTop + 24);
@@ -455,74 +456,119 @@ public final class KeysetScreen extends Screen {
     }
   }
 
+  private void drawMainSummary(DrawContext context) {
+    if (compactLayout) {
+      return;
+    }
+
+    Text summaryText = buildHeaderSummaryText();
+    if (summaryText == null || summaryText.getString().isEmpty()) {
+      return;
+    }
+
+    int summaryMaxWidth = mainX + mainWidth - 10 - (mainInnerX + 96);
+    if (summaryMaxWidth < 40) {
+      return;
+    }
+
+    String summary = ellipsize(summaryText.getString(), summaryMaxWidth);
+    int summaryX = mainX + mainWidth - 10 - textRenderer.getWidth(summary);
+    context.drawTextWithShadow(
+        textRenderer, Text.literal(summary), summaryX, mainY + 10, MUTED_COLOR);
+  }
+
+  private Text buildHeaderSummaryText() {
+    if (previewPlan != null) {
+      return Text.translatable(
+          "keyset.resolve.summary",
+          Integer.valueOf(previewPlan.getChanges().size()),
+          Integer.valueOf(previewPlan.getUnresolvedBindings()));
+    }
+    if (config == null
+        || selectedProfileId == null
+        || !config.hasProfile(selectedProfileId)
+        || visibleConflictBindings <= 0) {
+      return Text.empty();
+    }
+    return Text.translatable(
+        "keyset.summary.selected",
+        config.getProfile(selectedProfileId).getName(),
+        Integer.valueOf(visibleConflictBindings));
+  }
+
   private void drawSelectionPanel(DrawContext context) {
     Text titleText;
     Text bodyText;
-    Text chipText;
-    boolean chipActive;
 
     if (previewPlan != null) {
       titleText = Text.translatable("keyset.selection.preview_title");
       bodyText = Text.translatable("keyset.selection.preview_body");
-      chipText = Text.translatable("keyset.selection.preview_chip");
-      chipActive = false;
     } else if (selectedBinding == null) {
       titleText = Text.translatable("keyset.selection.none_title");
       bodyText = Text.translatable("keyset.selection.none_body");
-      chipText = Text.translatable("keyset.selection.none_chip");
-      chipActive = false;
     } else {
       titleText = Text.literal(selectedBinding.getDisplayName());
-      bodyText =
-          Text.translatable(
-              selectedProfileId != null
-                      && config != null
-                      && selectedProfileId.equals(config.getActiveProfileId())
-                  ? "keyset.selection.binding_body_active"
-                  : "keyset.selection.binding_body_inactive",
-              selectedBinding.getCategoryName(),
-              selectedBinding.getKeyDisplayName(),
-              config == null ? "" : config.getProfile(config.getActiveProfileId()).getName());
-      chipText =
-          Text.translatable(
-              selectedProfileId != null
-                      && config != null
-                      && selectedProfileId.equals(config.getActiveProfileId())
-                  ? "keyset.selection.active_chip"
-                  : "keyset.selection.inactive_chip");
-      chipActive =
+      boolean activeSelection =
           selectedProfileId != null
               && config != null
               && selectedProfileId.equals(config.getActiveProfileId());
+      bodyText =
+          activeSelection
+              ? Text.translatable(
+                  "keyset.selection.binding_body_active",
+                  selectedBinding.getCategoryName(),
+                  selectedBinding.getKeyDisplayName())
+              : Text.translatable(
+                  "keyset.selection.binding_body_inactive",
+                  config == null || selectedProfileId == null
+                      ? ""
+                      : config.getProfile(selectedProfileId).getName());
     }
 
-    context.drawTextWithShadow(textRenderer, titleText, mainInnerX + 10, detailY + 10, 0xF2F5F8);
-    drawChip(context, mainInnerX + 10, detailY + 24, 126, chipText, chipActive);
-    context.drawWrappedTextWithShadow(
-        textRenderer, bodyText, mainInnerX + 10, detailY + 42, mainInnerWidth - 20, BODY_COLOR);
+    int textX = mainInnerX + 8;
+    int textWidth = mainInnerWidth - 16;
+    int bodyY = detailY + 20;
+    drawTrimmedText(context, titleText, textX, detailY + 6, textWidth, 0xFFF2F5F8);
+    drawTrimmedText(context, bodyText, textX, bodyY, textWidth, BODY_COLOR);
   }
 
   private void drawFooter(DrawContext context) {
-    String footerMessage =
-        statusMessage.isEmpty()
-            ? Text.translatable(
-                    previewPlan == null ? "keyset.footer.default" : "keyset.footer.preview")
-                .getString()
-            : statusMessage;
-    int color =
-        statusMessage.isEmpty()
-            ? MUTED_COLOR
-            : errorStatus ? STATUS_ERROR_COLOR : STATUS_SUCCESS_COLOR;
+    if (statusMessage.isEmpty()) {
+      return;
+    }
 
-    context.drawTextWithShadow(
-        textRenderer, Text.literal(footerMessage), PANEL_PADDING, footerY + 6, color);
+    context.drawCenteredTextWithShadow(
+        textRenderer,
+        Text.literal(ellipsize(statusMessage, width - (PANEL_PADDING * 2))),
+        width / 2,
+        22,
+        errorStatus ? STATUS_ERROR_COLOR : STATUS_SUCCESS_COLOR);
+  }
+
+  private String buildDefaultFooterMessage() {
+    if (previewPlan != null) {
+      return Text.translatable("keyset.footer.preview").getString();
+    }
+    if (config == null || selectedProfileId == null || !config.hasProfile(selectedProfileId)) {
+      return Text.translatable("keyset.footer.default").getString();
+    }
+    if (!selectedProfileId.equals(config.getActiveProfileId())) {
+      return Text.translatable(
+              "keyset.footer.inactive", config.getProfile(selectedProfileId).getName())
+          .getString();
+    }
+    if (selectedBinding == null) {
+      return Text.translatable("keyset.footer.pick_conflict").getString();
+    }
+    return Text.translatable("keyset.footer.binding_ready", selectedBinding.getDisplayName())
+        .getString();
   }
 
   private void drawEmptyState(DrawContext context, int y) {
     context.drawCenteredTextWithShadow(
-        textRenderer, emptyStateTitle, mainX + (mainWidth / 2), y, 0xF2F5F8);
+        textRenderer, emptyStateTitle, mainInnerX + (mainInnerWidth / 2), y, 0xFFF2F5F8);
     context.drawWrappedTextWithShadow(
-        textRenderer, emptyStateBody, mainInnerX + 26, y + 14, mainInnerWidth - 52, MUTED_COLOR);
+        textRenderer, emptyStateBody, mainInnerX + 20, y + 14, mainInnerWidth - 40, MUTED_COLOR);
   }
 
   private void drawSectionTitle(DrawContext context, String key, int x, int y) {
@@ -537,7 +583,47 @@ public final class KeysetScreen extends Screen {
   private void drawChip(DrawContext context, int x, int y, int width, Text text, boolean active) {
     context.fill(x, y, x + width, y + 14, active ? CHIP_ACTIVE_FILL : CHIP_FILL);
     context.drawStrokedRectangle(x, y, width, 14, active ? CHIP_ACTIVE_BORDER : CHIP_BORDER);
-    context.drawCenteredTextWithShadow(textRenderer, text, x + (width / 2), y + 3, 0xF2F5F8);
+    context.drawCenteredTextWithShadow(
+        textRenderer,
+        Text.literal(ellipsize(text.getString(), Math.max(24, width - 8))),
+        x + (width / 2),
+        y + 3,
+        0xFFF2F5F8);
+  }
+
+  private void drawTrimmedText(
+      DrawContext context, Text text, int x, int y, int maxWidth, int color) {
+    context.drawTextWithShadow(
+        textRenderer, Text.literal(ellipsize(text.getString(), maxWidth)), x, y, color);
+  }
+
+  private void drawWrappedTextBlock(
+      DrawContext context, Text text, int x, int y, int maxWidth, int maxHeight, int color) {
+    int lineHeight = textRenderer.fontHeight + 2;
+    int maxLines = Math.max(1, maxHeight / lineHeight);
+    int lineY = y;
+    int lineCount = 0;
+    for (OrderedText line : textRenderer.wrapLines(text, maxWidth)) {
+      if (lineCount >= maxLines) {
+        break;
+      }
+      context.drawTextWithShadow(textRenderer, line, x, lineY, color);
+      lineY += lineHeight;
+      lineCount++;
+    }
+  }
+
+  private String ellipsize(String value, int maxWidth) {
+    if (value == null || textRenderer.getWidth(value) <= maxWidth) {
+      return value == null ? "" : value;
+    }
+
+    String ellipsis = "...";
+    String candidate = value;
+    while (!candidate.isEmpty() && textRenderer.getWidth(candidate + ellipsis) > maxWidth) {
+      candidate = candidate.substring(0, candidate.length() - 1);
+    }
+    return candidate + ellipsis;
   }
 
   private void toggleGroupMode() {
@@ -763,6 +849,8 @@ public final class KeysetScreen extends Screen {
     }
 
     if (previewPlan != null) {
+      visibleConflictGroups = previewPlan.getChanges().isEmpty() ? 0 : 1;
+      visibleConflictBindings = previewPlan.getChanges().size();
       selectedBinding = null;
       conflictListWidget.showPreview(previewPlan);
       if (previewPlan.getChanges().isEmpty()) {
@@ -776,6 +864,8 @@ public final class KeysetScreen extends Screen {
     List<KeysetConflictGroup> groups =
         conflictReport.query(new KeysetConflictQuery(groupMode, searchField.getText()));
     if (groups.isEmpty()) {
+      visibleConflictGroups = 0;
+      visibleConflictBindings = 0;
       selectedBinding = null;
       conflictListWidget.clearContents();
       emptyStateTitle = Text.translatable("keyset.empty.conflicts_title");
@@ -784,6 +874,8 @@ public final class KeysetScreen extends Screen {
       return;
     }
 
+    visibleConflictGroups = groups.size();
+    visibleConflictBindings = countVisibleBindings(groups);
     emptyStateTitle = Text.empty();
     emptyStateBody = Text.empty();
     conflictListWidget.showConflicts(groups, groupMode, preferredBindingId);
@@ -808,12 +900,75 @@ public final class KeysetScreen extends Screen {
     jumpButton.active = bindingActionsActive;
     clearBindingButton.active = bindingActionsActive;
     reassignButton.active = bindingActionsActive;
+    updateDynamicTooltips(activeSelection, bindingActionsActive);
 
     groupToggleButton.setMessage(
         Text.translatable(
             groupMode == KeysetConflictGroupMode.BY_KEY
                 ? "keyset.group.by_key"
                 : "keyset.group.by_category"));
+  }
+
+  private void updateDynamicTooltips(boolean activeSelection, boolean bindingActionsActive) {
+    setTooltip(
+        applyButton,
+        Text.translatable(
+            activeSelection ? "keyset.tip.profile_apply_active" : "keyset.tip.profile_apply"));
+    setTooltip(
+        previewResolveButton,
+        Text.translatable(
+            !activeSelection
+                ? "keyset.tip.actions_require_active"
+                : conflictReport.isEmpty()
+                    ? "keyset.tip.resolve_preview_empty"
+                    : "keyset.tip.resolve_preview"));
+    setTooltip(
+        applyPreviewButton,
+        Text.translatable(
+            previewPlan != null && !previewPlan.getChanges().isEmpty()
+                ? "keyset.tip.resolve_apply"
+                : "keyset.tip.resolve_apply_pending"));
+    setTooltip(
+        undoButton,
+        Text.translatable(
+            undoState != null ? "keyset.tip.resolve_undo" : "keyset.tip.resolve_undo_unavailable"));
+
+    String inactiveBindingTooltipKey = inactiveBindingTooltipKey(activeSelection);
+    setTooltip(
+        jumpButton,
+        Text.translatable(
+            bindingActionsActive ? "keyset.tip.binding_jump" : inactiveBindingTooltipKey));
+    setTooltip(
+        clearBindingButton,
+        Text.translatable(
+            bindingActionsActive ? "keyset.tip.binding_clear" : inactiveBindingTooltipKey));
+    setTooltip(
+        reassignButton,
+        Text.translatable(
+            bindingActionsActive ? "keyset.tip.binding_reassign" : inactiveBindingTooltipKey));
+  }
+
+  private String inactiveBindingTooltipKey(boolean activeSelection) {
+    if (previewPlan != null) {
+      return "keyset.tip.binding_preview_mode";
+    }
+    if (selectedBinding == null) {
+      return "keyset.tip.binding_requires_selection";
+    }
+    if (!activeSelection) {
+      return "keyset.tip.actions_require_active";
+    }
+    return "keyset.tip.binding_requires_selection";
+  }
+
+  private static int countVisibleBindings(List<KeysetConflictGroup> groups) {
+    int bindingCount = 0;
+    for (KeysetConflictGroup group : groups) {
+      for (KeysetConflict conflict : group.getConflicts()) {
+        bindingCount += conflict.getBindings().size();
+      }
+    }
+    return bindingCount;
   }
 
   private void setStatus(String message, boolean error) {

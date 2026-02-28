@@ -70,9 +70,14 @@ tasks.register("buildFabricTargets") {
         ":platform-fabric-1_16_5:build",
         ":platform-fabric-1_17_1:build",
         ":platform-fabric-1_18_2:build",
+        ":platform-fabric-1_19_2:build",
         ":platform-fabric-1_19_4:build",
         ":platform-fabric-1_20_1:build",
+        ":platform-fabric-1_20_4:build",
         ":platform-fabric-1_20_6:build",
+        ":platform-fabric-1_21_1:build",
+        ":platform-fabric-1_21_4:build",
+        ":platform-fabric-1_21_9:build",
         ":platform-fabric-1_21_11:build"
     )
 }
@@ -84,9 +89,14 @@ tasks.register("buildTargetJars") {
         ":platform-fabric-1_16_5:remapJar",
         ":platform-fabric-1_17_1:remapJar",
         ":platform-fabric-1_18_2:remapJar",
+        ":platform-fabric-1_19_2:remapJar",
         ":platform-fabric-1_19_4:remapJar",
         ":platform-fabric-1_20_1:remapJar",
+        ":platform-fabric-1_20_4:remapJar",
         ":platform-fabric-1_20_6:remapJar",
+        ":platform-fabric-1_21_1:remapJar",
+        ":platform-fabric-1_21_4:remapJar",
+        ":platform-fabric-1_21_9:remapJar",
         ":platform-fabric-1_21_11:remapJar",
         ":platform-forge-1_20_1:jar",
         ":platform-neoforge-1_20_1:jar"

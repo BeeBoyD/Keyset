@@ -142,6 +142,14 @@ public final class KeysetConflictListWidget
     return right - 6;
   }
 
+  private Text fitText(Text text, int maxWidth) {
+    return Text.literal(ellipsize(text.getString(), maxWidth));
+  }
+
+  private Text fitText(String text, int maxWidth) {
+    return Text.literal(ellipsize(text, maxWidth));
+  }
+
   void handleSelection(Entry entry) {
     if (entry == null || entry.bindingId() == null) {
       if (entry != null && entry.jumpTargetBindingId() != null) {
@@ -190,6 +198,19 @@ public final class KeysetConflictListWidget
 
   private static String firstBindingId(KeysetConflict conflict) {
     return conflict.getBindings().isEmpty() ? null : conflict.getBindings().get(0).getId();
+  }
+
+  private String ellipsize(String value, int maxWidth) {
+    if (value == null || client.textRenderer.getWidth(value) <= maxWidth) {
+      return value == null ? "" : value;
+    }
+
+    String ellipsis = "...";
+    String candidate = value;
+    while (!candidate.isEmpty() && client.textRenderer.getWidth(candidate + ellipsis) > maxWidth) {
+      candidate = candidate.substring(0, candidate.length() - 1);
+    }
+    return candidate + ellipsis;
   }
 
   public interface Listener {
@@ -260,7 +281,12 @@ public final class KeysetConflictListWidget
         boolean hovered,
         float tickDelta) {
       context.fill(x, y, x + entryWidth, y + entryHeight - 1, 0x6A1C2330);
-      context.drawTextWithShadow(owner.client.textRenderer, text, x + 6, y + 8, 0xE8D7A0);
+      context.drawTextWithShadow(
+          owner.client.textRenderer,
+          owner.fitText(text, entryWidth - 12),
+          x + 6,
+          y + 8,
+          0xFFE8D7A0);
     }
   }
 
@@ -297,7 +323,12 @@ public final class KeysetConflictListWidget
         int mouseY,
         boolean hovered,
         float tickDelta) {
-      context.drawTextWithShadow(owner.client.textRenderer, text, x + 12, y + 8, 0xB8C7D9);
+      context.drawTextWithShadow(
+          owner.client.textRenderer,
+          owner.fitText(text, entryWidth - 18),
+          x + 12,
+          y + 8,
+          0xFFB8C7D9);
     }
   }
 
@@ -348,19 +379,18 @@ public final class KeysetConflictListWidget
 
       context.drawTextWithShadow(
           owner.client.textRenderer,
-          Text.literal(bindingDescriptor.getDisplayName()),
+          owner.fitText(bindingDescriptor.getDisplayName(), entryWidth - 16),
           x + 8,
           y + 5,
-          0xF2F5F8);
+          0xFFF2F5F8);
       context.drawTextWithShadow(
           owner.client.textRenderer,
-          Text.literal(
-              bindingDescriptor.getCategoryName()
-                  + "  |  "
-                  + bindingDescriptor.getKeyDisplayName()),
+          owner.fitText(
+              bindingDescriptor.getCategoryName() + "  |  " + bindingDescriptor.getKeyDisplayName(),
+              entryWidth - 16),
           x + 8,
           y + 15,
-          0xAFC0D4);
+          0xFFAFC0D4);
     }
   }
 
@@ -384,7 +414,12 @@ public final class KeysetConflictListWidget
         int mouseY,
         boolean hovered,
         float tickDelta) {
-      context.drawTextWithShadow(owner.client.textRenderer, text, x + 6, y + 8, 0xE0E6ED);
+      context.drawTextWithShadow(
+          owner.client.textRenderer,
+          owner.fitText(text, entryWidth - 12),
+          x + 6,
+          y + 8,
+          0xFFE0E6ED);
     }
   }
 }

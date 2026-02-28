@@ -58,7 +58,7 @@ public final class KeysetKeybindsScreen extends KeybindsScreen {
   @Override
   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
     super.render(context, mouseX, mouseY, delta);
-    context.drawCenteredTextWithShadow(textRenderer, helperText, width / 2, 20, 0xB8C7D9);
+    context.drawCenteredTextWithShadow(textRenderer, helperText, width / 2, 20, 0xFFB8C7D9);
   }
 
   private void focusTargetBinding() {
