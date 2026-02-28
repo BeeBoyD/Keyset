@@ -37,3 +37,5 @@
 - Fixed Fabric version-leaf wiring so `1.19.2`, `1.20.4`, `1.21.1`, `1.21.4`, and `1.21.9` all use the correct screen/input/keybinding APIs for their exact Minecraft versions.
 - Fixed the Fabric screen UX on both legacy and modern versions with contextual footer help, more actionable tooltips, and clearer conflict summary text.
 - Fixed overlapping and clipped controls on the Fabric Keyset screen across legacy and modern versions by moving auto-fix actions into a shared footer row, trimming verbose copy, and preserving list space on short windows.
+- Fixed Fabric screen text layering so custom labels, summaries, and empty-state copy render above child widgets instead of disappearing on newer GUI implementations.
+- Fixed the injected `Keyset` button placement on the vanilla Controls screen by selecting a non-overlapping slot across old and new Fabric client layouts.

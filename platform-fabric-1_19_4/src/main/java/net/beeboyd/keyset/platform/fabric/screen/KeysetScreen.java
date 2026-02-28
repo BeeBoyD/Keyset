@@ -345,6 +345,7 @@ public final class KeysetScreen extends Screen {
     renderBackground(matrices);
     drawShell(matrices);
     super.render(matrices, mouseX, mouseY, delta);
+    drawForeground(matrices);
   }
 
   private void computeLayout() {
@@ -404,9 +405,10 @@ public final class KeysetScreen extends Screen {
     drawFrame(matrices, mainX, mainY, mainWidth, panelBottom - mainY);
     drawFrame(matrices, mainInnerX, listTop - 4, mainInnerWidth, listBottom - listTop + 8);
     drawFrame(matrices, mainInnerX, detailY, mainInnerWidth, detailHeight);
+  }
 
+  private void drawForeground(MatrixStack matrices) {
     drawCenteredTextWithShadow(matrices, textRenderer, title, width / 2, 10, 0xFFFFFF);
-
     drawSidebar(matrices);
     drawMainPane(matrices);
     drawFooter(matrices);

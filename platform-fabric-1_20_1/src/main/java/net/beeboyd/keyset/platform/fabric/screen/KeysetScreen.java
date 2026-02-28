@@ -339,8 +339,10 @@ public final class KeysetScreen extends Screen {
 
   @Override
   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    renderBackground(context);
     drawShell(context);
     super.render(context, mouseX, mouseY, delta);
+    drawForeground(context);
   }
 
   private void computeLayout() {
@@ -400,9 +402,10 @@ public final class KeysetScreen extends Screen {
     drawFrame(context, mainX, mainY, mainWidth, panelBottom - mainY);
     drawFrame(context, mainInnerX, listTop - 4, mainInnerWidth, listBottom - listTop + 8);
     drawFrame(context, mainInnerX, detailY, mainInnerWidth, detailHeight);
+  }
 
+  private void drawForeground(DrawContext context) {
     context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 10, 0xFFFFFF);
-
     drawSidebar(context);
     drawMainPane(context);
     drawFooter(context);
