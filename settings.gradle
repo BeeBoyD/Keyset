@@ -3,6 +3,9 @@ pluginManagement {
         gradlePluginPortal()
         mavenCentral()
         maven {
+            url = "https://maven.architectury.dev/"
+        }
+        maven {
             url = "https://maven.fabricmc.net/"
         }
         maven {
@@ -22,6 +25,9 @@ dependencyResolutionManagement {
     repositoriesMode = RepositoriesMode.PREFER_PROJECT
     repositories {
         mavenCentral()
+        maven {
+            url = "https://maven.architectury.dev/"
+        }
         maven {
             url = "https://maven.fabricmc.net/"
         }
@@ -57,5 +63,12 @@ include("platform-fabric-1_21_1")
 include("platform-fabric-1_21_4")
 include("platform-fabric-1_21_9")
 include("platform-fabric-1_21_11")
+include("platform-forge-1_16_5")
+include("platform-forge-1_17_1")
+include("platform-forge-1_18_2")
+include("platform-forge-1_19_2")
+include("platform-forge-1_19_4")
+include("platform-forge-1_20_4")
 include("platform-forge-1_20_1")
+include("platform-neoforge-1_20_4")
 include("platform-neoforge-1_20_1")

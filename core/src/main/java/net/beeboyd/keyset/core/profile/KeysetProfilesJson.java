@@ -32,7 +32,7 @@ public final class KeysetProfilesJson {
       return KeysetProfiles.createDefaultConfig();
     }
 
-    return fromElement(JsonParser.parseString(json));
+    return fromElement(new JsonParser().parse(json));
   }
 
   /** Reads a config document from a reader. */
@@ -41,7 +41,7 @@ public final class KeysetProfilesJson {
       return KeysetProfiles.createDefaultConfig();
     }
 
-    return fromElement(JsonParser.parseReader(reader));
+    return fromElement(new JsonParser().parse(reader));
   }
 
   /** Serializes a config document into stable pretty-printed JSON. */

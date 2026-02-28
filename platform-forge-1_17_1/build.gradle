@@ -1,0 +1,79 @@
+plugins {
+    id "architectury-plugin"
+    id "dev.architectury.loom"
+    id "com.diffplug.spotless"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+base {
+    archivesName = "keyset-forge-1.17.1"
+}
+
+loom {
+    silentMojangMappingsLicense()
+    mods {
+        main {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+architectury {
+    platformSetupLoomIde()
+    forge()
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir(project(":core").file("src/main/java"))
+            srcDir(project(":common-v1_16_5-to-v1_18_x").file("src/main/java"))
+            srcDir(project(":platform-fabric-1_17_1").file("src/main/java"))
+            exclude("net/beeboyd/keyset/platform/fabric/KeysetFabricClient.java")
+        }
+        resources {
+            srcDir(project(":platform-fabric-1_17_1").file("src/main/resources"))
+            exclude("fabric.mod.json")
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.property('minecraftVersion_1_17_1')}"
+    mappings "net.fabricmc:yarn:${project.property('yarnMappings_1_17_1')}:v2"
+    forge "net.minecraftforge:forge:${project.property('forgeVersion_1_17_1')}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 16
+}
+
+tasks.withType(JavaExec).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+processResources {
+    def expandProps = [
+        modId: project.property("modId"),
+        modName: project.property("modName"),
+        modVersion: project.version,
+        modDescription: project.property("modDescription"),
+        minecraftVersion: project.property("supportedMinecraftRange_1_17_1"),
+        loaderVersion: "[37,)"
+    ]
+    inputs.properties(expandProps)
+    filesMatching("META-INF/mods.toml") {
+        expand(expandProps)
+    }
+}
+
+jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
