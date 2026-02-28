@@ -279,16 +279,21 @@ public final class KeysetConflictListWidget
     }
 
     @Override
-    public void render(DrawContext context, int index, int y, boolean hovered, float tickDelta) {
-      int x = owner.rowContentX();
-      int entryWidth = owner.rowContentWidth();
-      int entryHeight = ROW_HEIGHT;
+    public void render(
+        DrawContext context, int mouseX, int mouseY, boolean hovered, float tickDelta) {
+      int x = getX();
+      int y = getY();
+      int entryWidth = getWidth();
+      int entryHeight = getHeight();
+      int contentX = getContentX();
+      int contentY = getContentY();
+      int contentWidth = getContentWidth();
       context.fill(x, y, x + entryWidth, y + entryHeight - 1, 0x6A1C2330);
       context.drawTextWithShadow(
           owner.client.textRenderer,
-          owner.fitText(text, entryWidth - 12),
-          x + 6,
-          y + 8,
+          owner.fitText(text, contentWidth - 8),
+          contentX + 4,
+          contentY + 6,
           0xFFE8D7A0);
     }
   }
@@ -315,12 +320,13 @@ public final class KeysetConflictListWidget
     }
 
     @Override
-    public void render(DrawContext context, int index, int y, boolean hovered, float tickDelta) {
+    public void render(
+        DrawContext context, int mouseX, int mouseY, boolean hovered, float tickDelta) {
       context.drawTextWithShadow(
           owner.client.textRenderer,
-          owner.fitText(text, owner.rowContentWidth() - 18),
-          owner.rowContentX() + 12,
-          y + 8,
+          owner.fitText(text, getContentWidth() - 10),
+          getContentX() + 10,
+          getContentY() + 6,
           0xFFB8C7D9);
     }
   }
@@ -351,10 +357,15 @@ public final class KeysetConflictListWidget
     }
 
     @Override
-    public void render(DrawContext context, int index, int y, boolean hovered, float tickDelta) {
-      int x = owner.rowContentX();
-      int entryWidth = owner.rowContentWidth();
-      int entryHeight = ROW_HEIGHT;
+    public void render(
+        DrawContext context, int mouseX, int mouseY, boolean hovered, float tickDelta) {
+      int x = getX();
+      int y = getY();
+      int entryWidth = getWidth();
+      int entryHeight = getHeight();
+      int contentX = getContentX();
+      int contentY = getContentY();
+      int contentWidth = getContentWidth();
       boolean selected = owner.getSelectedOrNull() == this;
       if (selected) {
         context.fill(x, y, x + entryWidth, y + entryHeight - 1, 0x7A304A68);
@@ -365,17 +376,17 @@ public final class KeysetConflictListWidget
 
       context.drawTextWithShadow(
           owner.client.textRenderer,
-          owner.fitText(bindingDescriptor.getDisplayName(), entryWidth - 16),
-          x + 8,
-          y + 5,
+          owner.fitText(bindingDescriptor.getDisplayName(), contentWidth - 12),
+          contentX + 6,
+          contentY + 3,
           0xFFF2F5F8);
       context.drawTextWithShadow(
           owner.client.textRenderer,
           owner.fitText(
               bindingDescriptor.getCategoryName() + "  |  " + bindingDescriptor.getKeyDisplayName(),
-              entryWidth - 16),
-          x + 8,
-          y + 15,
+              contentWidth - 12),
+          contentX + 6,
+          contentY + 13,
           0xFFAFC0D4);
     }
   }
@@ -389,12 +400,13 @@ public final class KeysetConflictListWidget
     }
 
     @Override
-    public void render(DrawContext context, int index, int y, boolean hovered, float tickDelta) {
+    public void render(
+        DrawContext context, int mouseX, int mouseY, boolean hovered, float tickDelta) {
       context.drawTextWithShadow(
           owner.client.textRenderer,
-          owner.fitText(text, owner.rowContentWidth() - 12),
-          owner.rowContentX() + 6,
-          y + 8,
+          owner.fitText(text, getContentWidth() - 8),
+          getContentX() + 4,
+          getContentY() + 6,
           0xFFE0E6ED);
     }
   }

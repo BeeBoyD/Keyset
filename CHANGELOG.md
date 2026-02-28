@@ -47,3 +47,4 @@
 - Fixed several Fabric UI text overflows by shortening visible copy for the category toggle, selection card, empty states, and default helper/status strings.
 - Fixed Fabric UI fitting across every wired leaf so profile badges, selection copy, header summaries, and conflict-row labels are trimmed to the available panel width instead of overflowing or disappearing at larger GUI scales.
 - Fixed modern Fabric custom text rendering so badges, headers, empty states, conflict rows, and rebind helper text use opaque colors and no longer appear as blank hit targets on `1.20.1+`.
+- Fixed the `1.21.11` conflict list renderer so modern row text uses entry geometry instead of the hover mouse coordinates, preventing conflict labels from drifting and overlapping while hovered.
