@@ -4,7 +4,7 @@ Keybind profiles and conflict resolution for Minecraft (client-side).
 
 ## Features
 - Multiple keybind profiles with instant switching
-- Cleaner Fabric UI with tooltips, profile status badges, and inline guidance
+- Cleaner Fabric UI with responsive layout, tooltips, profile status badges, and inline guidance
 - Conflict visualization with grouping, search, and per-profile previews
 - Scrollable conflict list with jump, clear, and reassign actions
 - One-click auto-resolve with preview and undo
@@ -14,26 +14,34 @@ Keybind profiles and conflict resolution for Minecraft (client-side).
 ## Supported Versions / Loaders
 | Minecraft | Fabric / Quilt | Forge | NeoForge | Status |
 | --- | --- | --- | --- | --- |
-| 1.16.5-1.18.x | Legacy shim planned | Planned | N/A | Pending |
-| 1.19.x | Legacy shim planned | Planned | N/A | Pending |
+| 1.16.5 | Supported | Planned | N/A | Wired |
+| 1.17.1 | Supported | Planned | N/A | Wired |
+| 1.18.2 | Supported | Planned | N/A | Wired |
+| 1.19.x | Supported (`1.19.4` leaf) | Planned | N/A | Wired |
 | 1.20.1-1.20.2 | Supported | Scaffolded | Scaffolded | Wired |
 | 1.20.3-1.20.6 | Supported | Planned | Planned | Wired |
 | 1.21-1.21.11 | Supported | Planned | Planned | Wired |
 
-Current Fabric validation targets: `1.20.1-1.20.2`, `1.20.3-1.20.6`, and `1.21-1.21.11`.
+Current Fabric validation targets: `1.16.5`, `1.17.1`, `1.18.2`, `1.19.4`, `1.20.1-1.20.2`, `1.20.3-1.20.6`, and `1.21-1.21.11`.
 
 ## Architecture
 - `core`: shared Java module for data models, JSON persistence, conflict detection, auto-resolve, and UI-facing contracts.
+- `common-v1_16_5-to-v1_18_x`: legacy Fabric shim for the pre-1.19 screen and input APIs.
+- `common-v1_19_x`: Fabric shim for the 1.19 client GUI/input surface.
 - `common-v1_20_1-to-v1_20_2`: first version-range adapter shared by loader leaf modules.
 - `common-v1_20_3-to-v1_20_6`: modern Fabric shim for the post-1.20.3 GUI/input changes.
 - `common-v1_21-to-v1_21_11`: modern Fabric shim for the 1.21.x GUI/input and keybinding API changes.
+- `platform-fabric-1_16_5`: Fabric target for `1.16.5`.
+- `platform-fabric-1_17_1`: Fabric target for `1.17.1`.
+- `platform-fabric-1_18_2`: Fabric target for `1.18.2`.
+- `platform-fabric-1_19_4`: Fabric target for `1.19.x`.
 - `platform-fabric-1_20_1`: Fabric target for `1.20.1-1.20.2`.
 - `platform-fabric-1_20_6`: Fabric target for `1.20.3-1.20.6`.
 - `platform-fabric-1_21_11`: Fabric target for `1.21-1.21.11`.
 - `platform-forge-1_20_1`: Forge placeholder module reserved for loader glue.
 - `platform-neoforge-1_20_1`: NeoForge placeholder module reserved for loader glue.
 
-This keeps feature logic out of loader modules and isolates version shims so later Minecraft bumps stay narrow. Older Fabric `1.16.5-1.19.x` still need dedicated legacy GUI/input shims because the client APIs diverge more sharply there.
+This keeps feature logic out of loader modules and isolates version shims so later Minecraft bumps stay narrow. Legacy Fabric ranges keep their own small adapters instead of forcing the modern screen/input code to degrade across every target.
 
 ## How To Use
 1. Open Controls.
@@ -41,7 +49,8 @@ This keeps feature logic out of loader modules and isolates version shims so lat
 3. Pick a profile on the left. The badge shows whether you are editing the active profile or only previewing a saved one.
 4. Use search and the group toggle on the right to narrow the visible conflicts for that profile.
 5. Select a conflicting bind to see what it does, then use `Find In Controls`, `Clear Key`, or `Rebind`.
-6. Use `Apply` to make a saved profile live, `Save Current` to capture the current controls, or `Preview Auto-Fix` to review safe automated changes before applying them.
+6. Hover any button for a tooltip if the action is unclear.
+7. Use `Apply` to make a saved profile live, `Save Current` to capture the current controls, or `Preview Auto-Fix` to review safe automated changes before applying them.
 
 ## Profile Rules
 - First-run config seeds four starter profiles: `Default`, `PvP`, `Building`, and `Tech`.
@@ -80,7 +89,9 @@ This keeps feature logic out of loader modules and isolates version shims so lat
 - Client-side only; safe to include on servers.
 
 ## Development
-- Use JDK 17 for `1.20.1-1.20.2` and JDK 21 for `1.20.3+` Fabric targets.
+- Run Gradle with JDK 21. Toolchains handle per-target compilation and dev launches.
+- Release bytecode targets stay aligned to Minecraft requirements: Java 8 for `1.16.5`, Java 16 for `1.17.1`, Java 17 for `1.18.2-1.20.2`, and Java 21 for `1.20.3+`.
+- Fabric Loom `runClient` still uses Java 17 for the `1.16.5` and `1.17.1` dev environments because the modern Loom support stack injects helper mods that require Java 17, even though the shipped jars remain compiled to the older bytecode targets above.
 - `./gradlew build` builds every scaffolded module.
 - `./gradlew buildRepresentativeTarget` validates the latest wired Fabric target.
 - `./gradlew buildFabricTargets` validates every wired Fabric target.
