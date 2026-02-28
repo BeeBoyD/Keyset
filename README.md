@@ -109,20 +109,20 @@ Profile ids are stable internal keys. User-facing profile names can be renamed s
 
 ## Current Architecture
 
-- `core`
-  Shared Java logic for profile models, JSON persistence, conflict detection, auto-resolve, and UI-facing contracts.
-- `common-v1_16_5-to-v1_18_x`
-  Legacy client shim for older screen and input APIs.
-- `common-v1_19_x`
-  1.19-era client shim.
-- `common-v1_20_1-to-v1_20_2`
-  Shared adapter for the first 1.20 generation.
-- `common-v1_20_3-to-v1_20_6`
-  Shared adapter for post-1.20.3 GUI/input changes.
-- `common-v1_21-to-v1_21_11`
-  Shared adapter for 1.21.x GUI/input changes.
+The root is grouped by responsibility now instead of keeping every module flat:
 
-Loader leaves stay thin on purpose. Feature logic belongs in `core`, not in per-loader branches.
+- `modules/core`
+  Shared Java logic for profile models, JSON persistence, conflict detection, auto-resolve, and UI-facing contracts.
+- `modules/common/*`
+  Version-range shims for client API differences.
+- `platforms/fabric/*`
+  Fabric and Quilt-compatible leaf modules.
+- `platforms/forge/*`
+  Forge leaf modules.
+- `platforms/neoforge/*`
+  NeoForge leaf modules.
+
+Loader leaves stay thin on purpose. Feature logic belongs in `modules/core`, not in per-loader branches.
 
 ## Development
 
@@ -137,7 +137,20 @@ Useful commands:
 ./gradlew buildForgeTargets
 ./gradlew buildNeoForgeTargets
 ./gradlew buildTargetJars
+./gradlew buildAllJars
 ```
+
+`buildTargetJars` and `buildAllJars` now collect the current remapped release jars into:
+
+```text
+build/artifacts
+```
+
+Examples:
+
+- `keyset-fabric-1.20.1-1.20.2-0.1.0-SNAPSHOT.jar`
+- `keyset-forge-1.20.1-1.20.2-0.1.0-SNAPSHOT.jar`
+- `keyset-neoforge-1.20.4-0.1.0-SNAPSHOT.jar`
 
 Run a Fabric dev client by requested version:
 
