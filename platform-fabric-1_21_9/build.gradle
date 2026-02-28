@@ -1,0 +1,54 @@
+plugins {
+    id "fabric-loom"
+    id "com.diffplug.spotless"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+sourceSets {
+    main {
+        java.setSrcDirs([project(":platform-fabric-1_21_11").file("src/main/java")])
+        resources.setSrcDirs([project(":platform-fabric-1_21_11").file("src/main/resources")])
+    }
+}
+
+base {
+    archivesName = "keyset-fabric-1.21.9"
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.property('minecraftVersion_1_21_9')}"
+    mappings "net.fabricmc:yarn:${project.property('yarnMappings_1_21_9')}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.property('fabricLoaderVersion_1_21_9')}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.property('fabricApiVersion_1_21_9')}"
+
+    implementation project(":common-v1_21-to-v1_21_11")
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+}
+
+tasks.withType(JavaExec).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+processResources {
+    inputs.property("modVersion", project.version)
+    filesMatching("fabric.mod.json") {
+        expand(
+            modId: project.property("modId"),
+            modName: project.property("modName"),
+            modVersion: project.version,
+            modDescription: project.property("modDescription"),
+            minecraftVersion: project.property("supportedMinecraftRange_1_21_9"),
+            javaVersion: "21"
+        )
+    }
+}

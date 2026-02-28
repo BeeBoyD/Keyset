@@ -17,12 +17,12 @@ Keybind profiles and conflict resolution for Minecraft (client-side).
 | 1.16.5 | Supported | Planned | N/A | Wired |
 | 1.17.1 | Supported | Planned | N/A | Wired |
 | 1.18.2 | Supported | Planned | N/A | Wired |
-| 1.19.x | Supported (`1.19.4` leaf) | Planned | N/A | Wired |
+| 1.19.2-1.19.4 | Supported | Planned | N/A | Wired |
 | 1.20.1-1.20.2 | Supported | Scaffolded | Scaffolded | Wired |
 | 1.20.3-1.20.6 | Supported | Planned | Planned | Wired |
 | 1.21-1.21.11 | Supported | Planned | Planned | Wired |
 
-Current Fabric validation targets: `1.16.5`, `1.17.1`, `1.18.2`, `1.19.4`, `1.20.1-1.20.2`, `1.20.3-1.20.6`, and `1.21-1.21.11`.
+Exact Fabric targets currently compiled and dev-launched: `1.16.5`, `1.17.1`, `1.18.2`, `1.19.2`, `1.19.4`, `1.20.1`, `1.20.4`, `1.20.6`, `1.21.1`, `1.21.4`, `1.21.9`, and `1.21.11`.
 
 ## Architecture
 - `core`: shared Java module for data models, JSON persistence, conflict detection, auto-resolve, and UI-facing contracts.
@@ -34,10 +34,15 @@ Current Fabric validation targets: `1.16.5`, `1.17.1`, `1.18.2`, `1.19.4`, `1.20
 - `platform-fabric-1_16_5`: Fabric target for `1.16.5`.
 - `platform-fabric-1_17_1`: Fabric target for `1.17.1`.
 - `platform-fabric-1_18_2`: Fabric target for `1.18.2`.
-- `platform-fabric-1_19_4`: Fabric target for `1.19.x`.
+- `platform-fabric-1_19_2`: Fabric target for `1.19.2`.
+- `platform-fabric-1_19_4`: Fabric target for `1.19.4`.
 - `platform-fabric-1_20_1`: Fabric target for `1.20.1-1.20.2`.
-- `platform-fabric-1_20_6`: Fabric target for `1.20.3-1.20.6`.
-- `platform-fabric-1_21_11`: Fabric target for `1.21-1.21.11`.
+- `platform-fabric-1_20_4`: Fabric target for `1.20.4`.
+- `platform-fabric-1_20_6`: Fabric target for `1.20.6`.
+- `platform-fabric-1_21_1`: Fabric target for `1.21.1`.
+- `platform-fabric-1_21_4`: Fabric target for `1.21.4`.
+- `platform-fabric-1_21_9`: Fabric target for `1.21.9`.
+- `platform-fabric-1_21_11`: Fabric target for `1.21.11`.
 - `platform-forge-1_20_1`: Forge placeholder module reserved for loader glue.
 - `platform-neoforge-1_20_1`: NeoForge placeholder module reserved for loader glue.
 
@@ -50,7 +55,8 @@ This keeps feature logic out of loader modules and isolates version shims so lat
 4. Use search and the group toggle on the right to narrow the visible conflicts for that profile.
 5. Select a conflicting bind to see what it does, then use `Find In Controls`, `Clear Key`, or `Rebind`.
 6. Hover any button for a tooltip if the action is unclear.
-7. Use `Apply` to make a saved profile live, `Save Current` to capture the current controls, or `Preview Auto-Fix` to review safe automated changes before applying them.
+7. Read the footer if you are unsure what to do next. It changes between preview mode, inactive profiles, and selected binds.
+8. Use `Apply` to make a saved profile live, `Save Current` to capture the current controls, or `Preview Auto-Fix` to review safe automated changes before applying them.
 
 ## Profile Rules
 - First-run config seeds four starter profiles: `Default`, `PvP`, `Building`, and `Tech`.
@@ -78,6 +84,7 @@ This keeps feature logic out of loader modules and isolates version shims so lat
 - The current Fabric screen now shows conflicts for the selected profile instead of always mirroring the live active profile.
 - The current Fabric screen caches the conflict report and only reruns shared conflict analysis after state-changing actions.
 - Binding quick actions operate on the active profile and sync manual edits made in the vanilla keybind editor back into `keybindprofiles.json`.
+- Legacy and modern Fabric screens both expose contextual tooltips, visible conflict counters, and footer guidance so inactive-profile actions are easier to understand.
 
 ## Config
 - Stored at `config/keybindprofiles.json` with schema versioning.
@@ -94,6 +101,6 @@ This keeps feature logic out of loader modules and isolates version shims so lat
 - Fabric Loom `runClient` still uses Java 17 for the `1.16.5` and `1.17.1` dev environments because the modern Loom support stack injects helper mods that require Java 17, even though the shipped jars remain compiled to the older bytecode targets above.
 - `./gradlew build` builds every scaffolded module.
 - `./gradlew buildRepresentativeTarget` validates the latest wired Fabric target.
-- `./gradlew buildFabricTargets` validates every wired Fabric target.
+- `./gradlew buildFabricTargets` validates every wired Fabric leaf target.
 - `./gradlew buildTargetJars` produces the currently wired jar outputs.
 - `./gradlew verifyWorkspace` runs formatting and checks.

@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import net.beeboyd.keyset.core.binding.KeysetBindingDescriptor;
+import net.beeboyd.keyset.core.conflict.KeysetConflict;
 import net.beeboyd.keyset.core.conflict.KeysetConflictGroup;
 import net.beeboyd.keyset.core.conflict.KeysetConflictGroupMode;
 import net.beeboyd.keyset.core.conflict.KeysetConflictQuery;
@@ -91,6 +92,8 @@ public final class KeysetScreen extends Screen {
   private boolean errorStatus;
   private Text emptyStateTitle = empty();
   private Text emptyStateBody = empty();
+  private int visibleConflictGroups;
+  private int visibleConflictBindings;
   private final List<WidgetTooltip> widgetTooltips = new ArrayList<WidgetTooltip>();
 
   public KeysetScreen(Screen parent, KeysetFabricService service) {
@@ -399,7 +402,17 @@ public final class KeysetScreen extends Screen {
   }
 
   private void setTooltip(ClickableWidget widget, String translationKey) {
-    widgetTooltips.add(new WidgetTooltip(widget, translatable(translationKey)));
+    setTooltip(widget, translatable(translationKey));
+  }
+
+  private void setTooltip(ClickableWidget widget, Text tooltipText) {
+    for (WidgetTooltip widgetTooltip : widgetTooltips) {
+      if (widgetTooltip.widget == widget) {
+        widgetTooltip.text = tooltipText;
+        return;
+      }
+    }
+    widgetTooltips.add(new WidgetTooltip(widget, tooltipText));
   }
 
   private void drawShell(MatrixStack matrices) {
@@ -462,6 +475,7 @@ public final class KeysetScreen extends Screen {
 
   private void drawMainPane(MatrixStack matrices) {
     drawSectionTitle(matrices, "keyset.section.conflicts", mainInnerX, mainY + 10);
+    drawMainSummary(matrices);
     drawSelectionPanel(matrices);
     if (conflictReport.isEmpty() && previewPlan == null) {
       drawEmptyState(matrices, listTop + 24);
@@ -474,6 +488,44 @@ public final class KeysetScreen extends Screen {
     if (conflictListWidget.children().isEmpty()) {
       drawEmptyState(matrices, listTop + 24);
     }
+  }
+
+  private void drawMainSummary(MatrixStack matrices) {
+    if (compactLayout) {
+      return;
+    }
+
+    Text summaryText = buildHeaderSummaryText();
+    if (summaryText == null || summaryText.getString().isEmpty()) {
+      return;
+    }
+
+    int summaryWidth = textRenderer.getWidth(summaryText);
+    int summaryX = mainX + mainWidth - 10 - summaryWidth;
+    if (summaryX < mainInnerX + 96) {
+      return;
+    }
+
+    drawTextWithShadow(matrices, textRenderer, summaryText, summaryX, mainY + 10, MUTED_COLOR);
+  }
+
+  private Text buildHeaderSummaryText() {
+    if (previewPlan != null) {
+      return translatable(
+          "keyset.resolve.summary",
+          Integer.valueOf(previewPlan.getChanges().size()),
+          Integer.valueOf(previewPlan.getUnresolvedBindings()));
+    }
+    if (config == null
+        || selectedProfileId == null
+        || !config.hasProfile(selectedProfileId)
+        || visibleConflictBindings <= 0) {
+      return empty();
+    }
+    return translatable(
+        "keyset.summary.selected",
+        config.getProfile(selectedProfileId).getName(),
+        Integer.valueOf(visibleConflictBindings));
   }
 
   private void drawSelectionPanel(MatrixStack matrices) {
@@ -524,11 +576,7 @@ public final class KeysetScreen extends Screen {
   }
 
   private void drawFooter(MatrixStack matrices) {
-    String footerMessage =
-        statusMessage.isEmpty()
-            ? translatable(previewPlan == null ? "keyset.footer.default" : "keyset.footer.preview")
-                .getString()
-            : statusMessage;
+    String footerMessage = statusMessage.isEmpty() ? buildDefaultFooterMessage() : statusMessage;
     int color =
         statusMessage.isEmpty()
             ? MUTED_COLOR
@@ -536,6 +584,24 @@ public final class KeysetScreen extends Screen {
 
     drawTextWithShadow(
         matrices, textRenderer, literal(footerMessage), PANEL_PADDING, footerY + 6, color);
+  }
+
+  private String buildDefaultFooterMessage() {
+    if (previewPlan != null) {
+      return translatable("keyset.footer.preview").getString();
+    }
+    if (config == null || selectedProfileId == null || !config.hasProfile(selectedProfileId)) {
+      return translatable("keyset.footer.default").getString();
+    }
+    if (!selectedProfileId.equals(config.getActiveProfileId())) {
+      return translatable("keyset.footer.inactive", config.getProfile(selectedProfileId).getName())
+          .getString();
+    }
+    if (selectedBinding == null) {
+      return translatable("keyset.footer.pick_conflict").getString();
+    }
+    return translatable("keyset.footer.binding_ready", selectedBinding.getDisplayName())
+        .getString();
   }
 
   private void drawEmptyState(MatrixStack matrices, int y) {
@@ -801,6 +867,8 @@ public final class KeysetScreen extends Screen {
     }
 
     if (previewPlan != null) {
+      visibleConflictGroups = previewPlan.getChanges().isEmpty() ? 0 : 1;
+      visibleConflictBindings = previewPlan.getChanges().size();
       selectedBinding = null;
       conflictListWidget.showPreview(previewPlan);
       if (previewPlan.getChanges().isEmpty()) {
@@ -814,6 +882,8 @@ public final class KeysetScreen extends Screen {
     List<KeysetConflictGroup> groups =
         conflictReport.query(new KeysetConflictQuery(groupMode, searchField.getText()));
     if (groups.isEmpty()) {
+      visibleConflictGroups = 0;
+      visibleConflictBindings = 0;
       selectedBinding = null;
       conflictListWidget.clearContents();
       emptyStateTitle = translatable("keyset.empty.conflicts_title");
@@ -822,6 +892,8 @@ public final class KeysetScreen extends Screen {
       return;
     }
 
+    visibleConflictGroups = groups.size();
+    visibleConflictBindings = countVisibleBindings(groups);
     emptyStateTitle = empty();
     emptyStateBody = empty();
     conflictListWidget.showConflicts(groups, groupMode, preferredBindingId);
@@ -846,12 +918,74 @@ public final class KeysetScreen extends Screen {
     jumpButton.active = bindingActionsActive;
     clearBindingButton.active = bindingActionsActive;
     reassignButton.active = bindingActionsActive;
+    updateDynamicTooltips(activeSelection, bindingActionsActive);
 
     groupToggleButton.setMessage(
         translatable(
             groupMode == KeysetConflictGroupMode.BY_KEY
                 ? "keyset.group.by_key"
                 : "keyset.group.by_category"));
+  }
+
+  private void updateDynamicTooltips(boolean activeSelection, boolean bindingActionsActive) {
+    setTooltip(
+        applyButton,
+        translatable(
+            activeSelection ? "keyset.tip.profile_apply_active" : "keyset.tip.profile_apply"));
+    setTooltip(
+        previewResolveButton,
+        translatable(
+            !activeSelection
+                ? "keyset.tip.actions_require_active"
+                : conflictReport.isEmpty()
+                    ? "keyset.tip.resolve_preview_empty"
+                    : "keyset.tip.resolve_preview"));
+    setTooltip(
+        applyPreviewButton,
+        translatable(
+            previewPlan != null && !previewPlan.getChanges().isEmpty()
+                ? "keyset.tip.resolve_apply"
+                : "keyset.tip.resolve_apply_pending"));
+    setTooltip(
+        undoButton,
+        translatable(
+            undoState != null ? "keyset.tip.resolve_undo" : "keyset.tip.resolve_undo_unavailable"));
+
+    String inactiveBindingTooltipKey = inactiveBindingTooltipKey(activeSelection);
+    setTooltip(
+        jumpButton,
+        translatable(bindingActionsActive ? "keyset.tip.binding_jump" : inactiveBindingTooltipKey));
+    setTooltip(
+        clearBindingButton,
+        translatable(
+            bindingActionsActive ? "keyset.tip.binding_clear" : inactiveBindingTooltipKey));
+    setTooltip(
+        reassignButton,
+        translatable(
+            bindingActionsActive ? "keyset.tip.binding_reassign" : inactiveBindingTooltipKey));
+  }
+
+  private String inactiveBindingTooltipKey(boolean activeSelection) {
+    if (previewPlan != null) {
+      return "keyset.tip.binding_preview_mode";
+    }
+    if (selectedBinding == null) {
+      return "keyset.tip.binding_requires_selection";
+    }
+    if (!activeSelection) {
+      return "keyset.tip.actions_require_active";
+    }
+    return "keyset.tip.binding_requires_selection";
+  }
+
+  private static int countVisibleBindings(List<KeysetConflictGroup> groups) {
+    int bindingCount = 0;
+    for (KeysetConflictGroup group : groups) {
+      for (KeysetConflict conflict : group.getConflicts()) {
+        bindingCount += conflict.getBindings().size();
+      }
+    }
+    return bindingCount;
   }
 
   private void setStatus(String message, boolean error) {
@@ -897,7 +1031,7 @@ public final class KeysetScreen extends Screen {
 
   private static final class WidgetTooltip {
     private final ClickableWidget widget;
-    private final Text text;
+    private Text text;
 
     private WidgetTooltip(ClickableWidget widget, Text text) {
       this.widget = widget;
