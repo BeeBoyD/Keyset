@@ -106,6 +106,7 @@ This keeps feature logic out of loader modules and isolates version shims so lat
 - The injected `Keyset` button on the vanilla Controls screen now chooses a non-overlapping slot based on the existing vanilla widgets instead of assuming one fixed top-right position.
 - Forge and NeoForge runtime resource roots now include valid `pack.mcmeta` metadata, so dev launches no longer warn that Keyset's generated resources failed to load as a resource pack.
 - The shared modern `1.20.4+` Keyset screen chrome now renders from `renderBackground(...)`, which keeps the custom frames and cards visible on NeoForge and other modern leaves whose base `Screen.render(...)` repaints the background.
+- The shared `1.20.1-1.20.2` Keyset screen keeps its backdrop and panels in `render(...)`, which avoids stale-frame artifacts on Fabric, Forge, and NeoForge clients whose `Screen.render(...)` does not call `renderBackground(...)`.
 
 ## Config
 - Stored at `config/keybindprofiles.json` with schema versioning.
