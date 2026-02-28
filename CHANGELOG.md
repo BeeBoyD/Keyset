@@ -1,62 +1,51 @@
 # Changelog
 
 ## Unreleased
+
+Last updated: 2026-02-28 17:24 EET
+
 ### Added
-- Gradle multi-project scaffold with shared core, a version-range adapter, and initial platform modules.
-- A first Fabric 1.20.1 build target for representative validation.
-- Spotless formatting, Gradle wrapper support, and a short contributing guide.
-- Immutable core profile models, profile lifecycle operations, and JSON persistence with safe file writes.
-- Unit tests covering starter profiles, fallback behavior, and profile config round-trips.
-- Loader-agnostic live binding descriptors and a pure conflict analysis engine with key/category grouping.
-- Conflict query support for search filtering without re-reading live Minecraft state.
-- A real Fabric 1.20.1 Keyset screen opened from Controls, with profile create/rename/duplicate/delete/apply/capture flows.
-- Clipboard export/import for profile JSON and a first safe auto-resolve preview/apply/undo flow on the active profile.
-- A scrollable conflict list with per-binding jump, clear, and reassign actions wired into the vanilla keybind editor.
-- Fabric leaf modules for `1.20.3-1.20.6` and `1.21-1.21.11`, each backed by their own thin version shim.
-- Legacy Fabric leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, and `1.19.x`, backed by dedicated `common-v1_16_5-to-v1_18_x` and `common-v1_19_x` shims.
-- Exact Fabric leaf modules for `1.19.2`, `1.20.4`, `1.21.1`, `1.21.4`, and `1.21.9`, so the current Fabric matrix can be verified against real API breakpoints instead of optimistic shared ranges.
-- A root `run-fabric.sh` helper that maps requested Fabric Minecraft versions to the correct dev-launch leaf module.
-- Forge leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, `1.19.2`, `1.19.4`, `1.20.1-1.20.2`, and `1.20.4`, all sharing the existing core and version-range shims.
-- NeoForge leaf modules for `1.20.1-1.20.2` and `1.20.4`, using the same shared core and version-range shims as the Fabric and Forge targets.
+
+- Multi-project Gradle scaffold with shared core modules, version shims, and loader leaf targets.
+- Spotless formatting, Gradle wrapper support, and workspace verification tasks.
+- Immutable core profile models, starter profiles, lifecycle operations, and JSON persistence with safe file writes.
+- Unit coverage for starter profiles, fallback behavior, and config round-trips.
+- Loader-agnostic live binding descriptors and a pure conflict analysis engine with grouping and filtering.
+- A playable Fabric UI flow with profile management, conflict browsing, direct bind actions, clipboard import/export, and safe auto-fix preview/apply/undo.
+- Exact Fabric leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, `1.19.2`, `1.19.4`, `1.20.1`, `1.20.4`, `1.20.6`, `1.21.1`, `1.21.4`, `1.21.9`, and `1.21.11`.
+- Forge leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, `1.19.2`, `1.19.4`, `1.20.1-1.20.2`, and `1.20.4`.
+- NeoForge leaf modules for `1.20.1-1.20.2` and `1.20.4`.
+- A root `run-fabric.sh` helper that maps requested Fabric versions to the nearest supported dev-launch leaf.
 
 ### Changed
-- Defined the support matrix and documented the multi-loader architecture in the README.
-- Documented the import behavior for currently unavailable keys.
-- Documented starter profile seeding and stable internal profile ids in the README.
-- Documented conflict grouping and search behavior in the README.
-- Updated the README to reflect the playable Fabric 1.20.1 vertical slice and the current auto-resolve behavior.
-- Manual edits made through the vanilla keybind screen now sync back into the active Keyset profile as sticky user changes.
-- The Fabric UI now explains the workflow directly with tooltips, profile-state badges, clearer action labels, and selected-profile conflict previews.
-- Upgraded the Fabric build stack to Gradle `9.2.0` and Loom `1.15.4` so the latest wired Fabric range can build cleanly.
-- The Fabric UI now adapts better to short screens by shrinking the detail card, preserving the conflict list, and moving more guidance into contextual copy and hover tooltips.
-- Documented the per-range Java toolchain strategy, including the Java 17 Loom dev-launch requirement for `1.16.5` and `1.17.1`.
-- Updated the README to list the exact Fabric versions that now compile and dev-launch cleanly.
-- Unified the Fabric Keyset screen layout across every currently wired Fabric leaf so the compact two-pane flow, footer actions, and selection summary behave consistently from `1.16.5` through `1.21.11`.
-- Tuned the Fabric selection card layout across all wired leaves so helper text wraps inside the available space above the quick-action row instead of assuming a fixed one-line height.
-- Tightened the visible Fabric copy and status banner so higher GUI scales no longer rely on long instructional sentences that overflow the top bar or detail card.
-- Expanded the documented loader matrix to reflect the currently wired Forge and NeoForge targets, including which leaves are build-verified versus dev-launched in the current environment.
-- Forge and NeoForge `mods.toml` expansion now tracks all substituted properties as Gradle inputs so loader metadata changes cannot be hidden by stale cached resources.
+
+- Documented the support matrix and the multi-loader architecture in the README.
+- Documented import behavior for unavailable keys, starter-profile seeding, stable profile ids, and auto-fix rules.
+- Synced manual edits made in the vanilla keybind screen back into the active Keyset profile as sticky user changes.
+- Iterated on the Fabric UI with a more compact layout, tooltips, profile state badges, contextual footer guidance, and selected-profile conflict previews.
+- Upgraded the modern Fabric build stack to Gradle `9.2.0` and Loom `1.15.4`.
+- Documented the per-range Java toolchain strategy and exact verified Fabric/Forge/NeoForge targets.
+- Refined the public README into a mod-page style overview with clearer setup, behavior, and development sections.
 
 ### Fixed
-- Core JUnit tests now run correctly under the newer Gradle wrapper by including the JUnit Platform launcher at runtime.
+
+- Fixed Forge and NeoForge dev resource roots by adding valid `pack.mcmeta` metadata, removing the old `failed to load a valid ResourcePackInfo` warning from current `1.20.x` launches.
+- Fixed the shared modern `1.20.4+` Keyset screen shell so its custom panels render from `renderBackground(...)` on clients whose base `Screen.render(...)` repaints the background.
+- Fixed the shared `1.20.1-1.20.2` Keyset screen render path so Forge, NeoForge, and Fabric clients that do not call `renderBackground(...)` from `Screen.render(...)` do not leave stale Controls frames or tooltip trails behind the Keyset UI.
 - Fixed the `1.21.11` crash caused by applying background blur twice in one frame.
-- Fixed legacy Fabric metadata so `1.16.5` and `1.17.1` depend on the correct aggregator mod id (`fabric`) instead of the newer `fabric-api` id.
-- Fixed Fabric version-leaf wiring so `1.19.2`, `1.20.4`, `1.21.1`, `1.21.4`, and `1.21.9` all use the correct screen/input/keybinding APIs for their exact Minecraft versions.
-- Fixed the Fabric screen UX on both legacy and modern versions with contextual footer help, more actionable tooltips, and clearer conflict summary text.
-- Fixed overlapping and clipped controls on the Fabric Keyset screen across legacy and modern versions by moving auto-fix actions into a shared footer row, trimming verbose copy, and preserving list space on short windows.
-- Fixed Fabric screen text layering so custom labels, summaries, and empty-state copy render above child widgets instead of disappearing on newer GUI implementations.
-- Fixed the injected `Keyset` button placement on the vanilla Controls screen by selecting a non-overlapping slot across old and new Fabric client layouts.
-- Fixed the remaining modern Fabric screen crash by replacing the Keyset background blur call with a custom shaded backdrop, avoiding `Can only blur once per frame` on newer Minecraft GUI renderers.
-- Fixed Fabric selection-panel copy overflowing into the `Find`, `Clear Key`, and `Rebind` row at larger GUI scales by growing the card and constraining wrapped text to the space above the buttons.
-- Fixed the newer Fabric leaves so the static Keyset labels render consistently again by drawing the screen chrome before widget rendering instead of after the newer GUI pipeline clips it.
-- Fixed several Fabric UI text overflows by shortening visible copy for the category toggle, selection card, empty states, and default helper/status strings.
-- Fixed Fabric UI fitting across every wired leaf so profile badges, selection copy, header summaries, and conflict-row labels are trimmed to the available panel width instead of overflowing or disappearing at larger GUI scales.
-- Fixed modern Fabric custom text rendering so badges, headers, empty states, conflict rows, and rebind helper text use opaque colors and no longer appear as blank hit targets on `1.20.1+`.
-- Fixed the `1.21.11` conflict list renderer so modern row text uses entry geometry instead of the hover mouse coordinates, preventing conflict labels from drifting and overlapping while hovered.
-- Fixed core JSON parsing to stay compatible with the older Gson versions bundled by legacy Forge leaves.
-- Fixed the legacy Forge bootstrap shims for `1.17.1`, `1.18.2`, and `1.19.2` so the current loader APIs compile cleanly across those ranges.
-- Fixed NeoForge bootstrap wiring so `1.20.1` and `1.20.4` initialize from the root client mod instead of relying on the wrong `DistExecutor` path.
-- Fixed NeoForge `1.20.4` metadata so the dev runtime now uses `META-INF/mods.toml`, the newer dependency `type = "required"` field, and the correct `javafml` loader range.
-- Fixed Forge and NeoForge dev resource roots by adding valid `pack.mcmeta` metadata, removing the `failed to load a valid ResourcePackInfo` warning from current `1.20.x` launches.
-- Fixed the shared modern `1.20.4+` Keyset screen shell so its custom panels render from `renderBackground(...)`, keeping NeoForge `1.20.4` and the other modern leaves from painting widgets over missing chrome.
-- Fixed the shared `1.20.1-1.20.2` Keyset screen render path so Forge, NeoForge, and Fabric clients that do not call `renderBackground(...)` from `Screen.render(...)` no longer show stale Controls frames or tooltip trails behind the Keyset UI.
+- Fixed modern Fabric custom text rendering so badges, headers, empty states, conflict rows, and rebind helper text no longer appear as blank hit targets.
+- Fixed the `1.21.11` conflict list renderer so row text uses entry geometry instead of mouse coordinates while hovered.
+- Fixed overlapping and clipped controls on the Fabric Keyset screen by moving auto-fix actions into a shared footer row, trimming verbose copy, and preserving list space on short windows.
+- Fixed Fabric screen text layering and button placement regressions across old and new leaves.
+- Fixed legacy Fabric metadata so `1.16.5` and `1.17.1` use the correct `fabric` aggregator id.
+- Fixed version-leaf wiring for `1.19.2`, `1.20.4`, `1.21.1`, `1.21.4`, and `1.21.9` so each target uses the correct screen/input/keybinding API surface.
+- Fixed core JSON parsing to stay compatible with older Gson versions bundled by legacy Forge leaves.
+- Fixed legacy Forge bootstrap shims for `1.17.1`, `1.18.2`, and `1.19.2`.
+- Fixed NeoForge bootstrap wiring for `1.20.1` and `1.20.4`.
+- Fixed NeoForge `1.20.4` metadata so the dev runtime uses the correct `mods.toml` format and loader range.
+
+## v0.1.0 - TBD
+
+- Added: Initial public release not cut yet.
+- Changed: Pending release branch.
+- Fixed: Pending release branch.
