@@ -37,8 +37,9 @@ Keyset keeps that workflow client-side, additive, and close to vanilla UI expect
 | 1.19.4 | Supported | Supported | N/A | Verified |
 | 1.20.1-1.20.2 | Supported | Supported | Supported | Verified |
 | 1.20.3-1.20.4 | Supported | Supported | Supported | Verified |
-| 1.20.5-1.20.6 | Supported | Planned | Planned | Fabric only today |
-| 1.21-1.21.11 | Supported | Planned | Planned | Fabric only today |
+| 1.20.5-1.20.6 | Supported | Supported | Blocked | Forge verified, NeoForge currently blocked by Loom/Yarn remap conflicts |
+| 1.21.1-1.21.4 | Supported | Build-verified | Blocked | Forge jars build; NeoForge currently blocked by Loom/Yarn remap conflicts |
+| 1.21.5-1.21.11 | Supported | Blocked | Blocked | Current shared Yarn-based Forge and NeoForge toolchain is blocked upstream |
 
 Quilt uses the Fabric-compatible targets.
 
@@ -118,7 +119,7 @@ The root is grouped by responsibility now instead of keeping every module flat:
 - `platforms/fabric/*`
   Fabric and Quilt-compatible leaf modules.
 - `platforms/forge/*`
-  Forge leaf modules.
+  Forge leaf modules, now including modern `1.20.6`, `1.21.1`, and `1.21.4` leaves.
 - `platforms/neoforge/*`
   NeoForge leaf modules.
 
@@ -143,13 +144,17 @@ Useful commands:
 `buildTargetJars` and `buildAllJars` now collect the current remapped release jars into:
 
 ```text
-build/artifacts
+builtJars/
+builtJars/fabric
+builtJars/forge
+builtJars/neoforge
 ```
 
 Examples:
 
 - `keyset-fabric-1.20.1-1.20.2-0.1.0-SNAPSHOT.jar`
-- `keyset-forge-1.20.1-1.20.2-0.1.0-SNAPSHOT.jar`
+- `keyset-forge-1.20.3-1.20.6-0.1.0-SNAPSHOT.jar`
+- `keyset-forge-1.21.4-0.1.0-SNAPSHOT.jar`
 - `keyset-neoforge-1.20.4-0.1.0-SNAPSHOT.jar`
 
 Run a Fabric dev client by requested version:
@@ -182,4 +187,4 @@ Release bytecode targets currently align like this:
 
 ## Status
 
-This repo is in active pre-release development. The shared core, Fabric matrix, and the first Forge and NeoForge targets are wired. The next big step is finishing the Phase 3 UI pass and then rounding out the remaining Forge and NeoForge ranges.
+This repo is in active pre-release development. The shared core, full Fabric matrix, and Forge through `1.21.4` are wired. NeoForge is currently verified through `1.20.4`; `1.20.6+` and Forge `1.21.11` are still blocked by upstream Architectury Loom/Yarn remap conflicts on the shared Yarn-based stack.

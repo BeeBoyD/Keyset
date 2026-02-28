@@ -1,0 +1,88 @@
+plugins {
+    id "architectury-plugin"
+    id "dev.architectury.loom"
+    id "com.diffplug.spotless"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+base {
+    archivesName = "keyset-forge-1.20.3-1.20.6"
+}
+
+loom {
+    silentMojangMappingsLicense()
+    mods {
+        main {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+architectury {
+    platformSetupLoomIde()
+    forge()
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir(project(":core").file("src/main/java"))
+            srcDir(project(":common-v1_20_3-to-v1_20_6").file("src/main/java"))
+            srcDir(project(":platform-forge-1_20_1").file("src/main/java"))
+            srcDir(project(":platform-fabric-1_20_6").file("src/main/java"))
+            exclude("net/beeboyd/keyset/platform/fabric/KeysetFabricClient.java")
+        }
+        resources {
+            srcDir(project(":platform-forge-1_20_1").file("src/main/resources"))
+            srcDir(project(":platform-fabric-1_20_6").file("src/main/resources"))
+            exclude("fabric.mod.json", "pack.mcmeta")
+        }
+    }
+}
+
+configurations.configureEach {
+    exclude(group: "net.fabricmc", module: "fabric-log4j-util")
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.property('minecraftVersion_1_20_6')}"
+    mappings "net.fabricmc:yarn:${project.property('yarnMappings_1_20_6')}:v2"
+    forge "net.minecraftforge:forge:${project.property('forgeVersion_1_20_6')}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+}
+
+tasks.withType(JavaExec).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+processResources {
+    from("src/main/resources") {
+        include("pack.mcmeta")
+    }
+    def expandProps = [
+        modId          : project.property("modId"),
+        modName        : project.property("modName"),
+        modVersion     : project.version,
+        modDescription : project.property("modDescription"),
+        minecraftVersion: project.property("supportedMinecraftRange_1_20_6"),
+        loaderVersion  : "[50,)"
+    ]
+    inputs.properties(expandProps)
+    filesMatching("META-INF/mods.toml") {
+        expand(expandProps)
+    }
+}
+
+jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
