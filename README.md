@@ -32,7 +32,8 @@ This scaffold keeps feature logic out of loader modules and keeps version shims 
 1. Open Controls.
 2. Click the new "Keyset" button.
 3. Pick a profile or create one.
-4. Review conflicts and apply fixes.
+4. Review conflicts grouped by key or by category, then use search to narrow the list.
+5. Apply fixes or use auto-resolve.
 
 ## Profile Rules
 - First-run config seeds four starter profiles: `Default`, `PvP`, `Building`, and `Tech`.
@@ -53,6 +54,11 @@ This scaffold keeps feature logic out of loader modules and keeps version shims 
 - Export profiles to JSON.
 - Import JSON and merge or add as new profiles with collision handling.
 - Clipboard import/export is supported when feasible.
+
+## Conflict View Rules
+- Conflict grouping supports both assigned-key clusters and category-based views.
+- Grouping uses stable internal binding/category ids while still exposing display names for UI.
+- Search can match key labels, binding names, category names, and internal ids.
 
 ## Config
 - Stored at `config/keybindprofiles.json` with schema versioning.

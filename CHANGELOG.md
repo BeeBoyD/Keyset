@@ -7,11 +7,14 @@
 - Spotless formatting, Gradle wrapper support, and a short contributing guide.
 - Immutable core profile models, profile lifecycle operations, and JSON persistence with safe file writes.
 - Unit tests covering starter profiles, fallback behavior, and profile config round-trips.
+- Loader-agnostic live binding descriptors and a pure conflict analysis engine with key/category grouping.
+- Conflict query support for search filtering without re-reading live Minecraft state.
 
 ### Changed
 - Defined the support matrix and documented the multi-loader architecture in the README.
 - Documented the import behavior for currently unavailable keys.
 - Documented starter profile seeding and stable internal profile ids in the README.
+- Documented conflict grouping and search behavior in the README.
 
 ### Fixed
 - None yet.
