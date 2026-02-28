@@ -2,9 +2,8 @@ package net.beeboyd.keyset.platform.fabric.screen;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import net.beeboyd.keyset.core.conflict.KeysetConflict;
+import net.beeboyd.keyset.core.binding.KeysetBindingDescriptor;
 import net.beeboyd.keyset.core.conflict.KeysetConflictGroup;
 import net.beeboyd.keyset.core.conflict.KeysetConflictGroupMode;
 import net.beeboyd.keyset.core.conflict.KeysetConflictQuery;
@@ -13,7 +12,6 @@ import net.beeboyd.keyset.core.profile.KeysetProfile;
 import net.beeboyd.keyset.core.profile.KeysetProfiles;
 import net.beeboyd.keyset.core.profile.KeysetProfilesConfig;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService;
-import net.beeboyd.keyset.platform.fabric.KeysetFabricService.AutoResolveChange;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService.AutoResolvePlan;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService.ImportResult;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService.UndoState;
@@ -26,7 +24,6 @@ import net.minecraft.text.Text;
 /** Main Keyset screen for the representative Fabric target. */
 public final class KeysetScreen extends Screen {
   private static final int PANEL_PADDING = 12;
-  private static final int PANEL_ROW_HEIGHT = 12;
   private static final int STATUS_SUCCESS_COLOR = 0x8FD98F;
   private static final int STATUS_ERROR_COLOR = 0xFF9A8A;
 
@@ -35,19 +32,22 @@ public final class KeysetScreen extends Screen {
 
   private TextFieldWidget searchField;
   private TextFieldWidget profileNameField;
+  private KeysetConflictListWidget conflictListWidget;
   private ButtonWidget groupToggleButton;
   private ButtonWidget deleteButton;
   private ButtonWidget applyButton;
   private ButtonWidget previewResolveButton;
   private ButtonWidget applyPreviewButton;
+  private ButtonWidget jumpButton;
+  private ButtonWidget clearBindingButton;
+  private ButtonWidget reassignButton;
   private ButtonWidget undoButton;
 
   private KeysetProfilesConfig config;
   private KeysetConflictReport conflictReport = KeysetConflictReport.empty();
   private KeysetConflictGroupMode groupMode = KeysetConflictGroupMode.BY_KEY;
   private String selectedProfileId;
-  private List<String> listLines = Collections.emptyList();
-  private int scrollOffset;
+  private KeysetBindingDescriptor selectedBinding;
   private AutoResolvePlan previewPlan;
   private UndoState undoState;
   private String statusMessage = "";
@@ -64,7 +64,8 @@ public final class KeysetScreen extends Screen {
     int left = PANEL_PADDING;
     int buttonGap = 4;
     int fullWidth = width - PANEL_PADDING * 2;
-    int buttonWidth = (fullWidth - buttonGap * 3) / 4;
+    int topButtonWidth = (fullWidth - buttonGap * 3) / 4;
+    int actionButtonWidth = (fullWidth - buttonGap * 4) / 5;
 
     searchField =
         addDrawableChild(
@@ -75,7 +76,7 @@ public final class KeysetScreen extends Screen {
     searchField.setChangedListener(
         value -> {
           previewPlan = null;
-          rebuildList();
+          rebuildList(selectedBindingId());
         });
 
     groupToggleButton =
@@ -93,77 +94,109 @@ public final class KeysetScreen extends Screen {
 
     addDrawableChild(
         ButtonWidget.builder(Text.translatable("keyset.profile.prev"), button -> selectRelative(-1))
-            .dimensions(left, 76, buttonWidth, 20)
+            .dimensions(left, 76, topButtonWidth, 20)
             .build());
     addDrawableChild(
         ButtonWidget.builder(Text.translatable("keyset.profile.next"), button -> selectRelative(1))
-            .dimensions(left + (buttonWidth + buttonGap), 76, buttonWidth, 20)
+            .dimensions(left + (topButtonWidth + buttonGap), 76, topButtonWidth, 20)
             .build());
     applyButton =
         addDrawableChild(
             ButtonWidget.builder(
                     Text.translatable("keyset.profile.apply"), button -> applySelected())
-                .dimensions(left + (buttonWidth + buttonGap) * 2, 76, buttonWidth, 20)
+                .dimensions(left + (topButtonWidth + buttonGap) * 2, 76, topButtonWidth, 20)
                 .build());
     addDrawableChild(
         ButtonWidget.builder(
                 Text.translatable("keyset.profile.capture"), button -> captureCurrent())
-            .dimensions(left + (buttonWidth + buttonGap) * 3, 76, buttonWidth, 20)
+            .dimensions(left + (topButtonWidth + buttonGap) * 3, 76, topButtonWidth, 20)
             .build());
 
     addDrawableChild(
         ButtonWidget.builder(Text.translatable("keyset.profile.rename"), button -> renameSelected())
-            .dimensions(left, 100, buttonWidth, 20)
+            .dimensions(left, 100, topButtonWidth, 20)
             .build());
     addDrawableChild(
         ButtonWidget.builder(Text.translatable("keyset.profile.new"), button -> createProfile())
-            .dimensions(left + (buttonWidth + buttonGap), 100, buttonWidth, 20)
+            .dimensions(left + (topButtonWidth + buttonGap), 100, topButtonWidth, 20)
             .build());
     addDrawableChild(
         ButtonWidget.builder(
                 Text.translatable("keyset.profile.duplicate"), button -> duplicateSelected())
-            .dimensions(left + (buttonWidth + buttonGap) * 2, 100, buttonWidth, 20)
+            .dimensions(left + (topButtonWidth + buttonGap) * 2, 100, topButtonWidth, 20)
             .build());
     deleteButton =
         addDrawableChild(
             ButtonWidget.builder(
                     Text.translatable("keyset.profile.delete"), button -> deleteSelected())
-                .dimensions(left + (buttonWidth + buttonGap) * 3, 100, buttonWidth, 20)
+                .dimensions(left + (topButtonWidth + buttonGap) * 3, 100, topButtonWidth, 20)
                 .build());
 
     addDrawableChild(
         ButtonWidget.builder(Text.translatable("keyset.export"), button -> exportSelected())
-            .dimensions(left, 124, buttonWidth, 20)
+            .dimensions(left, 124, topButtonWidth, 20)
             .build());
     addDrawableChild(
         ButtonWidget.builder(Text.translatable("keyset.import"), button -> importProfiles())
-            .dimensions(left + (buttonWidth + buttonGap), 124, buttonWidth, 20)
+            .dimensions(left + (topButtonWidth + buttonGap), 124, topButtonWidth, 20)
             .build());
     previewResolveButton =
         addDrawableChild(
             ButtonWidget.builder(
                     Text.translatable("keyset.resolve.preview"), button -> previewResolve())
-                .dimensions(left + (buttonWidth + buttonGap) * 2, 124, buttonWidth, 20)
+                .dimensions(left + (topButtonWidth + buttonGap) * 2, 124, topButtonWidth, 20)
                 .build());
     applyPreviewButton =
         addDrawableChild(
             ButtonWidget.builder(
                     Text.translatable("keyset.resolve.apply"), button -> applyPreview())
-                .dimensions(left + (buttonWidth + buttonGap) * 3, 124, buttonWidth, 20)
+                .dimensions(left + (topButtonWidth + buttonGap) * 3, 124, topButtonWidth, 20)
                 .build());
 
+    jumpButton =
+        addDrawableChild(
+            ButtonWidget.builder(
+                    Text.translatable("keyset.binding.jump"), button -> jumpToBinding())
+                .dimensions(left, 148, actionButtonWidth, 20)
+                .build());
+    clearBindingButton =
+        addDrawableChild(
+            ButtonWidget.builder(
+                    Text.translatable("keyset.binding.clear"), button -> clearSelectedBinding())
+                .dimensions(left + (actionButtonWidth + buttonGap), 148, actionButtonWidth, 20)
+                .build());
+    reassignButton =
+        addDrawableChild(
+            ButtonWidget.builder(
+                    Text.translatable("keyset.binding.reassign"),
+                    button -> reassignSelectedBinding())
+                .dimensions(left + (actionButtonWidth + buttonGap) * 2, 148, actionButtonWidth, 20)
+                .build());
     undoButton =
         addDrawableChild(
             ButtonWidget.builder(Text.translatable("keyset.resolve.undo"), button -> undoResolve())
-                .dimensions(left, 148, buttonWidth, 20)
+                .dimensions(left + (actionButtonWidth + buttonGap) * 3, 148, actionButtonWidth, 20)
                 .build());
     addDrawableChild(
         ButtonWidget.builder(Text.translatable("gui.done"), button -> close())
-            .dimensions(width - PANEL_PADDING - buttonWidth, 148, buttonWidth, 20)
+            .dimensions(left + (actionButtonWidth + buttonGap) * 4, 148, actionButtonWidth, 20)
             .build());
 
+    conflictListWidget =
+        addDrawableChild(
+            new KeysetConflictListWidget(
+                client,
+                fullWidth,
+                196,
+                height - 20,
+                bindingDescriptor -> {
+                  selectedBinding = bindingDescriptor;
+                  refreshButtons();
+                }));
+    conflictListWidget.setLeftPos(left);
+
     try {
-      reloadState(null);
+      reloadState(null, null);
     } catch (IOException exception) {
       setStatus(exception.getMessage(), true);
     }
@@ -183,31 +216,9 @@ public final class KeysetScreen extends Screen {
   }
 
   @Override
-  public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
-    int panelTop = 196;
-    int panelBottom = height - 20;
-    if (mouseX >= PANEL_PADDING
-        && mouseX <= width - PANEL_PADDING
-        && mouseY >= panelTop
-        && mouseY <= panelBottom) {
-      int visibleRows = visibleRows(panelTop, panelBottom);
-      int maxOffset = Math.max(0, listLines.size() - visibleRows);
-      if (amount < 0 && scrollOffset < maxOffset) {
-        scrollOffset++;
-      } else if (amount > 0 && scrollOffset > 0) {
-        scrollOffset--;
-      }
-      return true;
-    }
-
-    return super.mouseScrolled(mouseX, mouseY, amount);
-  }
-
-  @Override
   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
     renderBackground(context);
     drawHeader(context);
-    drawConflictPanel(context);
     super.render(context, mouseX, mouseY, delta);
   }
 
@@ -226,15 +237,29 @@ public final class KeysetScreen extends Screen {
         PANEL_PADDING,
         176,
         0xD8D8D8);
-    context.drawTextWithShadow(
-        textRenderer,
-        Text.translatable(
-            "keyset.summary.selected",
-            selectedProfile.getName(),
-            Integer.valueOf(conflictReport.getConflictCount())),
-        PANEL_PADDING,
-        186,
-        0xB8C7D9);
+
+    if (selectedBinding != null && previewPlan == null) {
+      context.drawTextWithShadow(
+          textRenderer,
+          Text.translatable(
+              "keyset.summary.binding",
+              selectedBinding.getDisplayName(),
+              selectedBinding.getCategoryName(),
+              selectedBinding.getKeyDisplayName()),
+          PANEL_PADDING,
+          186,
+          0xB8C7D9);
+    } else {
+      context.drawTextWithShadow(
+          textRenderer,
+          Text.translatable(
+              "keyset.summary.selected",
+              selectedProfile.getName(),
+              Integer.valueOf(conflictReport.getConflictCount())),
+          PANEL_PADDING,
+          186,
+          0xB8C7D9);
+    }
 
     if (!statusMessage.isEmpty()) {
       context.drawTextWithShadow(
@@ -246,57 +271,13 @@ public final class KeysetScreen extends Screen {
     }
   }
 
-  private void drawConflictPanel(DrawContext context) {
-    int panelLeft = PANEL_PADDING;
-    int panelTop = 196;
-    int panelRight = width - PANEL_PADDING;
-    int panelBottom = height - 20;
-    context.fill(panelLeft, panelTop, panelRight, panelBottom, 0x8A111418);
-    context.drawBorder(
-        panelLeft, panelTop, panelRight - panelLeft, panelBottom - panelTop, 0xFF4A5562);
-
-    int visibleRows = visibleRows(panelTop, panelBottom);
-    int maxOffset = Math.max(0, listLines.size() - visibleRows);
-    if (scrollOffset > maxOffset) {
-      scrollOffset = maxOffset;
-    }
-
-    if (listLines.isEmpty()) {
-      String emptyMessage =
-          previewPlan != null
-              ? Text.translatable("keyset.resolve.no_preview").getString()
-              : Text.translatable("keyset.conflicts.none").getString();
-      context.drawCenteredTextWithShadow(
-          textRenderer, emptyMessage, width / 2, panelTop + 14, 0xAAB6C4);
-      return;
-    }
-
-    int y = panelTop + 8;
-    for (int index = scrollOffset;
-        index < listLines.size() && index < scrollOffset + visibleRows;
-        index++) {
-      String line = textRenderer.trimToWidth(listLines.get(index), panelRight - panelLeft - 12);
-      context.drawTextWithShadow(textRenderer, line, panelLeft + 6, y, 0xE0E6ED);
-      y += PANEL_ROW_HEIGHT;
-    }
-  }
-
-  private int visibleRows(int panelTop, int panelBottom) {
-    return Math.max(1, (panelBottom - panelTop - 12) / PANEL_ROW_HEIGHT);
-  }
-
   private void toggleGroupMode() {
     groupMode =
         groupMode == KeysetConflictGroupMode.BY_KEY
             ? KeysetConflictGroupMode.BY_CATEGORY
             : KeysetConflictGroupMode.BY_KEY;
-    groupToggleButton.setMessage(
-        Text.translatable(
-            groupMode == KeysetConflictGroupMode.BY_KEY
-                ? "keyset.group.by_key"
-                : "keyset.group.by_category"));
     previewPlan = null;
-    rebuildList();
+    rebuildList(selectedBindingId());
   }
 
   private void selectRelative(int direction) {
@@ -330,7 +311,8 @@ public final class KeysetScreen extends Screen {
           String createdProfileId =
               service.createProfileFromCurrent(
                   client, nonBlankOrFallback(profileNameField.getText(), "Profile"));
-          reloadState(createdProfileId);
+          previewPlan = null;
+          reloadState(createdProfileId, null);
           setStatus(Text.translatable("keyset.status.profile_created").getString(), false);
         });
   }
@@ -339,7 +321,8 @@ public final class KeysetScreen extends Screen {
     runAction(
         () -> {
           String duplicateProfileId = service.duplicateProfile(client, selectedProfileId);
-          reloadState(duplicateProfileId);
+          previewPlan = null;
+          reloadState(duplicateProfileId, null);
           setStatus(Text.translatable("keyset.status.profile_duplicated").getString(), false);
         });
   }
@@ -348,7 +331,8 @@ public final class KeysetScreen extends Screen {
     runAction(
         () -> {
           service.renameProfile(client, selectedProfileId, profileNameField.getText());
-          reloadState(selectedProfileId);
+          previewPlan = null;
+          reloadState(selectedProfileId, selectedBindingId());
           setStatus(Text.translatable("keyset.status.profile_renamed").getString(), false);
         });
   }
@@ -357,7 +341,8 @@ public final class KeysetScreen extends Screen {
     runAction(
         () -> {
           String fallbackProfileId = service.deleteProfile(client, selectedProfileId);
-          reloadState(fallbackProfileId);
+          previewPlan = null;
+          reloadState(fallbackProfileId, null);
           setStatus(Text.translatable("keyset.status.profile_deleted").getString(), false);
         });
   }
@@ -366,7 +351,8 @@ public final class KeysetScreen extends Screen {
     runAction(
         () -> {
           service.activateProfile(client, selectedProfileId);
-          reloadState(selectedProfileId);
+          previewPlan = null;
+          reloadState(selectedProfileId, selectedBindingId());
           setStatus(Text.translatable("keyset.status.profile_applied").getString(), false);
         });
   }
@@ -375,7 +361,8 @@ public final class KeysetScreen extends Screen {
     runAction(
         () -> {
           service.captureCurrentToProfile(client, selectedProfileId, true);
-          reloadState(selectedProfileId);
+          previewPlan = null;
+          reloadState(selectedProfileId, selectedBindingId());
           setStatus(Text.translatable("keyset.status.profile_captured").getString(), false);
         });
   }
@@ -396,7 +383,8 @@ public final class KeysetScreen extends Screen {
             throw new IllegalArgumentException(
                 Text.translatable("keyset.error.import_empty").getString());
           }
-          reloadState(result.getLastImportedProfileId());
+          previewPlan = null;
+          reloadState(result.getLastImportedProfileId(), null);
           setStatus(
               Text.translatable(
                       "keyset.status.imported", Integer.valueOf(result.getImportedCount()))
@@ -409,8 +397,7 @@ public final class KeysetScreen extends Screen {
     runAction(
         () -> {
           previewPlan = service.previewAutoResolve(client);
-          rebuildList();
-          refreshButtons();
+          rebuildList(null);
           if (previewPlan.isEmpty()) {
             setStatus(Text.translatable("keyset.status.resolve_none").getString(), false);
           } else {
@@ -428,9 +415,40 @@ public final class KeysetScreen extends Screen {
           }
           undoState = service.applyAutoResolve(client, previewPlan);
           previewPlan = null;
-          reloadState(config.getActiveProfileId());
+          reloadState(config.getActiveProfileId(), null);
           setStatus(Text.translatable("keyset.status.resolve_applied").getString(), false);
         });
+  }
+
+  private void jumpToBinding() {
+    try {
+      client.setScreen(
+          new KeysetKeybindsScreen(
+              this, client.options, service, requireSelectedBindingId(), false));
+    } catch (IllegalStateException exception) {
+      setStatus(exception.getMessage(), true);
+    }
+  }
+
+  private void clearSelectedBinding() {
+    runAction(
+        () -> {
+          String bindingId = requireSelectedBindingId();
+          service.clearActiveBinding(client, bindingId);
+          previewPlan = null;
+          reloadState(config.getActiveProfileId(), bindingId);
+          setStatus(Text.translatable("keyset.status.binding_cleared").getString(), false);
+        });
+  }
+
+  private void reassignSelectedBinding() {
+    try {
+      client.setScreen(
+          new KeysetKeybindsScreen(
+              this, client.options, service, requireSelectedBindingId(), true));
+    } catch (IllegalStateException exception) {
+      setStatus(exception.getMessage(), true);
+    }
   }
 
   private void undoResolve() {
@@ -442,12 +460,13 @@ public final class KeysetScreen extends Screen {
           service.undoAutoResolve(client, undoState);
           undoState = null;
           previewPlan = null;
-          reloadState(config.getActiveProfileId());
+          reloadState(config.getActiveProfileId(), null);
           setStatus(Text.translatable("keyset.status.resolve_undone").getString(), false);
         });
   }
 
-  private void reloadState(String preferredSelectedProfileId) throws IOException {
+  private void reloadState(String preferredSelectedProfileId, String preferredBindingId)
+      throws IOException {
     config = service.getConfig(client);
     conflictReport = service.buildConflictReport(client);
     selectedProfileId =
@@ -455,75 +474,31 @@ public final class KeysetScreen extends Screen {
             ? preferredSelectedProfileId
             : config.getActiveProfileId();
     profileNameField.setText(config.getProfile(selectedProfileId).getName());
-    rebuildList();
-    refreshButtons();
+    rebuildList(preferredBindingId);
   }
 
-  private void rebuildList() {
-    List<String> lines = new ArrayList<String>();
-    if (previewPlan != null) {
-      lines.add(
-          Text.translatable(
-                  "keyset.resolve.summary",
-                  Integer.valueOf(previewPlan.getChanges().size()),
-                  Integer.valueOf(previewPlan.getUnresolvedBindings()))
-              .getString());
-      for (AutoResolveChange change : previewPlan.getChanges()) {
-        lines.add(
-            Text.translatable(
-                    "keyset.resolve.change",
-                    change.getBindingName(),
-                    change.getOldKeyDisplayName(),
-                    change.getNewKeyDisplayName())
-                .getString());
-      }
-      if (previewPlan.getChanges().isEmpty()) {
-        lines.add(Text.translatable("keyset.resolve.no_preview").getString());
-      }
-    } else {
-      List<KeysetConflictGroup> groups =
-          conflictReport.query(new KeysetConflictQuery(groupMode, searchField.getText()));
-      if (groups.isEmpty()) {
-        listLines = Collections.emptyList();
-        scrollOffset = 0;
-        refreshButtons();
-        return;
-      }
-
-      for (KeysetConflictGroup group : groups) {
-        lines.add(
-            Text.translatable(
-                    groupMode == KeysetConflictGroupMode.BY_KEY
-                        ? "keyset.group.key"
-                        : "keyset.group.category",
-                    group.getTitle(),
-                    Integer.valueOf(group.getConflictCount()))
-                .getString());
-        for (KeysetConflict conflict : group.getConflicts()) {
-          if (groupMode == KeysetConflictGroupMode.BY_CATEGORY) {
-            lines.add(
-                Text.translatable(
-                        "keyset.conflict.key_row",
-                        conflict.getKeyDisplayName(),
-                        Integer.valueOf(conflict.getBindings().size()))
-                    .getString());
-          }
-          for (net.beeboyd.keyset.core.binding.KeysetBindingDescriptor binding :
-              conflict.getBindings()) {
-            lines.add(
-                Text.translatable(
-                        "keyset.conflict.binding_row",
-                        binding.getDisplayName(),
-                        binding.getCategoryName(),
-                        binding.getKeyDisplayName())
-                    .getString());
-          }
-        }
-      }
+  private void rebuildList(String preferredBindingId) {
+    if (conflictListWidget == null) {
+      return;
     }
 
-    listLines = Collections.unmodifiableList(lines);
-    scrollOffset = 0;
+    if (previewPlan != null) {
+      selectedBinding = null;
+      conflictListWidget.showPreview(previewPlan);
+      refreshButtons();
+      return;
+    }
+
+    List<KeysetConflictGroup> groups =
+        conflictReport.query(new KeysetConflictQuery(groupMode, searchField.getText()));
+    if (groups.isEmpty()) {
+      selectedBinding = null;
+      conflictListWidget.clearContents();
+      refreshButtons();
+      return;
+    }
+
+    conflictListWidget.showConflicts(groups, groupMode, preferredBindingId);
     refreshButtons();
   }
 
@@ -537,6 +512,15 @@ public final class KeysetScreen extends Screen {
     previewResolveButton.active = !conflictReport.isEmpty();
     applyPreviewButton.active = previewPlan != null && !previewPlan.getChanges().isEmpty();
     undoButton.active = undoState != null;
+
+    boolean bindingActionsActive =
+        selectedBinding != null
+            && previewPlan == null
+            && selectedProfileId.equals(config.getActiveProfileId());
+    jumpButton.active = bindingActionsActive;
+    clearBindingButton.active = bindingActionsActive;
+    reassignButton.active = bindingActionsActive;
+
     groupToggleButton.setMessage(
         Text.translatable(
             groupMode == KeysetConflictGroupMode.BY_KEY
@@ -545,21 +529,35 @@ public final class KeysetScreen extends Screen {
   }
 
   private void setStatus(String message, boolean error) {
-    statusMessage = message;
+    statusMessage = message == null ? "" : message;
     errorStatus = error;
+  }
+
+  private String selectedBindingId() {
+    return selectedBinding == null ? null : selectedBinding.getId();
+  }
+
+  private String requireSelectedBindingId() {
+    if (selectedBinding == null) {
+      throw new IllegalStateException(
+          Text.translatable("keyset.error.no_binding_selected").getString());
+    }
+    if (config == null || !selectedProfileId.equals(config.getActiveProfileId())) {
+      throw new IllegalStateException(
+          Text.translatable("keyset.error.actions_require_active").getString());
+    }
+    return selectedBinding.getId();
   }
 
   private void runAction(Action action) {
     try {
       action.run();
     } catch (IllegalArgumentException | IllegalStateException | IOException exception) {
-      previewPlan = null;
-      rebuildList();
       setStatus(exception.getMessage(), true);
     }
   }
 
-  private String nonBlankOrFallback(String value, String fallback) {
+  private static String nonBlankOrFallback(String value, String fallback) {
     String normalized = value == null ? "" : value.trim();
     return normalized.isEmpty() ? fallback : normalized;
   }

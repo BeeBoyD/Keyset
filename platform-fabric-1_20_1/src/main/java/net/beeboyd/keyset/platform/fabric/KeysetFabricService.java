@@ -188,6 +188,22 @@ public final class KeysetFabricService {
     return codec.toJson(new KeysetProfilesConfig(config.getSchemaVersion(), profileId, profiles));
   }
 
+  public void clearActiveBinding(MinecraftClient client, String bindingId) throws IOException {
+    ensureLoaded(client);
+    requireLiveBinding(client.options, bindingId);
+
+    Map<String, KeysetKeyStroke> strokes = new LinkedHashMap<String, KeysetKeyStroke>(1);
+    strokes.put(bindingId, KeysetKeyStroke.unbound());
+    applyStrokes(client.options, strokes);
+    config =
+        syncProfileFromCurrent(
+            client.options,
+            config.getActiveProfileId(),
+            Collections.singleton(bindingId),
+            Collections.<String>emptySet());
+    save(client);
+  }
+
   public ImportResult importProfiles(MinecraftClient client, String json) throws IOException {
     ensureLoaded(client);
     if (json == null || json.trim().isEmpty()) {
@@ -276,9 +292,42 @@ public final class KeysetFabricService {
 
     applyStrokes(client.options, plan.toStrokeMap());
     config =
-        syncActiveProfileFromCurrent(client.options, activeProfileId, plan.changedBindingIds());
+        syncProfileFromCurrent(
+            client.options,
+            activeProfileId,
+            Collections.<String>emptySet(),
+            plan.changedBindingIds());
     save(client);
     return undoState;
+  }
+
+  public boolean syncActiveProfileFromCurrentManual(MinecraftClient client) throws IOException {
+    ensureLoaded(client);
+
+    String activeProfileId = config.getActiveProfileId();
+    KeysetProfile activeProfile = requireProfile(config, activeProfileId);
+    Map<String, KeysetBindingSnapshot> currentSnapshots = captureSnapshots(client.options, false);
+    Set<String> manuallyChangedBindings = new HashSet<String>();
+    for (Map.Entry<String, KeysetBindingSnapshot> entry : currentSnapshots.entrySet()) {
+      KeysetBindingSnapshot previousSnapshot = activeProfile.getBindings().get(entry.getKey());
+      if (previousSnapshot == null
+          || !previousSnapshot.getKeyStroke().equals(entry.getValue().getKeyStroke())) {
+        manuallyChangedBindings.add(entry.getKey());
+      }
+    }
+
+    if (manuallyChangedBindings.isEmpty()) {
+      return false;
+    }
+
+    config =
+        syncProfileFromCurrent(
+            client.options,
+            activeProfileId,
+            manuallyChangedBindings,
+            Collections.<String>emptySet());
+    save(client);
+    return true;
   }
 
   public void undoAutoResolve(MinecraftClient client, UndoState undoState) throws IOException {
@@ -346,8 +395,11 @@ public final class KeysetFabricService {
     return seededConfig;
   }
 
-  private KeysetProfilesConfig syncActiveProfileFromCurrent(
-      GameOptions options, String profileId, Set<String> changedBindings) {
+  private KeysetProfilesConfig syncProfileFromCurrent(
+      GameOptions options,
+      String profileId,
+      Set<String> stickyBindings,
+      Set<String> nonStickyBindings) {
     KeysetProfile previousProfile = requireProfile(config, profileId);
     Map<String, KeysetBindingSnapshot> currentSnapshots = captureSnapshots(options, false);
     Map<String, KeysetBindingSnapshot> mergedSnapshots =
@@ -355,10 +407,13 @@ public final class KeysetFabricService {
 
     for (Map.Entry<String, KeysetBindingSnapshot> entry : currentSnapshots.entrySet()) {
       KeysetBindingSnapshot previousSnapshot = previousProfile.getBindings().get(entry.getKey());
-      boolean sticky =
-          previousSnapshot != null
-              && previousSnapshot.isSticky()
-              && !changedBindings.contains(entry.getKey());
+      boolean sticky = previousSnapshot != null && previousSnapshot.isSticky();
+      if (nonStickyBindings.contains(entry.getKey())) {
+        sticky = false;
+      }
+      if (stickyBindings.contains(entry.getKey())) {
+        sticky = true;
+      }
       mergedSnapshots.put(
           entry.getKey(), new KeysetBindingSnapshot(entry.getValue().getKeyStroke(), sticky));
     }
@@ -488,6 +543,15 @@ public final class KeysetFabricService {
 
   private static String keyDisplayName(KeysetKeyStroke keyStroke) {
     return toInputKey(keyStroke).getLocalizedText().getString();
+  }
+
+  private static KeyBinding requireLiveBinding(GameOptions options, String bindingId) {
+    for (KeyBinding binding : options.allKeys) {
+      if (binding.getTranslationKey().equals(bindingId)) {
+        return binding;
+      }
+    }
+    throw new IllegalArgumentException("Unknown live keybind: " + bindingId);
   }
 
   private static Set<String> stickyBindings(KeysetProfile profile) {
