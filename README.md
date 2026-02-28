@@ -14,7 +14,7 @@ Keybind profiles and conflict resolution for Minecraft (client-side).
 | --- | --- | --- | --- | --- |
 | 1.16.5-1.18.x | Planned | Planned | N/A | Planned |
 | 1.19.x | Planned | Planned | N/A | Planned |
-| 1.20.1-1.20.2 | Scaffolded | Scaffolded | Scaffolded | Active range |
+| 1.20.1-1.20.2 | Playable on Fabric 1.20.1 | Scaffolded | Scaffolded | Vertical slice |
 | 1.20.3-1.20.6 | Planned | Planned | Planned | Planned |
 
 Current build validation target: Fabric 1.20.1.
@@ -33,7 +33,7 @@ This scaffold keeps feature logic out of loader modules and keeps version shims 
 2. Click the new "Keyset" button.
 3. Pick a profile or create one.
 4. Review conflicts grouped by key or by category, then use search to narrow the list.
-5. Apply fixes or use auto-resolve.
+5. Capture the current layout, export/import via clipboard, or preview and apply auto-resolve changes.
 
 ## Profile Rules
 - First-run config seeds four starter profiles: `Default`, `PvP`, `Building`, and `Tech`.
@@ -43,22 +43,22 @@ This scaffold keeps feature logic out of loader modules and keeps version shims 
 
 ## Auto-Resolve Rules (Safe Defaults)
 - Never changes critical vanilla binds by default (movement, inventory, chat, ESC, drop).
-- Prefers reassigning modded binds first.
-- Respects user-customized binds unless explicitly allowed.
-- Prefers unused keys before modifier combos.
-- Uses modifiers in order: Shift, Ctrl, Alt.
-- Avoids hard-to-reach keys unless no alternatives.
+- Respects user-customized binds that were explicitly captured into the active profile.
+- Prefers reassigning less-protected conflicts before sticky or protected binds.
+- Current Fabric 1.20.1 runtime prefers unused plain keys from a conservative fallback pool.
+- Avoids overwriting existing non-conflicting assignments.
 - Deterministic: same input => same output.
 
 ## Export / Import
-- Export profiles to JSON.
-- Import JSON and merge or add as new profiles with collision handling.
-- Clipboard import/export is supported when feasible.
+- Export the selected profile to JSON on the clipboard.
+- Import profile JSON from the clipboard and merge it into the current config with collision-safe renaming.
+- Empty or invalid clipboard payloads are rejected instead of silently seeding defaults.
 
 ## Conflict View Rules
 - Conflict grouping supports both assigned-key clusters and category-based views.
 - Grouping uses stable internal binding/category ids while still exposing display names for UI.
 - Search can match key labels, binding names, category names, and internal ids.
+- The current Fabric screen caches the conflict report and only reruns shared conflict analysis after state-changing actions.
 
 ## Config
 - Stored at `config/keybindprofiles.json` with schema versioning.
