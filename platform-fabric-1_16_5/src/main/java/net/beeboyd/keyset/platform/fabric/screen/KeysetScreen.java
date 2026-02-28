@@ -32,7 +32,7 @@ public final class KeysetScreen extends Screen {
   private static final int PANEL_PADDING = 12;
   private static final int PANEL_GAP = 8;
   private static final int ROW_GAP = 4;
-  private static final int BUTTON_HEIGHT = 20;
+  private static final int BUTTON_HEIGHT = 18;
   private static final int STATUS_SUCCESS_COLOR = 0x8FD98F;
   private static final int STATUS_ERROR_COLOR = 0xFF9A8A;
   private static final int PANEL_FILL = 0xA0141820;
@@ -60,6 +60,7 @@ public final class KeysetScreen extends Screen {
   private int mainWidth;
   private int mainInnerX;
   private int mainInnerWidth;
+  private int panelBottom;
   private int detailY;
   private int detailHeight;
   private int listTop;
@@ -108,21 +109,22 @@ public final class KeysetScreen extends Screen {
     computeLayout();
 
     int halfSidebarButtonWidth = (sidebarInnerWidth - ROW_GAP) / 2;
-    int searchWidth = mainInnerWidth - 112;
-    int sidebarFieldY = sidebarY + 20;
-    int sidebarRow1Y = sidebarY + 44;
-    int sidebarRow2Y = sidebarY + 66;
-    int sidebarRow3Y = sidebarY + 88;
-    int sidebarRow4Y = sidebarY + 110;
-    int sidebarRow5Y = sidebarY + 132;
-    int sidebarRow6Y = sidebarY + 154;
+    int searchWidth = mainInnerWidth - 84;
+    int searchY = mainY + 24;
+    int sidebarFieldY = sidebarY + 42;
+    int sidebarRow1Y = sidebarY + 64;
+    int sidebarRow2Y = sidebarRow1Y + BUTTON_HEIGHT + ROW_GAP;
+    int sidebarRow3Y = sidebarRow2Y + BUTTON_HEIGHT + ROW_GAP;
+    int sidebarRow4Y = sidebarRow3Y + BUTTON_HEIGHT + ROW_GAP;
+    int sidebarRow5Y = sidebarRow4Y + BUTTON_HEIGHT + ROW_GAP;
+    int footerButtonWidth = (width - (PANEL_PADDING * 2) - (ROW_GAP * 3)) / 4;
 
     searchField =
         addButton(
             new TextFieldWidget(
                 textRenderer,
                 mainInnerX,
-                mainY + 24,
+                searchY,
                 searchWidth,
                 BUTTON_HEIGHT,
                 translatable("keyset.search")));
@@ -139,8 +141,8 @@ public final class KeysetScreen extends Screen {
         addButton(
             new ButtonWidget(
                 mainInnerX + searchWidth + ROW_GAP,
-                mainY + 24,
-                108,
+                searchY,
+                80,
                 BUTTON_HEIGHT,
                 translatable("keyset.group.by_key"),
                 button -> toggleGroupMode()));
@@ -250,27 +252,27 @@ public final class KeysetScreen extends Screen {
         addButton(
             button(
                 "keyset.resolve.preview",
-                sidebarInnerX,
-                sidebarRow6Y,
-                halfSidebarButtonWidth,
+                PANEL_PADDING,
+                footerY,
+                footerButtonWidth,
                 button -> previewResolve(),
                 "keyset.tip.resolve_preview"));
     applyPreviewButton =
         addButton(
             button(
                 "keyset.resolve.apply",
-                sidebarInnerX + halfSidebarButtonWidth + ROW_GAP,
-                sidebarRow6Y,
-                halfSidebarButtonWidth,
+                PANEL_PADDING + footerButtonWidth + ROW_GAP,
+                footerY,
+                footerButtonWidth,
                 button -> applyPreview(),
                 "keyset.tip.resolve_apply"));
     undoButton =
         addButton(
             button(
                 "keyset.resolve.undo",
-                width - PANEL_PADDING - 200,
+                PANEL_PADDING + (footerButtonWidth + ROW_GAP) * 2,
                 footerY,
-                108,
+                footerButtonWidth,
                 button -> undoResolve(),
                 "keyset.tip.resolve_undo"));
 
@@ -280,7 +282,7 @@ public final class KeysetScreen extends Screen {
             button(
                 "keyset.binding.jump",
                 mainInnerX,
-                detailY + detailHeight - 26,
+                detailY + detailHeight - BUTTON_HEIGHT - 4,
                 detailButtonWidth,
                 button -> jumpToBinding(),
                 "keyset.tip.binding_jump"));
@@ -289,7 +291,7 @@ public final class KeysetScreen extends Screen {
             button(
                 "keyset.binding.clear",
                 mainInnerX + detailButtonWidth + ROW_GAP,
-                detailY + detailHeight - 26,
+                detailY + detailHeight - BUTTON_HEIGHT - 4,
                 detailButtonWidth,
                 button -> clearSelectedBinding(),
                 "keyset.tip.binding_clear"));
@@ -298,7 +300,7 @@ public final class KeysetScreen extends Screen {
             button(
                 "keyset.binding.reassign",
                 mainInnerX + (detailButtonWidth + ROW_GAP) * 2,
-                detailY + detailHeight - 26,
+                detailY + detailHeight - BUTTON_HEIGHT - 4,
                 detailButtonWidth,
                 button -> reassignSelectedBinding(),
                 "keyset.tip.binding_reassign"));
@@ -306,9 +308,9 @@ public final class KeysetScreen extends Screen {
     addButton(
         button(
             "gui.done",
-            width - PANEL_PADDING - 88,
+            PANEL_PADDING + (footerButtonWidth + ROW_GAP) * 3,
             footerY,
-            88,
+            footerButtonWidth,
             button -> onClose(),
             "keyset.tip.done"));
 
@@ -358,15 +360,15 @@ public final class KeysetScreen extends Screen {
 
   private void computeLayout() {
     int availableWidth = width - PANEL_PADDING * 2;
-    int proposedSidebarWidth = Math.max(182, Math.min(206, availableWidth / 3));
-    int minimumMainWidth = 276;
+    int proposedSidebarWidth = Math.max(176, Math.min(208, availableWidth / 3));
+    int minimumMainWidth = 230;
     if (availableWidth - proposedSidebarWidth - PANEL_GAP < minimumMainWidth) {
-      proposedSidebarWidth = Math.max(170, availableWidth - minimumMainWidth - PANEL_GAP);
+      proposedSidebarWidth = Math.max(168, availableWidth - minimumMainWidth - PANEL_GAP);
     }
 
-    compactLayout = height < 300;
+    compactLayout = height < 260;
     sidebarX = PANEL_PADDING;
-    sidebarY = compactLayout ? 34 : 42;
+    sidebarY = compactLayout ? 28 : 30;
     sidebarWidth = proposedSidebarWidth;
     sidebarInnerX = sidebarX + 10;
     sidebarInnerWidth = sidebarWidth - 20;
@@ -378,14 +380,11 @@ public final class KeysetScreen extends Screen {
     mainInnerWidth = mainWidth - 20;
 
     footerY = height - PANEL_PADDING - BUTTON_HEIGHT;
-    listBottom = footerY - 8;
-    detailY = mainY + (compactLayout ? 50 : 56);
-    int preferredDetailHeight = compactLayout ? 60 : 96;
-    int minDetailHeight = compactLayout ? 54 : 78;
-    int minListHeight = compactLayout ? 52 : 88;
-    int maxDetailHeight = Math.max(minDetailHeight, listBottom - detailY - minListHeight - 10);
-    detailHeight = Math.min(preferredDetailHeight, maxDetailHeight);
-    listTop = detailY + detailHeight + 10;
+    panelBottom = footerY - 6;
+    detailHeight = compactLayout ? 38 : 40;
+    detailY = panelBottom - detailHeight - 8;
+    listTop = mainY + 52;
+    listBottom = detailY - 8;
   }
 
   private ButtonWidget button(
@@ -416,12 +415,12 @@ public final class KeysetScreen extends Screen {
   }
 
   private void drawShell(MatrixStack matrices) {
-    drawFrame(matrices, sidebarX, sidebarY, sidebarWidth, footerY - sidebarY - 8);
-    drawFrame(matrices, mainX, mainY, mainWidth, listBottom - mainY + 8);
+    drawFrame(matrices, sidebarX, sidebarY, sidebarWidth, panelBottom - sidebarY);
+    drawFrame(matrices, mainX, mainY, mainWidth, panelBottom - mainY);
+    drawFrame(matrices, mainInnerX, listTop - 4, mainInnerWidth, listBottom - listTop + 8);
     drawFrame(matrices, mainInnerX, detailY, mainInnerWidth, detailHeight);
 
-    drawCenteredText(matrices, title, width / 2, 10, 0xFFFFFF);
-    drawCenteredText(matrices, translatable("keyset.subtitle"), width / 2, 22, MUTED_COLOR);
+    drawCenteredTextWithShadow(matrices, title.asOrderedText(), width / 2, 10, 0xFFFFFF);
 
     drawSidebar(matrices);
     drawMainPane(matrices);
@@ -432,9 +431,9 @@ public final class KeysetScreen extends Screen {
     drawSectionTitle(matrices, "keyset.section.profile", sidebarInnerX, sidebarY + 10);
     drawChip(
         matrices,
-        sidebarInnerX + 92,
-        sidebarY + 8,
-        sidebarInnerWidth - 92,
+        sidebarInnerX,
+        sidebarY + 22,
+        sidebarInnerWidth,
         config != null
                 && selectedProfileId != null
                 && selectedProfileId.equals(config.getActiveProfileId())
@@ -443,25 +442,6 @@ public final class KeysetScreen extends Screen {
         config != null
             && selectedProfileId != null
             && selectedProfileId.equals(config.getActiveProfileId()));
-    drawSectionTitle(matrices, "keyset.section.transfer", sidebarInnerX, sidebarY + 122);
-    drawSectionTitle(matrices, "keyset.section.resolve", sidebarInnerX, sidebarY + 144);
-    if (!compactLayout) {
-      drawSectionTitle(matrices, "keyset.section.help", sidebarInnerX, sidebarY + 180);
-      drawWrappedText(
-          matrices,
-          translatable("keyset.help.steps"),
-          sidebarInnerX,
-          sidebarY + 194,
-          sidebarInnerWidth,
-          BODY_COLOR);
-      drawWrappedText(
-          matrices,
-          translatable("keyset.help.active_profile"),
-          sidebarInnerX,
-          sidebarY + 230,
-          sidebarInnerWidth,
-          MUTED_COLOR);
-    }
   }
 
   private void renderHoveredTooltip(MatrixStack matrices, int mouseX, int mouseY) {
@@ -531,48 +511,36 @@ public final class KeysetScreen extends Screen {
   private void drawSelectionPanel(MatrixStack matrices) {
     Text titleText;
     Text bodyText;
-    Text chipText;
-    boolean chipActive;
 
     if (previewPlan != null) {
       titleText = translatable("keyset.selection.preview_title");
       bodyText = translatable("keyset.selection.preview_body");
-      chipText = translatable("keyset.selection.preview_chip");
-      chipActive = false;
     } else if (selectedBinding == null) {
       titleText = translatable("keyset.selection.none_title");
       bodyText = translatable("keyset.selection.none_body");
-      chipText = translatable("keyset.selection.none_chip");
-      chipActive = false;
     } else {
       titleText = literal(selectedBinding.getDisplayName());
-      bodyText =
-          translatable(
-              selectedProfileId != null
-                      && config != null
-                      && selectedProfileId.equals(config.getActiveProfileId())
-                  ? "keyset.selection.binding_body_active"
-                  : "keyset.selection.binding_body_inactive",
-              selectedBinding.getCategoryName(),
-              selectedBinding.getKeyDisplayName(),
-              config == null ? "" : config.getProfile(config.getActiveProfileId()).getName());
-      chipText =
-          translatable(
-              selectedProfileId != null
-                      && config != null
-                      && selectedProfileId.equals(config.getActiveProfileId())
-                  ? "keyset.selection.active_chip"
-                  : "keyset.selection.inactive_chip");
-      chipActive =
+      boolean activeSelection =
           selectedProfileId != null
               && config != null
               && selectedProfileId.equals(config.getActiveProfileId());
+      bodyText =
+          activeSelection
+              ? translatable(
+                  "keyset.selection.binding_body_active",
+                  selectedBinding.getCategoryName(),
+                  selectedBinding.getKeyDisplayName())
+              : translatable(
+                  "keyset.selection.binding_body_inactive",
+                  config == null || selectedProfileId == null
+                      ? ""
+                      : config.getProfile(selectedProfileId).getName());
     }
 
-    drawTextWithShadow(matrices, textRenderer, titleText, mainInnerX + 10, detailY + 10, 0xF2F5F8);
-    drawChip(matrices, mainInnerX + 10, detailY + 24, 126, chipText, chipActive);
-    drawWrappedText(
-        matrices, bodyText, mainInnerX + 10, detailY + 42, mainInnerWidth - 20, BODY_COLOR);
+    drawTrimmedText(
+        matrices, titleText, mainInnerX + 8, detailY + 6, mainInnerWidth - 16, 0xF2F5F8);
+    drawTrimmedText(
+        matrices, bodyText, mainInnerX + 8, detailY + 16, mainInnerWidth - 16, BODY_COLOR);
   }
 
   private void drawFooter(MatrixStack matrices) {
@@ -582,8 +550,12 @@ public final class KeysetScreen extends Screen {
             ? MUTED_COLOR
             : errorStatus ? STATUS_ERROR_COLOR : STATUS_SUCCESS_COLOR;
 
-    drawTextWithShadow(
-        matrices, textRenderer, literal(footerMessage), PANEL_PADDING, footerY + 6, color);
+    drawCenteredTextWithShadow(
+        matrices,
+        literal(ellipsize(footerMessage, width - (PANEL_PADDING * 2))).asOrderedText(),
+        width / 2,
+        22,
+        color);
   }
 
   private String buildDefaultFooterMessage() {
@@ -605,9 +577,10 @@ public final class KeysetScreen extends Screen {
   }
 
   private void drawEmptyState(MatrixStack matrices, int y) {
-    drawCenteredText(matrices, emptyStateTitle, mainX + (mainWidth / 2), y, 0xF2F5F8);
+    drawCenteredTextWithShadow(
+        matrices, emptyStateTitle.asOrderedText(), mainInnerX + (mainInnerWidth / 2), y, 0xF2F5F8);
     drawWrappedText(
-        matrices, emptyStateBody, mainInnerX + 26, y + 14, mainInnerWidth - 52, MUTED_COLOR);
+        matrices, emptyStateBody, mainInnerX + 20, y + 14, mainInnerWidth - 40, MUTED_COLOR);
   }
 
   private void drawSectionTitle(MatrixStack matrices, String key, int x, int y) {
@@ -622,21 +595,45 @@ public final class KeysetScreen extends Screen {
   private void drawChip(MatrixStack matrices, int x, int y, int width, Text text, boolean active) {
     fill(matrices, x, y, x + width, y + 14, active ? CHIP_ACTIVE_FILL : CHIP_FILL);
     drawBorderBox(matrices, x, y, width, 14, active ? CHIP_ACTIVE_BORDER : CHIP_BORDER);
-    drawCenteredText(matrices, text, x + (width / 2), y + 3, 0xF2F5F8);
+    drawCenteredTextWithShadow(matrices, text.asOrderedText(), x + (width / 2), y + 3, 0xF2F5F8);
+  }
+
+  private void drawTrimmedText(
+      MatrixStack matrices, Text text, int x, int y, int maxWidth, int color) {
+    drawTextWithShadow(
+        matrices, textRenderer, literal(ellipsize(text.getString(), maxWidth)), x, y, color);
+  }
+
+  private String ellipsize(String value, int maxWidth) {
+    if (value == null || textRenderer.getWidth(value) <= maxWidth) {
+      return value == null ? "" : value;
+    }
+
+    String ellipsis = "...";
+    String candidate = value;
+    while (!candidate.isEmpty() && textRenderer.getWidth(candidate + ellipsis) > maxWidth) {
+      candidate = candidate.substring(0, candidate.length() - 1);
+    }
+    return candidate + ellipsis;
   }
 
   private void drawWrappedText(
       MatrixStack matrices, Text text, int x, int y, int maxWidth, int color) {
     int lineY = y;
     for (OrderedText line : textRenderer.wrapLines(text, maxWidth)) {
-      textRenderer.drawWithShadow(matrices, line, x, lineY, color);
+      drawWithShadow(matrices, line, x, lineY, color);
       lineY += textRenderer.fontHeight + 2;
     }
   }
 
-  private void drawCenteredText(MatrixStack matrices, Text text, int centerX, int y, int color) {
-    int textX = centerX - (textRenderer.getWidth(text) / 2);
-    textRenderer.drawWithShadow(matrices, text, textX, y, color);
+  private void drawCenteredTextWithShadow(
+      MatrixStack matrices, OrderedText text, int centerX, int y, int color) {
+    float drawX = centerX - (textRenderer.getWidth(text) / 2.0F);
+    textRenderer.drawWithShadow(matrices, text, drawX, y, color);
+  }
+
+  private void drawWithShadow(MatrixStack matrices, OrderedText text, int x, int y, int color) {
+    textRenderer.drawWithShadow(matrices, text, x, y, color);
   }
 
   private void drawBorderBox(MatrixStack matrices, int x, int y, int width, int height, int color) {

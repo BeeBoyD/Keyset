@@ -28,6 +28,7 @@
 - The Fabric UI now adapts better to short screens by shrinking the detail card, preserving the conflict list, and moving more guidance into contextual copy and hover tooltips.
 - Documented the per-range Java toolchain strategy, including the Java 17 Loom dev-launch requirement for `1.16.5` and `1.17.1`.
 - Updated the README to list the exact Fabric versions that now compile and dev-launch cleanly.
+- Unified the Fabric Keyset screen layout across every currently wired Fabric leaf so the compact two-pane flow, footer actions, and selection summary behave consistently from `1.16.5` through `1.21.11`.
 
 ### Fixed
 - Core JUnit tests now run correctly under the newer Gradle wrapper by including the JUnit Platform launcher at runtime.
@@ -35,3 +36,4 @@
 - Fixed legacy Fabric metadata so `1.16.5` and `1.17.1` depend on the correct aggregator mod id (`fabric`) instead of the newer `fabric-api` id.
 - Fixed Fabric version-leaf wiring so `1.19.2`, `1.20.4`, `1.21.1`, `1.21.4`, and `1.21.9` all use the correct screen/input/keybinding APIs for their exact Minecraft versions.
 - Fixed the Fabric screen UX on both legacy and modern versions with contextual footer help, more actionable tooltips, and clearer conflict summary text.
+- Fixed overlapping and clipped controls on the Fabric Keyset screen across legacy and modern versions by moving auto-fix actions into a shared footer row, trimming verbose copy, and preserving list space on short windows.

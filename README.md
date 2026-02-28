@@ -85,6 +85,7 @@ This keeps feature logic out of loader modules and isolates version shims so lat
 - The current Fabric screen caches the conflict report and only reruns shared conflict analysis after state-changing actions.
 - Binding quick actions operate on the active profile and sync manual edits made in the vanilla keybind editor back into `keybindprofiles.json`.
 - Legacy and modern Fabric screens both expose contextual tooltips, visible conflict counters, and footer guidance so inactive-profile actions are easier to understand.
+- Legacy and modern Fabric screens now share the same compact action-row layout so buttons, help text, and selection details stay readable on short or scaled windows instead of overlapping.
 
 ## Config
 - Stored at `config/keybindprofiles.json` with schema versioning.
