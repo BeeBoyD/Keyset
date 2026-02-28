@@ -2,7 +2,7 @@ plugins {
     id "architectury-plugin" version "3.4.162" apply false
     id "base"
     id "com.diffplug.spotless" version "6.25.0" apply false
-    id "dev.architectury.loom" version "1.13.460" apply false
+    id "dev.architectury.loom" version "1.13.467" apply false
     id "fabric-loom" version "1.15.4" apply false
 }
 
@@ -78,29 +78,40 @@ subprojects {
     }
 }
 
-def releaseLeafProjects = [
-    ":platform-fabric-1_16_5",
-    ":platform-fabric-1_17_1",
-    ":platform-fabric-1_18_2",
-    ":platform-fabric-1_19_2",
-    ":platform-fabric-1_19_4",
-    ":platform-fabric-1_20_1",
-    ":platform-fabric-1_20_4",
-    ":platform-fabric-1_20_6",
-    ":platform-fabric-1_21_1",
-    ":platform-fabric-1_21_4",
-    ":platform-fabric-1_21_9",
-    ":platform-fabric-1_21_11",
-    ":platform-forge-1_16_5",
-    ":platform-forge-1_17_1",
-    ":platform-forge-1_18_2",
-    ":platform-forge-1_19_2",
-    ":platform-forge-1_19_4",
-    ":platform-forge-1_20_1",
-    ":platform-forge-1_20_4",
-    ":platform-neoforge-1_20_1",
-    ":platform-neoforge-1_20_4"
+def releaseProjectsByLoader = [
+    fabric   : [
+        ":platform-fabric-1_16_5",
+        ":platform-fabric-1_17_1",
+        ":platform-fabric-1_18_2",
+        ":platform-fabric-1_19_2",
+        ":platform-fabric-1_19_4",
+        ":platform-fabric-1_20_1",
+        ":platform-fabric-1_20_4",
+        ":platform-fabric-1_20_6",
+        ":platform-fabric-1_21_1",
+        ":platform-fabric-1_21_4",
+        ":platform-fabric-1_21_9",
+        ":platform-fabric-1_21_11"
+    ],
+    forge    : [
+        ":platform-forge-1_16_5",
+        ":platform-forge-1_17_1",
+        ":platform-forge-1_18_2",
+        ":platform-forge-1_19_2",
+        ":platform-forge-1_19_4",
+        ":platform-forge-1_20_1",
+        ":platform-forge-1_20_4",
+        ":platform-forge-1_20_6",
+        ":platform-forge-1_21_1",
+        ":platform-forge-1_21_4"
+    ],
+    neoforge : [
+        ":platform-neoforge-1_20_1",
+        ":platform-neoforge-1_20_4"
+    ]
 ]
+
+def releaseLeafProjects = releaseProjectsByLoader.values().flatten()
 
 def releaseArtifactLabels = [
     "platform-fabric-1_16_5"   : "fabric-1.16.5",
@@ -122,6 +133,9 @@ def releaseArtifactLabels = [
     "platform-forge-1_19_4"    : "forge-1.19.4",
     "platform-forge-1_20_1"    : "forge-1.20.1-1.20.2",
     "platform-forge-1_20_4"    : "forge-1.20.4",
+    "platform-forge-1_20_6"    : "forge-1.20.3-1.20.6",
+    "platform-forge-1_21_1"    : "forge-1.21.1",
+    "platform-forge-1_21_4"    : "forge-1.21.4",
     "platform-neoforge-1_20_1" : "neoforge-1.20.1-1.20.2",
     "platform-neoforge-1_20_4" : "neoforge-1.20.4"
 ]
@@ -162,18 +176,30 @@ tasks.register("buildFabricTargets") {
 
 tasks.register("buildTargetJars") {
     group = "build"
-    description = "Builds and collects the current release jars into build/artifacts."
+    description = "Builds and collects the current release jars into builtJars/<loader>."
     dependsOn("collectTargetJars")
 }
 
-tasks.register("collectTargetJars", Sync) {
+releaseProjectsByLoader.each { loader, projectPaths ->
+    tasks.register("collect${loader.capitalize()}Jars", Sync) {
+        group = "build"
+        description = "Copies the current remapped ${loader} jars into builtJars/${loader}."
+        dependsOn(projectPaths.collect { "${it}:remapJar" })
+        into(layout.projectDirectory.dir("builtJars/${loader}"))
+        from(projectPaths.collect { projectPath ->
+            project(projectPath).tasks.named("remapJar").flatMap { it.archiveFile }
+        })
+    }
+}
+
+tasks.register("collectTargetJars") {
     group = "build"
-    description = "Copies the current remapped loader jars into build/artifacts."
-    dependsOn(releaseLeafProjects.collect { "${it}:remapJar" })
-    into(layout.buildDirectory.dir("artifacts"))
-    from(releaseLeafProjects.collect { projectPath ->
-        project(projectPath).tasks.named("remapJar").flatMap { it.archiveFile }
-    })
+    description = "Copies the current remapped loader jars into builtJars/<loader>."
+    dependsOn(
+        "collectFabricJars",
+        "collectForgeJars",
+        "collectNeoforgeJars"
+    )
 }
 
 tasks.register("buildAllJars") {
@@ -192,7 +218,10 @@ tasks.register("buildForgeTargets") {
         ":platform-forge-1_19_2:build",
         ":platform-forge-1_19_4:build",
         ":platform-forge-1_20_1:build",
-        ":platform-forge-1_20_4:build"
+        ":platform-forge-1_20_4:build",
+        ":platform-forge-1_20_6:build",
+        ":platform-forge-1_21_1:build",
+        ":platform-forge-1_21_4:build"
     )
 }
 

@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Last updated: 2026-02-28 17:34 EET
+Last updated: 2026-02-28 18:07 EET
 
 ### Added
 
@@ -14,9 +14,10 @@ Last updated: 2026-02-28 17:34 EET
 - A playable Fabric UI flow with profile management, conflict browsing, direct bind actions, clipboard import/export, and safe auto-fix preview/apply/undo.
 - Exact Fabric leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, `1.19.2`, `1.19.4`, `1.20.1`, `1.20.4`, `1.20.6`, `1.21.1`, `1.21.4`, `1.21.9`, and `1.21.11`.
 - Forge leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, `1.19.2`, `1.19.4`, `1.20.1-1.20.2`, and `1.20.4`.
+- Forge leaf modules for `1.20.6`, `1.21.1`, and `1.21.4`.
 - NeoForge leaf modules for `1.20.1-1.20.2` and `1.20.4`.
 - A root `run-fabric.sh` helper that maps requested Fabric versions to the nearest supported dev-launch leaf.
-- A root `buildAllJars` alias and a collected `build/artifacts` output directory for the current remapped release jars.
+- A root `buildAllJars` alias and collected `builtJars/fabric`, `builtJars/forge`, and `builtJars/neoforge` output directories for the current remapped release jars.
 
 ### Changed
 
@@ -25,10 +26,13 @@ Last updated: 2026-02-28 17:34 EET
 - Synced manual edits made in the vanilla keybind screen back into the active Keyset profile as sticky user changes.
 - Iterated on the Fabric UI with a more compact layout, tooltips, profile state badges, contextual footer guidance, and selected-profile conflict previews.
 - Upgraded the modern Fabric build stack to Gradle `9.2.0` and Loom `1.15.4`.
+- Upgraded Architectury Loom from `1.13.460` to `1.13.467` while expanding the modern Forge build line.
 - Documented the per-range Java toolchain strategy and exact verified Fabric/Forge/NeoForge targets.
 - Refined the public README into a mod-page style overview with clearer setup, behavior, and development sections.
 - Reorganized the repo root so shared code now lives under `modules/` and loader leaves live under `platforms/`, which makes the multiloader layout easier to scan and maintain.
 - Standardized current release jar names so supported Minecraft ranges are visible directly in the artifact filename.
+- Moved release jar collection out of `build/artifacts` and into root-level `builtJars/<loader>` folders.
+- Documented the current upstream Yarn remap blockers for NeoForge `1.20.6+` and Forge `1.21.11`.
 
 ### Fixed
 
@@ -46,6 +50,7 @@ Last updated: 2026-02-28 17:34 EET
 - Fixed legacy Forge bootstrap shims for `1.17.1`, `1.18.2`, and `1.19.2`.
 - Fixed NeoForge bootstrap wiring for `1.20.1` and `1.20.4`.
 - Fixed NeoForge `1.20.4` metadata so the dev runtime uses the correct `mods.toml` format and loader range.
+- Fixed modern Forge pack metadata for `1.20.6`, `1.21.1`, and `1.21.4` so those new leaves ship valid resource-pack metadata with the correct pack formats.
 
 ## v0.1.0 - TBD
 
