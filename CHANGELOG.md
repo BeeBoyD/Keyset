@@ -16,6 +16,8 @@
 - Legacy Fabric leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, and `1.19.x`, backed by dedicated `common-v1_16_5-to-v1_18_x` and `common-v1_19_x` shims.
 - Exact Fabric leaf modules for `1.19.2`, `1.20.4`, `1.21.1`, `1.21.4`, and `1.21.9`, so the current Fabric matrix can be verified against real API breakpoints instead of optimistic shared ranges.
 - A root `run-fabric.sh` helper that maps requested Fabric Minecraft versions to the correct dev-launch leaf module.
+- Forge leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, `1.19.2`, `1.19.4`, `1.20.1-1.20.2`, and `1.20.4`, all sharing the existing core and version-range shims.
+- NeoForge leaf modules for `1.20.1-1.20.2` and `1.20.4`, using the same shared core and version-range shims as the Fabric and Forge targets.
 
 ### Changed
 - Defined the support matrix and documented the multi-loader architecture in the README.
@@ -32,6 +34,8 @@
 - Unified the Fabric Keyset screen layout across every currently wired Fabric leaf so the compact two-pane flow, footer actions, and selection summary behave consistently from `1.16.5` through `1.21.11`.
 - Tuned the Fabric selection card layout across all wired leaves so helper text wraps inside the available space above the quick-action row instead of assuming a fixed one-line height.
 - Tightened the visible Fabric copy and status banner so higher GUI scales no longer rely on long instructional sentences that overflow the top bar or detail card.
+- Expanded the documented loader matrix to reflect the currently wired Forge and NeoForge targets, including which leaves are build-verified versus dev-launched in the current environment.
+- Forge and NeoForge `mods.toml` expansion now tracks all substituted properties as Gradle inputs so loader metadata changes cannot be hidden by stale cached resources.
 
 ### Fixed
 - Core JUnit tests now run correctly under the newer Gradle wrapper by including the JUnit Platform launcher at runtime.
@@ -49,3 +53,7 @@
 - Fixed Fabric UI fitting across every wired leaf so profile badges, selection copy, header summaries, and conflict-row labels are trimmed to the available panel width instead of overflowing or disappearing at larger GUI scales.
 - Fixed modern Fabric custom text rendering so badges, headers, empty states, conflict rows, and rebind helper text use opaque colors and no longer appear as blank hit targets on `1.20.1+`.
 - Fixed the `1.21.11` conflict list renderer so modern row text uses entry geometry instead of the hover mouse coordinates, preventing conflict labels from drifting and overlapping while hovered.
+- Fixed core JSON parsing to stay compatible with the older Gson versions bundled by legacy Forge leaves.
+- Fixed the legacy Forge bootstrap shims for `1.17.1`, `1.18.2`, and `1.19.2` so the current loader APIs compile cleanly across those ranges.
+- Fixed NeoForge bootstrap wiring so `1.20.1` and `1.20.4` initialize from the root client mod instead of relying on the wrong `DistExecutor` path.
+- Fixed NeoForge `1.20.4` metadata so the dev runtime now uses `META-INF/mods.toml`, the newer dependency `type = "required"` field, and the correct `javafml` loader range.

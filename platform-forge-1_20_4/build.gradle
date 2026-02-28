@@ -11,7 +11,7 @@ java {
 }
 
 base {
-    archivesName = "keyset-forge-1.20.1-1.20.2"
+    archivesName = "keyset-forge-1.20.4"
 }
 
 loom {
@@ -32,21 +32,27 @@ sourceSets {
     main {
         java {
             srcDir(project(":core").file("src/main/java"))
-            srcDir(project(":common-v1_20_1-to-v1_20_2").file("src/main/java"))
-            srcDir(project(":platform-fabric-1_20_1").file("src/main/java"))
+            srcDir(project(":common-v1_20_3-to-v1_20_6").file("src/main/java"))
+            srcDir(project(":platform-forge-1_20_1").file("src/main/java"))
+            srcDir(project(":platform-fabric-1_20_4").file("src/main/java"))
             exclude("net/beeboyd/keyset/platform/fabric/KeysetFabricClient.java")
         }
         resources {
-            srcDir(project(":platform-fabric-1_20_1").file("src/main/resources"))
+            srcDir(project(":platform-forge-1_20_1").file("src/main/resources"))
+            srcDir(project(":platform-fabric-1_20_4").file("src/main/resources"))
             exclude("fabric.mod.json")
         }
     }
 }
 
+configurations.configureEach {
+    exclude(group: "net.fabricmc", module: "fabric-log4j-util")
+}
+
 dependencies {
-    minecraft "com.mojang:minecraft:${project.property('minecraftVersion_1_20_1')}"
-    mappings "net.fabricmc:yarn:${project.property('yarnMappings_1_20_1')}:v2"
-    forge "net.minecraftforge:forge:${project.property('forgeVersion_1_20_1')}"
+    minecraft "com.mojang:minecraft:${project.property('minecraftVersion_1_20_4')}"
+    mappings "net.fabricmc:yarn:${project.property('yarnMappings_1_20_4')}:v2"
+    forge "net.minecraftforge:forge:${project.property('forgeVersion_1_20_4')}"
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -65,8 +71,8 @@ processResources {
         modName: project.property("modName"),
         modVersion: project.version,
         modDescription: project.property("modDescription"),
-        minecraftVersion: project.property("supportedMinecraftRange_1_20_1"),
-        loaderVersion: "[47,)"
+        minecraftVersion: project.property("supportedMinecraftRange_1_20_4"),
+        loaderVersion: "[49,)"
     ]
     inputs.properties(expandProps)
     filesMatching("META-INF/mods.toml") {

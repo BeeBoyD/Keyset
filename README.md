@@ -14,15 +14,20 @@ Keybind profiles and conflict resolution for Minecraft (client-side).
 ## Supported Versions / Loaders
 | Minecraft | Fabric / Quilt | Forge | NeoForge | Status |
 | --- | --- | --- | --- | --- |
-| 1.16.5 | Supported | Planned | N/A | Wired |
-| 1.17.1 | Supported | Planned | N/A | Wired |
-| 1.18.2 | Supported | Planned | N/A | Wired |
-| 1.19.2-1.19.4 | Supported | Planned | N/A | Wired |
-| 1.20.1-1.20.2 | Supported | Scaffolded | Scaffolded | Wired |
-| 1.20.3-1.20.6 | Supported | Planned | Planned | Wired |
-| 1.21-1.21.11 | Supported | Planned | Planned | Wired |
+| 1.16.5 | Supported | Build-verified | N/A | Forge dev launch is currently blocked on the old Loom/Yarn runtime stack |
+| 1.17.1 | Supported | Build-verified | N/A | Forge dev launch is currently blocked on macOS by the old GLFW icon path |
+| 1.18.2 | Supported | Supported | N/A | Verified |
+| 1.19.2 | Supported | Supported | N/A | Verified |
+| 1.19.4 | Supported | Supported | N/A | Verified |
+| 1.20.1-1.20.2 | Supported | Supported | Supported | Verified |
+| 1.20.3-1.20.4 | Supported | Supported | Supported | Verified |
+| 1.20.5-1.20.6 | Supported | Planned | Planned | Fabric only today |
+| 1.21-1.21.11 | Supported | Planned | Planned | Fabric only today |
 
 Exact Fabric targets currently compiled and dev-launched: `1.16.5`, `1.17.1`, `1.18.2`, `1.19.2`, `1.19.4`, `1.20.1`, `1.20.4`, `1.20.6`, `1.21.1`, `1.21.4`, `1.21.9`, and `1.21.11`.
+Exact Forge targets currently compiled: `1.16.5`, `1.17.1`, `1.18.2`, `1.19.2`, `1.19.4`, `1.20.1`, and `1.20.4`.
+Exact Forge targets currently dev-launched in this environment: `1.18.2`, `1.19.2`, `1.19.4`, `1.20.1`, and `1.20.4`.
+Exact NeoForge targets currently compiled and dev-launched: `1.20.1` and `1.20.4`.
 
 ## Architecture
 - `core`: shared Java module for data models, JSON persistence, conflict detection, auto-resolve, and UI-facing contracts.
@@ -43,8 +48,15 @@ Exact Fabric targets currently compiled and dev-launched: `1.16.5`, `1.17.1`, `1
 - `platform-fabric-1_21_4`: Fabric target for `1.21.4`.
 - `platform-fabric-1_21_9`: Fabric target for `1.21.9`.
 - `platform-fabric-1_21_11`: Fabric target for `1.21.11`.
-- `platform-forge-1_20_1`: Forge placeholder module reserved for loader glue.
-- `platform-neoforge-1_20_1`: NeoForge placeholder module reserved for loader glue.
+- `platform-forge-1_16_5`: Forge target for `1.16.5`.
+- `platform-forge-1_17_1`: Forge target for `1.17.1`.
+- `platform-forge-1_18_2`: Forge target for `1.18.2`.
+- `platform-forge-1_19_2`: Forge target for `1.19.2`.
+- `platform-forge-1_19_4`: Forge target for `1.19.4`.
+- `platform-forge-1_20_1`: Forge target for `1.20.1-1.20.2`.
+- `platform-forge-1_20_4`: Forge target for `1.20.4`.
+- `platform-neoforge-1_20_1`: NeoForge target for `1.20.1-1.20.2`.
+- `platform-neoforge-1_20_4`: NeoForge target for `1.20.4`.
 
 This keeps feature logic out of loader modules and isolates version shims so later Minecraft bumps stay narrow. Legacy Fabric ranges keep their own small adapters instead of forcing the modern screen/input code to degrade across every target.
 
@@ -109,6 +121,8 @@ This keeps feature logic out of loader modules and isolates version shims so lat
 - `./gradlew build` builds every scaffolded module.
 - `./gradlew buildRepresentativeTarget` validates the latest wired Fabric target.
 - `./gradlew buildFabricTargets` validates every wired Fabric leaf target.
+- `./gradlew buildForgeTargets` validates every wired Forge leaf target.
+- `./gradlew buildNeoForgeTargets` validates every wired NeoForge leaf target.
 - `./gradlew buildTargetJars` produces the currently wired jar outputs.
 - `./gradlew verifyWorkspace` runs formatting and checks.
 - `./run-fabric.sh 1.21.3` resolves a requested Fabric Minecraft version to the nearest supported leaf module and launches its `runClient` task.
