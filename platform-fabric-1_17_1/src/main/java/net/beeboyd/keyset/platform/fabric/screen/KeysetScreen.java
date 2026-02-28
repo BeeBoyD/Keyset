@@ -46,6 +46,7 @@ public final class KeysetScreen extends Screen {
   private static final int SECTION_TITLE_COLOR = 0xE8D7A0;
   private static final int BODY_COLOR = 0xD8DEE7;
   private static final int MUTED_COLOR = 0xA9B8C9;
+  private static final int SCREEN_BACKDROP = 0xB010141A;
 
   private final Screen parent;
   private final KeysetFabricService service;
@@ -118,6 +119,7 @@ public final class KeysetScreen extends Screen {
     int sidebarRow4Y = sidebarRow3Y + BUTTON_HEIGHT + ROW_GAP;
     int sidebarRow5Y = sidebarRow4Y + BUTTON_HEIGHT + ROW_GAP;
     int footerButtonWidth = (width - (PANEL_PADDING * 2) - (ROW_GAP * 3)) / 4;
+    int detailActionsY = detailActionY();
 
     searchField =
         addDrawableChild(
@@ -282,7 +284,7 @@ public final class KeysetScreen extends Screen {
             button(
                 "keyset.binding.jump",
                 mainInnerX,
-                detailY + detailHeight - BUTTON_HEIGHT - 4,
+                detailActionsY,
                 detailButtonWidth,
                 button -> jumpToBinding(),
                 "keyset.tip.binding_jump"));
@@ -291,7 +293,7 @@ public final class KeysetScreen extends Screen {
             button(
                 "keyset.binding.clear",
                 mainInnerX + detailButtonWidth + ROW_GAP,
-                detailY + detailHeight - BUTTON_HEIGHT - 4,
+                detailActionsY,
                 detailButtonWidth,
                 button -> clearSelectedBinding(),
                 "keyset.tip.binding_clear"));
@@ -300,7 +302,7 @@ public final class KeysetScreen extends Screen {
             button(
                 "keyset.binding.reassign",
                 mainInnerX + (detailButtonWidth + ROW_GAP) * 2,
-                detailY + detailHeight - BUTTON_HEIGHT - 4,
+                detailActionsY,
                 detailButtonWidth,
                 button -> reassignSelectedBinding(),
                 "keyset.tip.binding_reassign"));
@@ -350,7 +352,7 @@ public final class KeysetScreen extends Screen {
 
   @Override
   public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
-    renderBackground(matrices);
+    drawBackdrop(matrices);
     drawShell(matrices);
     super.render(matrices, mouseX, mouseY, delta);
     drawForeground(matrices);
@@ -380,10 +382,14 @@ public final class KeysetScreen extends Screen {
 
     footerY = height - PANEL_PADDING - BUTTON_HEIGHT;
     panelBottom = footerY - 6;
-    detailHeight = compactLayout ? 38 : 40;
+    detailHeight = compactLayout ? 64 : 72;
     detailY = panelBottom - detailHeight - 8;
     listTop = mainY + 52;
     listBottom = detailY - 8;
+  }
+
+  private int detailActionY() {
+    return detailY + detailHeight - BUTTON_HEIGHT - 6;
   }
 
   private ButtonWidget button(
@@ -411,6 +417,10 @@ public final class KeysetScreen extends Screen {
       }
     }
     widgetTooltips.add(new WidgetTooltip(widget, tooltipText));
+  }
+
+  private void drawBackdrop(MatrixStack matrices) {
+    fill(matrices, 0, 0, width, height, SCREEN_BACKDROP);
   }
 
   private void drawShell(MatrixStack matrices) {
@@ -538,10 +548,12 @@ public final class KeysetScreen extends Screen {
                       : config.getProfile(selectedProfileId).getName());
     }
 
-    drawTrimmedText(
-        matrices, titleText, mainInnerX + 8, detailY + 6, mainInnerWidth - 16, 0xF2F5F8);
-    drawTrimmedText(
-        matrices, bodyText, mainInnerX + 8, detailY + 16, mainInnerWidth - 16, BODY_COLOR);
+    int textX = mainInnerX + 8;
+    int textWidth = mainInnerWidth - 16;
+    int bodyY = detailY + 20;
+    int bodyMaxHeight = Math.max(textRenderer.fontHeight, detailActionY() - bodyY - 6);
+    drawTrimmedText(matrices, titleText, textX, detailY + 6, textWidth, 0xF2F5F8);
+    drawWrappedTextBlock(matrices, bodyText, textX, bodyY, textWidth, bodyMaxHeight, BODY_COLOR);
   }
 
   private void drawFooter(MatrixStack matrices) {
@@ -631,6 +643,22 @@ public final class KeysetScreen extends Screen {
     for (OrderedText line : textRenderer.wrapLines(text, maxWidth)) {
       drawWithShadow(matrices, textRenderer, line, x, lineY, color);
       lineY += textRenderer.fontHeight + 2;
+    }
+  }
+
+  private void drawWrappedTextBlock(
+      MatrixStack matrices, Text text, int x, int y, int maxWidth, int maxHeight, int color) {
+    int lineHeight = textRenderer.fontHeight + 2;
+    int maxLines = Math.max(1, maxHeight / lineHeight);
+    int lineY = y;
+    int lineCount = 0;
+    for (OrderedText line : textRenderer.wrapLines(text, maxWidth)) {
+      if (lineCount >= maxLines) {
+        break;
+      }
+      drawWithShadow(matrices, textRenderer, line, x, lineY, color);
+      lineY += lineHeight;
+      lineCount++;
     }
   }
 

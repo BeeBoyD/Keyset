@@ -29,6 +29,7 @@
 - Documented the per-range Java toolchain strategy, including the Java 17 Loom dev-launch requirement for `1.16.5` and `1.17.1`.
 - Updated the README to list the exact Fabric versions that now compile and dev-launch cleanly.
 - Unified the Fabric Keyset screen layout across every currently wired Fabric leaf so the compact two-pane flow, footer actions, and selection summary behave consistently from `1.16.5` through `1.21.11`.
+- Tuned the Fabric selection card layout across all wired leaves so helper text wraps inside the available space above the quick-action row instead of assuming a fixed one-line height.
 
 ### Fixed
 - Core JUnit tests now run correctly under the newer Gradle wrapper by including the JUnit Platform launcher at runtime.
@@ -39,3 +40,5 @@
 - Fixed overlapping and clipped controls on the Fabric Keyset screen across legacy and modern versions by moving auto-fix actions into a shared footer row, trimming verbose copy, and preserving list space on short windows.
 - Fixed Fabric screen text layering so custom labels, summaries, and empty-state copy render above child widgets instead of disappearing on newer GUI implementations.
 - Fixed the injected `Keyset` button placement on the vanilla Controls screen by selecting a non-overlapping slot across old and new Fabric client layouts.
+- Fixed the remaining modern Fabric screen crash by replacing the Keyset background blur call with a custom shaded backdrop, avoiding `Can only blur once per frame` on newer Minecraft GUI renderers.
+- Fixed Fabric selection-panel copy overflowing into the `Find`, `Clear Key`, and `Rebind` row at larger GUI scales by growing the card and constraining wrapped text to the space above the buttons.

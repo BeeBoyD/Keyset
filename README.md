@@ -86,6 +86,7 @@ This keeps feature logic out of loader modules and isolates version shims so lat
 - Binding quick actions operate on the active profile and sync manual edits made in the vanilla keybind editor back into `keybindprofiles.json`.
 - Legacy and modern Fabric screens both expose contextual tooltips, visible conflict counters, and footer guidance so inactive-profile actions are easier to understand.
 - Legacy and modern Fabric screens now share the same compact action-row layout so buttons, help text, and selection details stay readable on short or scaled windows instead of overlapping.
+- The selection card now wraps its helper text to the space above the quick-action row, so higher GUI scales do not push text into the action buttons on legacy or modern Fabric leaves.
 - The injected `Keyset` button on the vanilla Controls screen now chooses a non-overlapping slot based on the existing vanilla widgets instead of assuming one fixed top-right position.
 
 ## Config
