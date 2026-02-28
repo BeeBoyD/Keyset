@@ -1,0 +1,16 @@
+plugins {
+    id "java-library"
+    id "com.diffplug.spotless"
+}
+
+base {
+    archivesName = "keyset-common-v1_20_3-to-v1_20_6"
+}
+
+dependencies {
+    api project(":core")
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 8
+}

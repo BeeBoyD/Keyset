@@ -4,7 +4,7 @@ plugins {
 }
 
 base {
-    archivesName = "keyset-fabric-1.20.1"
+    archivesName = "keyset-fabric-1.20.1-1.20.2"
 }
 
 dependencies {
@@ -28,7 +28,8 @@ processResources {
             modName: project.property("modName"),
             modVersion: project.version,
             modDescription: project.property("modDescription"),
-            minecraftVersion: project.property("minecraftVersion_1_20_1")
+            minecraftVersion: project.property("supportedMinecraftRange_1_20_1"),
+            javaVersion: "17"
         )
     }
 }

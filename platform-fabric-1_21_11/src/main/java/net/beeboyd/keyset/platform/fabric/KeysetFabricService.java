@@ -487,16 +487,14 @@ public final class KeysetFabricService {
         new ArrayList<KeysetBindingDescriptor>(options.allKeys.length);
     for (KeyBinding binding : options.allKeys) {
       KeysetBindingSnapshot snapshot =
-          profileOverride == null
-              ? null
-              : profileOverride.getBindings().get(binding.getTranslationKey());
+          profileOverride == null ? null : profileOverride.getBindings().get(binding.getId());
       KeysetKeyStroke keyStroke = snapshot == null ? toKeyStroke(binding) : snapshot.getKeyStroke();
       bindings.add(
           new KeysetBindingDescriptor(
-              binding.getTranslationKey(),
-              Text.translatable(binding.getTranslationKey()).getString(),
-              binding.getCategory(),
-              KeyBinding.getLocalizedName(binding.getCategory()).get().getString(),
+              binding.getId(),
+              Text.translatable(binding.getId()).getString(),
+              binding.getCategory().id().toString(),
+              binding.getCategory().getLabel().getString(),
               keyStroke,
               snapshot == null
                   ? binding.getBoundKeyLocalizedText().getString()
@@ -510,8 +508,7 @@ public final class KeysetFabricService {
     Map<String, KeysetBindingSnapshot> snapshots =
         new LinkedHashMap<String, KeysetBindingSnapshot>(options.allKeys.length);
     for (KeyBinding binding : options.allKeys) {
-      snapshots.put(
-          binding.getTranslationKey(), new KeysetBindingSnapshot(toKeyStroke(binding), sticky));
+      snapshots.put(binding.getId(), new KeysetBindingSnapshot(toKeyStroke(binding), sticky));
     }
     return snapshots;
   }
@@ -537,11 +534,11 @@ public final class KeysetFabricService {
     }
 
     for (KeyBinding binding : options.allKeys) {
-      KeysetKeyStroke keyStroke = strokes.get(binding.getTranslationKey());
+      KeysetKeyStroke keyStroke = strokes.get(binding.getId());
       if (keyStroke == null) {
         continue;
       }
-      options.setKeyCode(binding, toInputKey(keyStroke));
+      binding.setBoundKey(toInputKey(keyStroke));
     }
 
     KeyBinding.updateKeysByCode();
@@ -566,7 +563,7 @@ public final class KeysetFabricService {
 
   private static KeyBinding requireLiveBinding(GameOptions options, String bindingId) {
     for (KeyBinding binding : options.allKeys) {
-      if (binding.getTranslationKey().equals(bindingId)) {
+      if (binding.getId().equals(bindingId)) {
         return binding;
       }
     }
@@ -591,14 +588,14 @@ public final class KeysetFabricService {
     Set<String> protectedBindings = new HashSet<String>();
     Collections.addAll(
         protectedBindings,
-        options.forwardKey.getTranslationKey(),
-        options.leftKey.getTranslationKey(),
-        options.backKey.getTranslationKey(),
-        options.rightKey.getTranslationKey(),
-        options.jumpKey.getTranslationKey(),
-        options.inventoryKey.getTranslationKey(),
-        options.chatKey.getTranslationKey(),
-        options.dropKey.getTranslationKey());
+        options.forwardKey.getId(),
+        options.leftKey.getId(),
+        options.backKey.getId(),
+        options.rightKey.getId(),
+        options.jumpKey.getId(),
+        options.inventoryKey.getId(),
+        options.chatKey.getId(),
+        options.dropKey.getId());
     return protectedBindings;
   }
 

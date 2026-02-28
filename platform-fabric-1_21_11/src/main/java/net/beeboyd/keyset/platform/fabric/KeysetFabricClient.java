@@ -2,7 +2,7 @@ package net.beeboyd.keyset.platform.fabric;
 
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
 import net.beeboyd.keyset.platform.fabric.screen.KeysetScreen;
-import net.beeboyd.keyset.shim.v1201.Keyset1201Range;
+import net.beeboyd.keyset.shim.v121.Keyset121Range;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -35,7 +35,7 @@ public final class KeysetFabricClient implements ClientModInitializer {
             new KeyBinding(
                 "keyset.key.open_screen",
                 InputUtil.UNKNOWN_KEY.getCode(),
-                KeyBinding.MISC_CATEGORY));
+                KeyBinding.Category.MISC));
 
     ClientLifecycleEvents.CLIENT_STARTED.register(
         client -> {
@@ -44,7 +44,7 @@ public final class KeysetFabricClient implements ClientModInitializer {
             LOGGER.info(
                 "{} initialized for Minecraft range {}",
                 KeysetCoreMetadata.DISPLAY_NAME,
-                Keyset1201Range.RANGE_ID);
+                Keyset121Range.RANGE_ID);
           } catch (Exception exception) {
             LOGGER.error("Failed to initialize Keyset profiles", exception);
           }

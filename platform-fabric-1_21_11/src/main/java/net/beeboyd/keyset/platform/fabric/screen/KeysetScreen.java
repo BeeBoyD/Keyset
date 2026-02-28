@@ -310,7 +310,7 @@ public final class KeysetScreen extends Screen {
                   selectedBinding = bindingDescriptor;
                   refreshButtons();
                 }));
-    conflictListWidget.setLeftPos(mainInnerX);
+    conflictListWidget.setX(mainInnerX);
 
     try {
       reloadState(null, null);
@@ -324,8 +324,6 @@ public final class KeysetScreen extends Screen {
   @Override
   public void tick() {
     super.tick();
-    searchField.tick();
-    profileNameField.tick();
   }
 
   @Override
@@ -335,7 +333,7 @@ public final class KeysetScreen extends Screen {
 
   @Override
   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-    renderBackground(context);
+    renderBackground(context, mouseX, mouseY, delta);
     drawShell(context);
     super.render(context, mouseX, mouseY, delta);
   }
@@ -476,7 +474,7 @@ public final class KeysetScreen extends Screen {
 
     context.drawTextWithShadow(textRenderer, titleText, mainInnerX + 10, detailY + 10, 0xF2F5F8);
     drawChip(context, mainInnerX + 10, detailY + 24, 126, chipText, chipActive);
-    context.drawTextWrapped(
+    context.drawWrappedTextWithShadow(
         textRenderer, bodyText, mainInnerX + 10, detailY + 42, mainInnerWidth - 20, BODY_COLOR);
   }
 
@@ -499,7 +497,7 @@ public final class KeysetScreen extends Screen {
   private void drawEmptyState(DrawContext context, int y) {
     context.drawCenteredTextWithShadow(
         textRenderer, emptyStateTitle, mainX + (mainWidth / 2), y, 0xF2F5F8);
-    context.drawTextWrapped(
+    context.drawWrappedTextWithShadow(
         textRenderer, emptyStateBody, mainInnerX + 26, y + 14, mainInnerWidth - 52, MUTED_COLOR);
   }
 
@@ -509,12 +507,12 @@ public final class KeysetScreen extends Screen {
 
   private void drawFrame(DrawContext context, int x, int y, int width, int height) {
     context.fill(x, y, x + width, y + height, PANEL_FILL);
-    context.drawBorder(x, y, width, height, PANEL_BORDER);
+    context.drawStrokedRectangle(x, y, width, height, PANEL_BORDER);
   }
 
   private void drawChip(DrawContext context, int x, int y, int width, Text text, boolean active) {
     context.fill(x, y, x + width, y + 14, active ? CHIP_ACTIVE_FILL : CHIP_FILL);
-    context.drawBorder(x, y, width, 14, active ? CHIP_ACTIVE_BORDER : CHIP_BORDER);
+    context.drawStrokedRectangle(x, y, width, 14, active ? CHIP_ACTIVE_BORDER : CHIP_BORDER);
     context.drawCenteredTextWithShadow(textRenderer, text, x + (width / 2), y + 3, 0xF2F5F8);
   }
 

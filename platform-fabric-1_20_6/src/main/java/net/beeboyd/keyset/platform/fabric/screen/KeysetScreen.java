@@ -310,7 +310,7 @@ public final class KeysetScreen extends Screen {
                   selectedBinding = bindingDescriptor;
                   refreshButtons();
                 }));
-    conflictListWidget.setLeftPos(mainInnerX);
+    conflictListWidget.setX(mainInnerX);
 
     try {
       reloadState(null, null);
@@ -324,8 +324,6 @@ public final class KeysetScreen extends Screen {
   @Override
   public void tick() {
     super.tick();
-    searchField.tick();
-    profileNameField.tick();
   }
 
   @Override
@@ -335,7 +333,7 @@ public final class KeysetScreen extends Screen {
 
   @Override
   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-    renderBackground(context);
+    renderBackground(context, mouseX, mouseY, delta);
     drawShell(context);
     super.render(context, mouseX, mouseY, delta);
   }
