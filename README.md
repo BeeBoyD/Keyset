@@ -35,8 +35,10 @@ This scaffold keeps feature logic out of loader modules and keeps version shims 
 4. Review conflicts and apply fixes.
 
 ## Profile Rules
+- First-run config seeds four starter profiles: `Default`, `PvP`, `Building`, and `Tech`.
 - The active profile is persisted across restarts.
 - Deleting the active profile safely falls back to Default.
+- Unknown bind ids from missing mods are retained in profile data so they can reactivate later.
 
 ## Auto-Resolve Rules (Safe Defaults)
 - Never changes critical vanilla binds by default (movement, inventory, chat, ESC, drop).
@@ -55,6 +57,7 @@ This scaffold keeps feature logic out of loader modules and keeps version shims 
 ## Config
 - Stored at `config/keybindprofiles.json` with schema versioning.
 - Schema shape starts as `{ "schema": 1, "activeProfile": "...", "profiles": { ... } }`.
+- Profile ids are stable internal keys; profile names stay user-facing and can be renamed safely.
 - Imported keys that are not currently available will be retained in profile data and treated as inactive until the keybind becomes available again.
 
 ## Modpack Notes
