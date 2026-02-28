@@ -1,0 +1,162 @@
+plugins {
+    id "architectury-plugin" version "3.4.162" apply false
+    id "base"
+    id "com.diffplug.spotless" version "6.25.0" apply false
+    id "dev.architectury.loom" version "1.13.460" apply false
+    id "fabric-loom" version "1.15.4" apply false
+}
+
+allprojects {
+    group = project.findProperty("projectGroup")
+    version = project.findProperty("projectVersion")
+}
+
+subprojects {
+    repositories {
+        mavenCentral()
+        maven {
+            url = "https://maven.architectury.dev/"
+        }
+        maven {
+            url = "https://maven.fabricmc.net/"
+        }
+        maven {
+            url = "https://libraries.minecraft.net/"
+        }
+        maven {
+            url = "https://maven.minecraftforge.net/"
+        }
+        maven {
+            url = "https://maven.neoforged.net/releases/"
+        }
+    }
+
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+
+    plugins.withId("java") {
+        java {
+            withSourcesJar()
+        }
+
+        dependencies {
+            testImplementation platform("org.junit:junit-bom:5.10.3")
+            testImplementation "org.junit.jupiter:junit-jupiter"
+            testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+        }
+
+        tasks.withType(JavaCompile).configureEach {
+            options.encoding = "UTF-8"
+        }
+
+        tasks.withType(Test).configureEach {
+            useJUnitPlatform()
+        }
+    }
+
+    plugins.withId("com.diffplug.spotless") {
+        spotless {
+            java {
+                target("src/*/java/**/*.java")
+                googleJavaFormat("1.24.0")
+            }
+            format("misc") {
+                target(
+                    "*.gradle",
+                    "*.md",
+                    ".gitignore",
+                    "gradle.properties",
+                    "settings.gradle",
+                    "src/*/resources/**/*.json"
+                )
+                trimTrailingWhitespace()
+                endWithNewline()
+            }
+        }
+    }
+}
+
+tasks.register("buildRepresentativeTarget") {
+    group = "verification"
+    description = "Builds the primary fully wired Fabric target jar."
+    dependsOn(":platform-fabric-1_21_11:build")
+}
+
+tasks.register("buildFabricTargets") {
+    group = "verification"
+    description = "Builds every currently wired Fabric target jar."
+    dependsOn(
+        ":platform-fabric-1_16_5:build",
+        ":platform-fabric-1_17_1:build",
+        ":platform-fabric-1_18_2:build",
+        ":platform-fabric-1_19_2:build",
+        ":platform-fabric-1_19_4:build",
+        ":platform-fabric-1_20_1:build",
+        ":platform-fabric-1_20_4:build",
+        ":platform-fabric-1_20_6:build",
+        ":platform-fabric-1_21_1:build",
+        ":platform-fabric-1_21_4:build",
+        ":platform-fabric-1_21_9:build",
+        ":platform-fabric-1_21_11:build"
+    )
+}
+
+tasks.register("buildTargetJars") {
+    group = "build"
+    description = "Builds the current target jars for all scaffolded modules."
+    dependsOn(
+        ":platform-fabric-1_16_5:remapJar",
+        ":platform-fabric-1_17_1:remapJar",
+        ":platform-fabric-1_18_2:remapJar",
+        ":platform-fabric-1_19_2:remapJar",
+        ":platform-fabric-1_19_4:remapJar",
+        ":platform-fabric-1_20_1:remapJar",
+        ":platform-fabric-1_20_4:remapJar",
+        ":platform-fabric-1_20_6:remapJar",
+        ":platform-fabric-1_21_1:remapJar",
+        ":platform-fabric-1_21_4:remapJar",
+        ":platform-fabric-1_21_9:remapJar",
+        ":platform-fabric-1_21_11:remapJar",
+        ":platform-forge-1_16_5:remapJar",
+        ":platform-forge-1_17_1:remapJar",
+        ":platform-forge-1_18_2:remapJar",
+        ":platform-forge-1_19_2:remapJar",
+        ":platform-forge-1_19_4:remapJar",
+        ":platform-forge-1_20_1:remapJar",
+        ":platform-forge-1_20_4:remapJar",
+        ":platform-neoforge-1_20_1:remapJar",
+        ":platform-neoforge-1_20_4:remapJar"
+    )
+}
+
+tasks.register("buildForgeTargets") {
+    group = "verification"
+    description = "Builds every currently wired Forge target jar."
+    dependsOn(
+        ":platform-forge-1_16_5:build",
+        ":platform-forge-1_17_1:build",
+        ":platform-forge-1_18_2:build",
+        ":platform-forge-1_19_2:build",
+        ":platform-forge-1_19_4:build",
+        ":platform-forge-1_20_1:build",
+        ":platform-forge-1_20_4:build"
+    )
+}
+
+tasks.register("buildNeoForgeTargets") {
+    group = "verification"
+    description = "Builds every currently wired NeoForge target jar."
+    dependsOn(
+        ":platform-neoforge-1_20_1:build",
+        ":platform-neoforge-1_20_4:build"
+    )
+}
+
+tasks.register("verifyWorkspace") {
+    group = "verification"
+    description = "Runs formatting and checks across all modules."
+    dependsOn(subprojects.collect { "${it.path}:spotlessCheck" })
+    dependsOn(subprojects.collect { "${it.path}:check" })
+}

@@ -1,0 +1,47 @@
+plugins {
+    id "fabric-loom"
+    id "com.diffplug.spotless"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+base {
+    archivesName = "keyset-fabric-1.19.2"
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.property('minecraftVersion_1_19_2')}"
+    mappings "net.fabricmc:yarn:${project.property('yarnMappings_1_19_2')}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.property('fabricLoaderVersion_1_19_2')}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.property('fabricApiVersion_1_19_2')}"
+
+    implementation project(":common-v1_19_x")
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+}
+
+tasks.withType(JavaExec).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+processResources {
+    inputs.property("modVersion", project.version)
+    filesMatching("fabric.mod.json") {
+        expand(
+            modId: project.property("modId"),
+            modName: project.property("modName"),
+            modVersion: project.version,
+            modDescription: project.property("modDescription"),
+            minecraftVersion: project.property("supportedMinecraftRange_1_19_2"),
+            javaVersion: "17"
+        )
+    }
+}
