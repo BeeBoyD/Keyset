@@ -30,8 +30,8 @@ public final class KeysetScreen extends Screen {
   private static final int PANEL_GAP = 8;
   private static final int ROW_GAP = 4;
   private static final int BUTTON_HEIGHT = 18;
-  private static final int STATUS_SUCCESS_COLOR = 0x8FD98F;
-  private static final int STATUS_ERROR_COLOR = 0xFF9A8A;
+  private static final int STATUS_SUCCESS_COLOR = 0xFF8FD98F;
+  private static final int STATUS_ERROR_COLOR = 0xFFFF9A8A;
   private static final int PANEL_FILL = 0xA0141820;
   private static final int PANEL_BORDER = 0xCC455364;
   private static final int CARD_FILL = 0x99222933;
@@ -40,9 +40,9 @@ public final class KeysetScreen extends Screen {
   private static final int CHIP_BORDER = 0xFF7C8EA3;
   private static final int CHIP_ACTIVE_FILL = 0xAA314622;
   private static final int CHIP_ACTIVE_BORDER = 0xFF90C06E;
-  private static final int SECTION_TITLE_COLOR = 0xE8D7A0;
-  private static final int BODY_COLOR = 0xD8DEE7;
-  private static final int MUTED_COLOR = 0xA9B8C9;
+  private static final int SECTION_TITLE_COLOR = 0xFFE8D7A0;
+  private static final int BODY_COLOR = 0xFFD8DEE7;
+  private static final int MUTED_COLOR = 0xFFA9B8C9;
   private static final int SCREEN_BACKDROP = 0xB010141A;
 
   private final Screen parent;
@@ -416,7 +416,7 @@ public final class KeysetScreen extends Screen {
   }
 
   private void drawForeground(DrawContext context) {
-    context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 10, 0xFFFFFF);
+    context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 10, 0xFFFFFFFF);
     drawSidebar(context);
     drawMainPane(context);
     drawFooter(context);
@@ -528,7 +528,7 @@ public final class KeysetScreen extends Screen {
     int textX = mainInnerX + 8;
     int textWidth = mainInnerWidth - 16;
     int bodyY = detailY + 20;
-    drawTrimmedText(context, titleText, textX, detailY + 6, textWidth, 0xF2F5F8);
+    drawTrimmedText(context, titleText, textX, detailY + 6, textWidth, 0xFFF2F5F8);
     drawTrimmedText(context, bodyText, textX, bodyY, textWidth, BODY_COLOR);
   }
 
@@ -566,7 +566,7 @@ public final class KeysetScreen extends Screen {
 
   private void drawEmptyState(DrawContext context, int y) {
     context.drawCenteredTextWithShadow(
-        textRenderer, emptyStateTitle, mainInnerX + (mainInnerWidth / 2), y, 0xF2F5F8);
+        textRenderer, emptyStateTitle, mainInnerX + (mainInnerWidth / 2), y, 0xFFF2F5F8);
     drawWrappedText(
         context, emptyStateBody, mainInnerX + 20, y + 14, mainInnerWidth - 40, MUTED_COLOR);
   }
@@ -588,7 +588,7 @@ public final class KeysetScreen extends Screen {
         Text.literal(ellipsize(text.getString(), Math.max(24, width - 8))),
         x + (width / 2),
         y + 3,
-        0xF2F5F8);
+        0xFFF2F5F8);
   }
 
   private void drawWrappedText(

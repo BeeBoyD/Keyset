@@ -89,6 +89,7 @@ This keeps feature logic out of loader modules and isolates version shims so lat
 - The selection card now wraps its helper text to the space above the quick-action row, so higher GUI scales do not push text into the action buttons on legacy or modern Fabric leaves.
 - The always-on helper/status line is now kept for real action feedback only, while the normal on-screen copy is shorter so it fits cleanly at higher GUI scales on both older and newer Fabric leaves.
 - Fabric badges, header summaries, selection details, and conflict-row labels are now trimmed to the available panel width so GUI scaling does not create clipped or invisible text on wired leaves.
+- Modern Fabric leaves now draw custom Keyset labels and conflict-row text with explicit opaque colors so the post-`1.20.1` GUI pipeline does not turn them into blank interactive regions.
 - The injected `Keyset` button on the vanilla Controls screen now chooses a non-overlapping slot based on the existing vanilla widgets instead of assuming one fixed top-right position.
 
 ## Config

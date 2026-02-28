@@ -294,7 +294,11 @@ public final class KeysetConflictListWidget
         float tickDelta) {
       context.fill(x, y, x + entryWidth, y + entryHeight - 1, 0x6A1C2330);
       context.drawTextWithShadow(
-          owner.client.textRenderer, owner.fitText(text, entryWidth - 12), x + 6, y + 8, 0xE8D7A0);
+          owner.client.textRenderer,
+          owner.fitText(text, entryWidth - 12),
+          x + 6,
+          y + 8,
+          0xFFE8D7A0);
     }
   }
 
@@ -332,7 +336,11 @@ public final class KeysetConflictListWidget
         boolean hovered,
         float tickDelta) {
       context.drawTextWithShadow(
-          owner.client.textRenderer, owner.fitText(text, entryWidth - 18), x + 12, y + 8, 0xB8C7D9);
+          owner.client.textRenderer,
+          owner.fitText(text, entryWidth - 18),
+          x + 12,
+          y + 8,
+          0xFFB8C7D9);
     }
   }
 
@@ -386,7 +394,7 @@ public final class KeysetConflictListWidget
           owner.fitText(bindingDescriptor.getDisplayName(), entryWidth - 16),
           x + 8,
           y + 5,
-          0xF2F5F8);
+          0xFFF2F5F8);
       context.drawTextWithShadow(
           owner.client.textRenderer,
           owner.fitText(
@@ -394,7 +402,7 @@ public final class KeysetConflictListWidget
               entryWidth - 16),
           x + 8,
           y + 15,
-          0xAFC0D4);
+          0xFFAFC0D4);
     }
   }
 
@@ -419,7 +427,11 @@ public final class KeysetConflictListWidget
         boolean hovered,
         float tickDelta) {
       context.drawTextWithShadow(
-          owner.client.textRenderer, owner.fitText(text, entryWidth - 12), x + 6, y + 8, 0xE0E6ED);
+          owner.client.textRenderer,
+          owner.fitText(text, entryWidth - 12),
+          x + 6,
+          y + 8,
+          0xFFE0E6ED);
     }
   }
 }
