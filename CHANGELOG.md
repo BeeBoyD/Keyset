@@ -45,3 +45,4 @@
 - Fixed Fabric selection-panel copy overflowing into the `Find`, `Clear Key`, and `Rebind` row at larger GUI scales by growing the card and constraining wrapped text to the space above the buttons.
 - Fixed the newer Fabric leaves so the static Keyset labels render consistently again by drawing the screen chrome before widget rendering instead of after the newer GUI pipeline clips it.
 - Fixed several Fabric UI text overflows by shortening visible copy for the category toggle, selection card, empty states, and default helper/status strings.
+- Fixed Fabric UI fitting across every wired leaf so profile badges, selection copy, header summaries, and conflict-row labels are trimmed to the available panel width instead of overflowing or disappearing at larger GUI scales.

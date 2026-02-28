@@ -344,8 +344,8 @@ public final class KeysetScreen extends Screen {
   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
     drawBackdrop(context);
     drawShell(context);
-    drawForeground(context);
     super.render(context, mouseX, mouseY, delta);
+    drawForeground(context);
   }
 
   private void computeLayout() {
@@ -466,13 +466,15 @@ public final class KeysetScreen extends Screen {
       return;
     }
 
-    int summaryWidth = textRenderer.getWidth(summaryText);
-    int summaryX = mainX + mainWidth - 10 - summaryWidth;
-    if (summaryX < mainInnerX + 96) {
+    int summaryMaxWidth = mainX + mainWidth - 10 - (mainInnerX + 96);
+    if (summaryMaxWidth < 40) {
       return;
     }
 
-    context.drawTextWithShadow(textRenderer, summaryText, summaryX, mainY + 10, MUTED_COLOR);
+    String summary = ellipsize(summaryText.getString(), summaryMaxWidth);
+    int summaryX = mainX + mainWidth - 10 - textRenderer.getWidth(summary);
+    context.drawTextWithShadow(
+        textRenderer, Text.literal(summary), summaryX, mainY + 10, MUTED_COLOR);
   }
 
   private Text buildHeaderSummaryText() {
@@ -526,9 +528,8 @@ public final class KeysetScreen extends Screen {
     int textX = mainInnerX + 8;
     int textWidth = mainInnerWidth - 16;
     int bodyY = detailY + 20;
-    int bodyMaxHeight = Math.max(textRenderer.fontHeight, detailActionY() - bodyY - 6);
     drawTrimmedText(context, titleText, textX, detailY + 6, textWidth, 0xF2F5F8);
-    drawWrappedTextBlock(context, bodyText, textX, bodyY, textWidth, bodyMaxHeight, BODY_COLOR);
+    drawTrimmedText(context, bodyText, textX, bodyY, textWidth, BODY_COLOR);
   }
 
   private void drawFooter(DrawContext context) {
@@ -582,7 +583,12 @@ public final class KeysetScreen extends Screen {
   private void drawChip(DrawContext context, int x, int y, int width, Text text, boolean active) {
     context.fill(x, y, x + width, y + 14, active ? CHIP_ACTIVE_FILL : CHIP_FILL);
     context.drawStrokedRectangle(x, y, width, 14, active ? CHIP_ACTIVE_BORDER : CHIP_BORDER);
-    context.drawCenteredTextWithShadow(textRenderer, text, x + (width / 2), y + 3, 0xF2F5F8);
+    context.drawCenteredTextWithShadow(
+        textRenderer,
+        Text.literal(ellipsize(text.getString(), Math.max(24, width - 8))),
+        x + (width / 2),
+        y + 3,
+        0xF2F5F8);
   }
 
   private void drawTrimmedText(

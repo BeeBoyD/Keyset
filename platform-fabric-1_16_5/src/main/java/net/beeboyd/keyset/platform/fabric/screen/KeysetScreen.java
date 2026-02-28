@@ -492,13 +492,14 @@ public final class KeysetScreen extends Screen {
       return;
     }
 
-    int summaryWidth = textRenderer.getWidth(summaryText);
-    int summaryX = mainX + mainWidth - 10 - summaryWidth;
-    if (summaryX < mainInnerX + 96) {
+    int summaryMaxWidth = mainX + mainWidth - 10 - (mainInnerX + 96);
+    if (summaryMaxWidth < 40) {
       return;
     }
 
-    drawTextWithShadow(matrices, textRenderer, summaryText, summaryX, mainY + 10, MUTED_COLOR);
+    String summary = ellipsize(summaryText.getString(), summaryMaxWidth);
+    int summaryX = mainX + mainWidth - 10 - textRenderer.getWidth(summary);
+    drawTextWithShadow(matrices, textRenderer, literal(summary), summaryX, mainY + 10, MUTED_COLOR);
   }
 
   private Text buildHeaderSummaryText() {
@@ -552,9 +553,8 @@ public final class KeysetScreen extends Screen {
     int textX = mainInnerX + 8;
     int textWidth = mainInnerWidth - 16;
     int bodyY = detailY + 20;
-    int bodyMaxHeight = Math.max(textRenderer.fontHeight, detailActionY() - bodyY - 6);
     drawTrimmedText(matrices, titleText, textX, detailY + 6, textWidth, 0xF2F5F8);
-    drawWrappedTextBlock(matrices, bodyText, textX, bodyY, textWidth, bodyMaxHeight, BODY_COLOR);
+    drawTrimmedText(matrices, bodyText, textX, bodyY, textWidth, BODY_COLOR);
   }
 
   private void drawFooter(MatrixStack matrices) {
@@ -607,7 +607,12 @@ public final class KeysetScreen extends Screen {
   private void drawChip(MatrixStack matrices, int x, int y, int width, Text text, boolean active) {
     fill(matrices, x, y, x + width, y + 14, active ? CHIP_ACTIVE_FILL : CHIP_FILL);
     drawBorderBox(matrices, x, y, width, 14, active ? CHIP_ACTIVE_BORDER : CHIP_BORDER);
-    drawCenteredTextWithShadow(matrices, text.asOrderedText(), x + (width / 2), y + 3, 0xF2F5F8);
+    drawCenteredTextWithShadow(
+        matrices,
+        literal(ellipsize(text.getString(), Math.max(24, width - 8))).asOrderedText(),
+        x + (width / 2),
+        y + 3,
+        0xF2F5F8);
   }
 
   private void drawTrimmedText(
