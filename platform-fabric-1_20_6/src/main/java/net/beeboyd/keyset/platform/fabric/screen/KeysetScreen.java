@@ -60,6 +60,7 @@ public final class KeysetScreen extends Screen {
   private int listTop;
   private int listBottom;
   private int footerY;
+  private boolean compactLayout;
 
   private TextFieldWidget searchField;
   private TextFieldWidget profileNameField;
@@ -333,7 +334,6 @@ public final class KeysetScreen extends Screen {
 
   @Override
   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-    renderBackground(context, mouseX, mouseY, delta);
     drawShell(context);
     super.render(context, mouseX, mouseY, delta);
   }
@@ -346,8 +346,9 @@ public final class KeysetScreen extends Screen {
       proposedSidebarWidth = Math.max(170, availableWidth - minimumMainWidth - PANEL_GAP);
     }
 
+    compactLayout = height < 300;
     sidebarX = PANEL_PADDING;
-    sidebarY = 42;
+    sidebarY = compactLayout ? 34 : 42;
     sidebarWidth = proposedSidebarWidth;
     sidebarInnerX = sidebarX + 10;
     sidebarInnerWidth = sidebarWidth - 20;
@@ -358,11 +359,15 @@ public final class KeysetScreen extends Screen {
     mainInnerX = mainX + 10;
     mainInnerWidth = mainWidth - 20;
 
-    detailY = mainY + 56;
-    detailHeight = 96;
     footerY = height - PANEL_PADDING - BUTTON_HEIGHT;
-    listTop = detailY + detailHeight + 10;
     listBottom = footerY - 8;
+    detailY = mainY + (compactLayout ? 50 : 56);
+    int preferredDetailHeight = compactLayout ? 60 : 96;
+    int minDetailHeight = compactLayout ? 54 : 78;
+    int minListHeight = compactLayout ? 52 : 88;
+    int maxDetailHeight = Math.max(minDetailHeight, listBottom - detailY - minListHeight - 10);
+    detailHeight = Math.min(preferredDetailHeight, maxDetailHeight);
+    listTop = detailY + detailHeight + 10;
   }
 
   private ButtonWidget button(
@@ -413,6 +418,25 @@ public final class KeysetScreen extends Screen {
         config != null
             && selectedProfileId != null
             && selectedProfileId.equals(config.getActiveProfileId()));
+    drawSectionTitle(context, "keyset.section.transfer", sidebarInnerX, sidebarY + 122);
+    drawSectionTitle(context, "keyset.section.resolve", sidebarInnerX, sidebarY + 144);
+    if (!compactLayout) {
+      drawSectionTitle(context, "keyset.section.help", sidebarInnerX, sidebarY + 180);
+      context.drawTextWrapped(
+          textRenderer,
+          Text.translatable("keyset.help.steps"),
+          sidebarInnerX,
+          sidebarY + 194,
+          sidebarInnerWidth,
+          BODY_COLOR);
+      context.drawTextWrapped(
+          textRenderer,
+          Text.translatable("keyset.help.active_profile"),
+          sidebarInnerX,
+          sidebarY + 230,
+          sidebarInnerWidth,
+          MUTED_COLOR);
+    }
   }
 
   private void drawMainPane(DrawContext context) {

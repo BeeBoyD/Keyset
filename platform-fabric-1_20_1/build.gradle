@@ -3,6 +3,12 @@ plugins {
     id "com.diffplug.spotless"
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
 base {
     archivesName = "keyset-fabric-1.20.1-1.20.2"
 }
@@ -18,6 +24,12 @@ dependencies {
 
 tasks.withType(JavaCompile).configureEach {
     options.release = 17
+}
+
+tasks.withType(JavaExec).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
 }
 
 processResources {

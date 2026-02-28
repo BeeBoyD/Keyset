@@ -67,6 +67,10 @@ tasks.register("buildFabricTargets") {
     group = "verification"
     description = "Builds every currently wired Fabric target jar."
     dependsOn(
+        ":platform-fabric-1_16_5:build",
+        ":platform-fabric-1_17_1:build",
+        ":platform-fabric-1_18_2:build",
+        ":platform-fabric-1_19_4:build",
         ":platform-fabric-1_20_1:build",
         ":platform-fabric-1_20_6:build",
         ":platform-fabric-1_21_11:build"
@@ -77,6 +81,10 @@ tasks.register("buildTargetJars") {
     group = "build"
     description = "Builds the current target jars for all scaffolded modules."
     dependsOn(
+        ":platform-fabric-1_16_5:remapJar",
+        ":platform-fabric-1_17_1:remapJar",
+        ":platform-fabric-1_18_2:remapJar",
+        ":platform-fabric-1_19_4:remapJar",
         ":platform-fabric-1_20_1:remapJar",
         ":platform-fabric-1_20_6:remapJar",
         ":platform-fabric-1_21_11:remapJar",

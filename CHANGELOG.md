@@ -13,6 +13,7 @@
 - Clipboard export/import for profile JSON and a first safe auto-resolve preview/apply/undo flow on the active profile.
 - A scrollable conflict list with per-binding jump, clear, and reassign actions wired into the vanilla keybind editor.
 - Fabric leaf modules for `1.20.3-1.20.6` and `1.21-1.21.11`, each backed by their own thin version shim.
+- Legacy Fabric leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, and `1.19.x`, backed by dedicated `common-v1_16_5-to-v1_18_x` and `common-v1_19_x` shims.
 
 ### Changed
 - Defined the support matrix and documented the multi-loader architecture in the README.
@@ -23,6 +24,10 @@
 - Manual edits made through the vanilla keybind screen now sync back into the active Keyset profile as sticky user changes.
 - The Fabric UI now explains the workflow directly with tooltips, profile-state badges, clearer action labels, and selected-profile conflict previews.
 - Upgraded the Fabric build stack to Gradle `9.2.0` and Loom `1.15.4` so the latest wired Fabric range can build cleanly.
+- The Fabric UI now adapts better to short screens by shrinking the detail card, preserving the conflict list, and moving more guidance into contextual copy and hover tooltips.
+- Documented the per-range Java toolchain strategy, including the Java 17 Loom dev-launch requirement for `1.16.5` and `1.17.1`.
 
 ### Fixed
 - Core JUnit tests now run correctly under the newer Gradle wrapper by including the JUnit Platform launcher at runtime.
+- Fixed the `1.21.11` crash caused by applying background blur twice in one frame.
+- Fixed legacy Fabric metadata so `1.16.5` and `1.17.1` depend on the correct aggregator mod id (`fabric`) instead of the newer `fabric-api` id.
