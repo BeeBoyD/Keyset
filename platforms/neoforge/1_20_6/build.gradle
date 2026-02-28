@@ -1,0 +1,73 @@
+plugins {
+    id "architectury-plugin"
+    id "dev.architectury.loom"
+    id "com.diffplug.spotless"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+base {
+    archivesName = "keyset-neoforge-1.20.6"
+}
+
+loom {
+    silentMojangMappingsLicense()
+}
+
+architectury {
+    platformSetupLoomIde()
+    neoForge()
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir("src/main/java")
+            srcDir(project(":platform-neoforge-1_20_4").file("src/main/java"))
+            srcDir(project(":platform-fabric-1_20_6").file("src/main/java"))
+            exclude("net/beeboyd/keyset/platform/fabric/KeysetFabricClient.java")
+        }
+        resources {
+            srcDir("src/main/resources")
+            srcDir(project(":platform-neoforge-1_20_4").file("src/main/resources"))
+            srcDir(project(":platform-fabric-1_20_6").file("src/main/resources"))
+            exclude("fabric.mod.json")
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.property('minecraftVersion_1_20_6')}"
+    mappings "net.fabricmc:yarn:${project.property('yarnMappings_1_20_6')}:v2"
+    neoForge "net.neoforged:neoforge:${project.property('neoforgeVersion_1_20_6')}"
+
+    implementation project(":common-v1_20_3-to-v1_20_6")
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+}
+
+tasks.withType(JavaExec).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+processResources {
+    inputs.property("modVersion", project.version)
+    filesMatching("META-INF/neoforge.mods.toml") {
+        expand(
+            modId: project.property("modId"),
+            modName: project.property("modName"),
+            modVersion: project.version,
+            modDescription: project.property("modDescription"),
+            minecraftVersion: project.property("supportedMinecraftRange_1_20_6"),
+            loaderVersion: "[20,)"
+        )
+    }
+}

@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Last updated: 2026-02-28 17:24 EET
+Last updated: 2026-02-28 17:34 EET
 
 ### Added
 
@@ -16,6 +16,7 @@ Last updated: 2026-02-28 17:24 EET
 - Forge leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, `1.19.2`, `1.19.4`, `1.20.1-1.20.2`, and `1.20.4`.
 - NeoForge leaf modules for `1.20.1-1.20.2` and `1.20.4`.
 - A root `run-fabric.sh` helper that maps requested Fabric versions to the nearest supported dev-launch leaf.
+- A root `buildAllJars` alias and a collected `build/artifacts` output directory for the current remapped release jars.
 
 ### Changed
 
@@ -26,6 +27,8 @@ Last updated: 2026-02-28 17:24 EET
 - Upgraded the modern Fabric build stack to Gradle `9.2.0` and Loom `1.15.4`.
 - Documented the per-range Java toolchain strategy and exact verified Fabric/Forge/NeoForge targets.
 - Refined the public README into a mod-page style overview with clearer setup, behavior, and development sections.
+- Reorganized the repo root so shared code now lives under `modules/` and loader leaves live under `platforms/`, which makes the multiloader layout easier to scan and maintain.
+- Standardized current release jar names so supported Minecraft ranges are visible directly in the artifact filename.
 
 ### Fixed
 
