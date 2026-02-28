@@ -534,19 +534,17 @@ public final class KeysetScreen extends Screen {
   }
 
   private void drawFooter(MatrixStack matrices) {
-    String footerMessage = statusMessage.isEmpty() ? buildDefaultFooterMessage() : statusMessage;
-    int color =
-        statusMessage.isEmpty()
-            ? MUTED_COLOR
-            : errorStatus ? STATUS_ERROR_COLOR : STATUS_SUCCESS_COLOR;
+    if (statusMessage.isEmpty()) {
+      return;
+    }
 
     drawCenteredTextWithShadow(
         matrices,
         textRenderer,
-        Text.literal(ellipsize(footerMessage, width - (PANEL_PADDING * 2))),
+        Text.literal(ellipsize(statusMessage, width - (PANEL_PADDING * 2))),
         width / 2,
         22,
-        color);
+        errorStatus ? STATUS_ERROR_COLOR : STATUS_SUCCESS_COLOR);
   }
 
   private String buildDefaultFooterMessage() {

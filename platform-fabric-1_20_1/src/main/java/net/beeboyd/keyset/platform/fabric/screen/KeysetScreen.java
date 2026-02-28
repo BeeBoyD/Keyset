@@ -344,8 +344,8 @@ public final class KeysetScreen extends Screen {
   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
     drawBackdrop(context);
     drawShell(context);
-    super.render(context, mouseX, mouseY, delta);
     drawForeground(context);
+    super.render(context, mouseX, mouseY, delta);
   }
 
   private void computeLayout() {
@@ -532,18 +532,16 @@ public final class KeysetScreen extends Screen {
   }
 
   private void drawFooter(DrawContext context) {
-    String footerMessage = statusMessage.isEmpty() ? buildDefaultFooterMessage() : statusMessage;
-    int color =
-        statusMessage.isEmpty()
-            ? MUTED_COLOR
-            : errorStatus ? STATUS_ERROR_COLOR : STATUS_SUCCESS_COLOR;
+    if (statusMessage.isEmpty()) {
+      return;
+    }
 
     context.drawCenteredTextWithShadow(
         textRenderer,
-        Text.literal(ellipsize(footerMessage, width - (PANEL_PADDING * 2))),
+        Text.literal(ellipsize(statusMessage, width - (PANEL_PADDING * 2))),
         width / 2,
         22,
-        color);
+        errorStatus ? STATUS_ERROR_COLOR : STATUS_SUCCESS_COLOR);
   }
 
   private String buildDefaultFooterMessage() {
