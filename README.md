@@ -5,6 +5,7 @@ Keybind profiles and conflict resolution for Minecraft (client-side).
 ## Features
 - Multiple keybind profiles with instant switching
 - Conflict visualization with grouping and search
+- Scrollable conflict list with jump, clear, and reassign actions
 - One-click auto-resolve with preview and undo
 - Export/import profiles (JSON + clipboard)
 - Clean UI that fits vanilla style
@@ -33,7 +34,8 @@ This scaffold keeps feature logic out of loader modules and keeps version shims 
 2. Click the new "Keyset" button.
 3. Pick a profile or create one.
 4. Review conflicts grouped by key or by category, then use search to narrow the list.
-5. Capture the current layout, export/import via clipboard, or preview and apply auto-resolve changes.
+5. Select a conflicting bind to jump into the vanilla keybind editor, clear it, or open direct reassignment.
+6. Capture the current layout, export/import via clipboard, or preview and apply auto-resolve changes.
 
 ## Profile Rules
 - First-run config seeds four starter profiles: `Default`, `PvP`, `Building`, and `Tech`.
@@ -59,6 +61,7 @@ This scaffold keeps feature logic out of loader modules and keeps version shims 
 - Grouping uses stable internal binding/category ids while still exposing display names for UI.
 - Search can match key labels, binding names, category names, and internal ids.
 - The current Fabric screen caches the conflict report and only reruns shared conflict analysis after state-changing actions.
+- Binding quick actions operate on the active profile and sync manual edits made in the vanilla keybind editor back into `keybindprofiles.json`.
 
 ## Config
 - Stored at `config/keybindprofiles.json` with schema versioning.
