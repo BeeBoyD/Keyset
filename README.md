@@ -1,91 +1,80 @@
 # Keyset
 
-A clean, vanilla-friendly keybind manager for modded Minecraft.
+Keyset is a client-side Minecraft mod for managing keybind profiles, surfacing conflicts, and resolving the low-risk cases without rewriting your entire Controls workflow.
 
-Switch between control profiles, spot conflicts fast, and auto-fix the safe cases before your Controls screen turns into a landfill.
+It stays close to vanilla: additive UI, predictable behavior, and no background polling nonsense.
 
-## Why Keyset
-
-Modpacks pile bindings on top of bindings. Vanilla shows the damage, but it does not help much when you want to:
-
-- keep separate control layouts for different playstyles
-- see exactly which binds are colliding
-- fix the low-risk conflicts without wrecking movement or inventory muscle memory
-- move profiles between instances without hand-editing `options.txt`
-
-Keyset keeps that workflow client-side, additive, and close to vanilla UI expectations.
-
-## Features
+## What It Does
 
 - Multiple keybind profiles with instant switching
-- Starter profiles: `Default`, `PvP`, `Building`, and `Tech`
+- Built-in starter profiles: `Default`, `PvP`, `Building`, `Tech`
 - Conflict browser with search and grouping by key or category
-- Direct actions for a selected conflict: `Find`, `Clear Key`, `Rebind`
+- Quick actions for a selected conflict: `Find`, `Clear Key`, `Rebind`
 - Safe auto-fix flow with preview, apply, and undo
-- Clipboard JSON export/import
-- Persistent config at `config/keybindprofiles.json`
-- Shared core logic for multi-loader and multi-version maintenance
+- JSON export/import through the clipboard
+- Persistent config in `config/keybindprofiles.json`
 
-## Support Matrix
+## Supported Versions
 
-| Minecraft | Fabric / Quilt | Forge | NeoForge | Status |
-| --- | --- | --- | --- | --- |
-| 1.16.5 | Supported | Build-verified | N/A | Forge dev launch is blocked here by the old Loom/Yarn runtime stack |
-| 1.17.1 | Supported | Build-verified | N/A | Forge dev launch is blocked here on this macOS setup by the old GLFW icon path |
-| 1.18.2 | Supported | Supported | N/A | Verified |
-| 1.19.2 | Supported | Supported | N/A | Verified |
-| 1.19.4 | Supported | Supported | N/A | Verified |
-| 1.20.1-1.20.2 | Supported | Supported | Supported | Verified |
-| 1.20.3-1.20.4 | Supported | Supported | Supported | Verified |
-| 1.20.5-1.20.6 | Supported | Supported | Supported | Verified with patched NeoForge Yarn mappings |
-| 1.21.1 | Supported | Supported | Supported | Verified |
-| 1.21.2-1.21.4 | Supported | N/A | Build-verified | Forge support is intentionally capped at `1.21.1`; NeoForge uses patched Yarn mappings |
-| 1.21.5-1.21.11 | Supported | N/A | Supported | NeoForge `1.21.11` dev launch verified |
+| Minecraft | Fabric / Quilt | Forge | NeoForge |
+| --- | --- | --- | --- |
+| 1.16.5 | Yes | Build-verified | N/A |
+| 1.17.1 | Yes | Build-verified | N/A |
+| 1.18.2 | Yes | Yes | N/A |
+| 1.19.2 | Yes | Yes | N/A |
+| 1.19.4 | Yes | Yes | N/A |
+| 1.20.1-1.20.2 | Yes | Yes | Yes |
+| 1.20.3-1.20.4 | Yes | Yes | Yes |
+| 1.20.5-1.20.6 | Yes | Yes | Yes |
+| 1.21.1 | Yes | Yes | Yes |
+| 1.21.2-1.21.4 | Yes | No | Yes |
+| 1.21.5-1.21.11 | Yes | No | Yes |
 
-Quilt uses the Fabric-compatible targets.
+Notes:
+- Quilt uses the Fabric-compatible jars.
+- Forge support is intentionally capped at `1.21.1`.
+- NeoForge `1.20.6+` uses patched named mappings so it can stay on the shared source stack.
 
-## Quick Start
+## How To Use
 
 1. Open `Controls`.
 2. Click `Keyset`.
-3. Pick or create a profile on the left.
-4. Search or group conflicts on the right.
+3. Choose a profile on the left.
+4. Review conflicts on the right.
 5. Use `Find`, `Clear Key`, `Rebind`, or `Preview Fix`.
-6. Apply a safe preview if it looks right, or undo it.
+6. Apply the preview if it looks correct, or undo it.
 
-## How Keyset Behaves
+## Profile Rules
 
-### Profiles
-
-- The active profile is persisted across restarts.
+- The active profile persists across restarts.
 - `Save` captures the current live bindings into the selected profile.
-- Deleting the active profile safely falls back to `Default`.
-- Unknown or currently missing bind ids are retained so they can reactivate later when the mod reappears.
+- Deleting the active profile falls back to `Default`.
+- Missing or currently unavailable keybind ids are preserved and can reactivate when the owning mod is present again.
 
-### Conflict View
+## Conflict Rules
 
-- Group conflicts by assigned key or by category.
+- Conflicts can be grouped by assigned key or by category.
 - Search matches binding names, category names, key labels, and internal ids.
-- Conflicts across categories are still shown.
-- Direct conflict actions work on the active profile only, by design.
+- Cross-category conflicts are still shown.
+- Quick actions operate on the active profile only.
 
-### Safe Auto-Fix
+## Auto-Fix Rules
 
 - Never changes critical vanilla binds by default: movement, inventory, chat, escape, and drop.
-- Prefers less-protected and modded binds first.
-- Respects sticky user edits captured into the active profile.
+- Prefers modded or less-protected binds first.
+- Respects sticky user edits saved into the active profile.
 - Prefers unused plain keys before harder-to-reach or modifier-heavy fallbacks.
 - Avoids overwriting healthy non-conflicting assignments.
-- Always produces deterministic output for the same input.
+- Produces deterministic output for the same input.
 
-### Import / Export
+## Import / Export
 
 - Export the selected profile as JSON to the clipboard.
 - Import profile JSON from the clipboard.
-- Name collisions are renamed safely instead of overwriting existing profiles.
-- Empty or invalid payloads are rejected instead of silently seeding defaults.
+- Name collisions are renamed safely instead of overwriting an existing profile.
+- Invalid or empty payloads are rejected instead of silently seeding defaults.
 
-## Config Format
+## Config
 
 Profiles are stored in:
 
@@ -93,7 +82,7 @@ Profiles are stored in:
 config/keybindprofiles.json
 ```
 
-Current schema shape:
+Schema:
 
 ```json
 {
@@ -107,28 +96,25 @@ Current schema shape:
 }
 ```
 
-Profile ids are stable internal keys. User-facing profile names can be renamed safely.
+## Build Outputs
 
-## Current Architecture
+Release jars are collected into:
 
-The root is grouped by responsibility now instead of keeping every module flat:
+```text
+builtJars/fabric/1.0.0-alpha
+builtJars/forge/1.0.0-alpha
+builtJars/neoforge/1.0.0-alpha
+```
 
-- `modules/core`
-  Shared Java logic for profile models, JSON persistence, conflict detection, auto-resolve, and UI-facing contracts.
-- `modules/common/*`
-  Version-range shims for client API differences.
-- `platforms/fabric/*`
-  Fabric and Quilt-compatible leaf modules.
-- `platforms/forge/*`
-  Forge leaf modules, capped at `1.21.1` for the active support graph.
-- `platforms/neoforge/*`
-  NeoForge leaf modules, including patched-mappings leaves for `1.20.6+`.
+Examples:
 
-Loader leaves stay thin on purpose. Feature logic belongs in `modules/core`, not in per-loader branches.
+- `keyset-fabric-1.20.1-1.20.2-1.0.0-alpha.jar`
+- `keyset-forge-1.21.1-1.0.0-alpha.jar`
+- `keyset-neoforge-1.21-1.21.11-1.0.0-alpha.jar`
 
 ## Development
 
-Use JDK 21 when running Gradle from the shell. Toolchains handle the per-target compile level.
+Use JDK 21 when running Gradle from the shell.
 
 Useful commands:
 
@@ -138,66 +124,37 @@ Useful commands:
 ./gradlew buildFabricTargets
 ./gradlew buildForgeTargets
 ./gradlew buildNeoForgeTargets
-./gradlew buildTargetJars
 ./gradlew buildAllJars
 ```
 
-`buildTargetJars` and `buildAllJars` now collect the current remapped release jars into:
-
-```text
-builtJars/
-builtJars/fabric/1.0.0-alpha
-builtJars/forge/1.0.0-alpha
-builtJars/neoforge/1.0.0-alpha
-```
-
-Examples:
-
-- `builtJars/fabric/1.0.0-alpha/keyset-fabric-1.20.1-1.20.2-1.0.0-alpha.jar`
-- `builtJars/forge/1.0.0-alpha/keyset-forge-1.20.3-1.20.6-1.0.0-alpha.jar`
-- `builtJars/forge/1.0.0-alpha/keyset-forge-1.21.1-1.0.0-alpha.jar`
-- `builtJars/neoforge/1.0.0-alpha/keyset-neoforge-1.21-1.21.11-1.0.0-alpha.jar`
-
-Run a Fabric dev client by requested version:
+Version-mapped launch helpers:
 
 ```bash
 ./run-fabric.sh 1.21.3
-./run-fabric.sh latest
-```
-
-Run Forge or NeoForge the same way:
-
-```bash
 ./run-forge.sh 1.21.1
-./run-neoforge.sh 1.20.6
 ./run-neoforge.sh 1.21.11
 ```
 
-You can override the default JDK 21 launcher with `KEYSET_JAVA_HOME=/path/to/jdk`.
+## Architecture
 
-The Forge `1.21.1` dev leaf carries a local `fmlloader` userdev shim so the Loom merged jar still launches as the `minecraft` game module instead of collapsing into Forge's module name.
+- `modules/core`
+  Shared profile models, JSON persistence, conflict detection, auto-resolve logic, and UI-facing contracts.
+- `modules/common/*`
+  Version-range shims for Minecraft API differences.
+- `platforms/fabric/*`
+  Fabric and Quilt-compatible leaf modules.
+- `platforms/forge/*`
+  Forge leaf modules through `1.21.1`.
+- `platforms/neoforge/*`
+  NeoForge leaf modules, including the modern patched-mapping targets.
 
-Representative direct launcher examples:
-
-```bash
-./gradlew :platform-forge-1_20_1:runClient
-./gradlew :platform-neoforge-1_20_4:runClient
-./gradlew :platform-fabric-1_21_11:runClient
-```
-
-Release bytecode targets currently align like this:
-
-- Java 8 for `1.16.5`
-- Java 16 for `1.17.1`
-- Java 17 for `1.18.2-1.20.2`
-- Java 21 for `1.20.3+`
-
-## Notes For Modpacks
+## Modpack Notes
 
 - Client-side only
-- Safe to include on servers because it does not add gameplay content
-- Designed to be additive instead of fighting other keybind mods
+- Safe to include in packs
+- Does not add gameplay content
+- Designed to stay additive instead of fighting other keybind mods
 
 ## Status
 
-This repo is in active pre-release development. The current project version is `1.0.0-alpha`. The shared core, full Fabric matrix, Forge through `1.21.1`, and NeoForge through `1.21.11` are wired. Modern NeoForge leaves use Architectury's patched Yarn mappings to stay on the shared named-source stack, while Forge is intentionally capped at `1.21.1` in the active graph.
+Current release line: `1.0.0-alpha`
