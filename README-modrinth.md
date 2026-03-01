@@ -54,14 +54,14 @@ Notes:
 
 ## 🎮 How To Use
 
-### 1. Open Keyset
+### Open
 
 1. Open Minecraft's `Controls` screen.
 2. Click the `Keyset` button.
 3. The left side shows profiles.
 4. The right side shows conflicts for the current profile.
 
-### 2. Pick Or Create A Profile
+### Profiles
 
 - Start with `Default` if you want a baseline profile.
 - Use `New` to make a new profile.
@@ -70,19 +70,19 @@ Notes:
 - Use `Delete` to remove one you no longer need.
 - If you delete the active profile, Keyset safely falls back to `Default`.
 
-### 3. Save Your Current Controls
+### Save
 
 - Set up your keys in the normal Controls screen or inside Keyset's quick actions.
 - Click `Save` to capture the current live keybind state into the selected profile.
 - Switch profiles at any time to apply that saved layout immediately.
 
-### 4. Review Conflicts
+### Conflicts
 
 - Use the search box to narrow by binding name, category, key label, or internal id.
 - Toggle grouping to see conflicts by assigned key or by category.
 - Select a conflict row to unlock quick actions.
 
-### 5. Fix A Conflict Manually
+### Manual Fixes
 
 When a conflict row is selected:
 
@@ -90,14 +90,14 @@ When a conflict row is selected:
 - `Clear Key` removes that key assignment immediately.
 - `Rebind` takes you through the normal reassignment flow.
 
-### 6. Use Safe Auto-Fix
+### Auto-Fix
 
 - Click `Preview Fix` to generate a proposed conflict cleanup.
 - Review what Keyset wants to change before applying it.
 - Click `Apply Fix` if the preview looks correct.
 - Use `Undo Fix` if you want to revert the last auto-fix pass.
 
-### 7. Export Or Import Profiles
+### Import / Export
 
 - Use `Export` to copy the selected profile as JSON.
 - Use `Import` to paste profile JSON back in.

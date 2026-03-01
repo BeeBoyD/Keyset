@@ -12,6 +12,7 @@
 
 - Rewrote the README for a public release audience and split Quilt into its own support-matrix column.
 - Expanded the public docs with badges, Modrinth links, privacy notes, and a more detailed step-by-step usage guide.
+- Shortened Modrinth README section headers to fit Modrinth description formatting rules.
 
 ## v1.0.0-alpha - 2026-03-01
 
