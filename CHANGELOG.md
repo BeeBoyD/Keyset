@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Last updated: 2026-03-01 09:04 EET
+Last updated: 2026-03-01 09:15 EET
 
 ### Added
 
@@ -18,7 +18,7 @@ Last updated: 2026-03-01 09:04 EET
 - NeoForge leaf modules for `1.20.1-1.20.2`, `1.20.4`, `1.20.6`, `1.21.1`, `1.21.4`, and `1.21.11`.
 - A root `run-fabric.sh` helper that maps requested Fabric versions to the nearest supported dev-launch leaf.
 - Root `run-forge.sh` and `run-neoforge.sh` helpers that map requested loader versions to the nearest supported dev-launch leaf.
-- A root `buildAllJars` alias and collected `builtJars/fabric`, `builtJars/forge`, and `builtJars/neoforge` output directories for the current remapped release jars.
+- A root `buildAllJars` alias and collected `builtJars/<loader>/<version>` output directories for the current remapped release jars.
 
 ### Changed
 
@@ -32,8 +32,9 @@ Last updated: 2026-03-01 09:04 EET
 - Refined the public README into a mod-page style overview with clearer setup, behavior, and development sections.
 - Reorganized the repo root so shared code now lives under `modules/` and loader leaves live under `platforms/`, which makes the multiloader layout easier to scan and maintain.
 - Standardized current release jar names so supported Minecraft ranges are visible directly in the artifact filename.
-- Moved release jar collection out of `build/artifacts` and into root-level `builtJars/<loader>` folders.
+- Moved release jar collection out of `build/artifacts` and into root-level `builtJars/<loader>/<version>` folders.
 - Capped the active Forge support graph at `1.21.1` and moved modern `1.20.6+` NeoForge leaves onto Architectury's patched Yarn mappings.
+- Bumped the current mod version line to `1.0.0-alpha`.
 
 ### Fixed
 

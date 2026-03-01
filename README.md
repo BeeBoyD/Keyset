@@ -146,17 +146,17 @@ Useful commands:
 
 ```text
 builtJars/
-builtJars/fabric
-builtJars/forge
-builtJars/neoforge
+builtJars/fabric/1.0.0-alpha
+builtJars/forge/1.0.0-alpha
+builtJars/neoforge/1.0.0-alpha
 ```
 
 Examples:
 
-- `keyset-fabric-1.20.1-1.20.2-0.1.0-SNAPSHOT.jar`
-- `keyset-forge-1.20.3-1.20.6-0.1.0-SNAPSHOT.jar`
-- `keyset-forge-1.21.1-0.1.0-SNAPSHOT.jar`
-- `keyset-neoforge-1.21-1.21.11-0.1.0-SNAPSHOT.jar`
+- `builtJars/fabric/1.0.0-alpha/keyset-fabric-1.20.1-1.20.2-1.0.0-alpha.jar`
+- `builtJars/forge/1.0.0-alpha/keyset-forge-1.20.3-1.20.6-1.0.0-alpha.jar`
+- `builtJars/forge/1.0.0-alpha/keyset-forge-1.21.1-1.0.0-alpha.jar`
+- `builtJars/neoforge/1.0.0-alpha/keyset-neoforge-1.21-1.21.11-1.0.0-alpha.jar`
 
 Run a Fabric dev client by requested version:
 
@@ -200,4 +200,4 @@ Release bytecode targets currently align like this:
 
 ## Status
 
-This repo is in active pre-release development. The shared core, full Fabric matrix, Forge through `1.21.1`, and NeoForge through `1.21.11` are wired. Modern NeoForge leaves use Architectury's patched Yarn mappings to stay on the shared named-source stack, while Forge is intentionally capped at `1.21.1` in the active graph.
+This repo is in active pre-release development. The current project version is `1.0.0-alpha`. The shared core, full Fabric matrix, Forge through `1.21.1`, and NeoForge through `1.21.11` are wired. Modern NeoForge leaves use Architectury's patched Yarn mappings to stay on the shared named-source stack, while Forge is intentionally capped at `1.21.1` in the active graph.

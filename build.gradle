@@ -182,25 +182,27 @@ tasks.register("buildFabricTargets") {
 
 tasks.register("buildTargetJars") {
     group = "build"
-    description = "Builds and collects the current release jars into builtJars/<loader>."
+    description = "Builds and collects the current release jars into builtJars/<loader>/<version>."
     dependsOn("collectTargetJars")
 }
 
 releaseProjectsByLoader.each { loader, projectPaths ->
     tasks.register("collect${loader.capitalize()}Jars", Sync) {
         group = "build"
-        description = "Copies the current remapped ${loader} jars into builtJars/${loader}."
+        description = "Copies the current remapped ${loader} jars into builtJars/${loader}/${rootProject.version}."
         dependsOn(projectPaths.collect { "${it}:remapJar" })
         into(layout.projectDirectory.dir("builtJars/${loader}"))
-        from(projectPaths.collect { projectPath ->
-            project(projectPath).tasks.named("remapJar").flatMap { it.archiveFile }
-        })
+        into(rootProject.version.toString()) {
+            from(projectPaths.collect { projectPath ->
+                project(projectPath).tasks.named("remapJar").flatMap { it.archiveFile }
+            })
+        }
     }
 }
 
 tasks.register("collectTargetJars") {
     group = "build"
-    description = "Copies the current remapped loader jars into builtJars/<loader>."
+    description = "Copies the current remapped loader jars into builtJars/<loader>/<version>."
     dependsOn(
         "collectFabricJars",
         "collectForgeJars",
