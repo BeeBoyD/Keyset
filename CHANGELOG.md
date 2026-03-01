@@ -2,7 +2,13 @@
 
 ## Unreleased
 
-No unreleased changes yet.
+### Added
+
+- Added a root `run-quilt.sh` helper that maps requested Quilt versions to the matching Fabric-compatible dev target.
+
+### Changed
+
+- Rewrote the README for a public release audience and split Quilt into its own support-matrix column.
 
 ## v1.0.0-alpha - 2026-03-01
 
