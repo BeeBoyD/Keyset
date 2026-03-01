@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Last updated: 2026-02-28 18:07 EET
+Last updated: 2026-03-01 09:15 EET
 
 ### Added
 
@@ -14,10 +14,11 @@ Last updated: 2026-02-28 18:07 EET
 - A playable Fabric UI flow with profile management, conflict browsing, direct bind actions, clipboard import/export, and safe auto-fix preview/apply/undo.
 - Exact Fabric leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, `1.19.2`, `1.19.4`, `1.20.1`, `1.20.4`, `1.20.6`, `1.21.1`, `1.21.4`, `1.21.9`, and `1.21.11`.
 - Forge leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, `1.19.2`, `1.19.4`, `1.20.1-1.20.2`, and `1.20.4`.
-- Forge leaf modules for `1.20.6`, `1.21.1`, and `1.21.4`.
-- NeoForge leaf modules for `1.20.1-1.20.2` and `1.20.4`.
+- Forge leaf modules for `1.20.6` and `1.21.1`.
+- NeoForge leaf modules for `1.20.1-1.20.2`, `1.20.4`, `1.20.6`, `1.21.1`, `1.21.4`, and `1.21.11`.
 - A root `run-fabric.sh` helper that maps requested Fabric versions to the nearest supported dev-launch leaf.
-- A root `buildAllJars` alias and collected `builtJars/fabric`, `builtJars/forge`, and `builtJars/neoforge` output directories for the current remapped release jars.
+- Root `run-forge.sh` and `run-neoforge.sh` helpers that map requested loader versions to the nearest supported dev-launch leaf.
+- A root `buildAllJars` alias and collected `builtJars/<loader>/<version>` output directories for the current remapped release jars.
 
 ### Changed
 
@@ -31,8 +32,9 @@ Last updated: 2026-02-28 18:07 EET
 - Refined the public README into a mod-page style overview with clearer setup, behavior, and development sections.
 - Reorganized the repo root so shared code now lives under `modules/` and loader leaves live under `platforms/`, which makes the multiloader layout easier to scan and maintain.
 - Standardized current release jar names so supported Minecraft ranges are visible directly in the artifact filename.
-- Moved release jar collection out of `build/artifacts` and into root-level `builtJars/<loader>` folders.
-- Documented the current upstream Yarn remap blockers for NeoForge `1.20.6+` and Forge `1.21.11`.
+- Moved release jar collection out of `build/artifacts` and into root-level `builtJars/<loader>/<version>` folders.
+- Capped the active Forge support graph at `1.21.1` and moved modern `1.20.6+` NeoForge leaves onto Architectury's patched Yarn mappings.
+- Bumped the current mod version line to `1.0.0-alpha`.
 
 ### Fixed
 
@@ -50,7 +52,12 @@ Last updated: 2026-02-28 18:07 EET
 - Fixed legacy Forge bootstrap shims for `1.17.1`, `1.18.2`, and `1.19.2`.
 - Fixed NeoForge bootstrap wiring for `1.20.1` and `1.20.4`.
 - Fixed NeoForge `1.20.4` metadata so the dev runtime uses the correct `mods.toml` format and loader range.
-- Fixed modern Forge pack metadata for `1.20.6`, `1.21.1`, and `1.21.4` so those new leaves ship valid resource-pack metadata with the correct pack formats.
+- Fixed modern Forge pack metadata for `1.20.6` and `1.21.1` so those leaves ship valid resource-pack metadata with the correct pack formats.
+- Fixed the Forge `1.21.1` userdev bootstrap on Loom by patching `fmlloader`'s synthetic Minecraft jar metadata to stay named `minecraft`, which removes the `Could not find module minecraft` launch failure and allows the Keyset Forge bootstrap to initialize.
+- Fixed NeoForge `1.20.6+` remap conflicts by switching those leaves to Architectury's patched NeoForge Yarn mappings.
+- Fixed NeoForge `1.20.6+` dev resource metadata by using `META-INF/neoforge.mods.toml` instead of the older Forge-style `mods.toml`.
+- Fixed modern NeoForge bootstrap wiring so `1.20.6+` leaves are treated as valid NeoForge mods, initialize their client hooks, and reload resources normally in dev.
+- Fixed modern NeoForge keybinding registration across the `1.20.6` string-category API and the `1.21.x` `KeyBinding.Category` API.
 
 ## v0.1.0 - TBD
 

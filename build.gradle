@@ -102,12 +102,15 @@ def releaseProjectsByLoader = [
         ":platform-forge-1_20_1",
         ":platform-forge-1_20_4",
         ":platform-forge-1_20_6",
-        ":platform-forge-1_21_1",
-        ":platform-forge-1_21_4"
+        ":platform-forge-1_21_1"
     ],
     neoforge : [
         ":platform-neoforge-1_20_1",
-        ":platform-neoforge-1_20_4"
+        ":platform-neoforge-1_20_4",
+        ":platform-neoforge-1_20_6",
+        ":platform-neoforge-1_21_1",
+        ":platform-neoforge-1_21_4",
+        ":platform-neoforge-1_21_11"
     ]
 ]
 
@@ -135,9 +138,12 @@ def releaseArtifactLabels = [
     "platform-forge-1_20_4"    : "forge-1.20.4",
     "platform-forge-1_20_6"    : "forge-1.20.3-1.20.6",
     "platform-forge-1_21_1"    : "forge-1.21.1",
-    "platform-forge-1_21_4"    : "forge-1.21.4",
     "platform-neoforge-1_20_1" : "neoforge-1.20.1-1.20.2",
-    "platform-neoforge-1_20_4" : "neoforge-1.20.4"
+    "platform-neoforge-1_20_4" : "neoforge-1.20.4",
+    "platform-neoforge-1_20_6" : "neoforge-1.20.6",
+    "platform-neoforge-1_21_1" : "neoforge-1.21.1",
+    "platform-neoforge-1_21_4" : "neoforge-1.21.4",
+    "platform-neoforge-1_21_11": "neoforge-1.21-1.21.11"
 ]
 
 subprojects {
@@ -176,25 +182,27 @@ tasks.register("buildFabricTargets") {
 
 tasks.register("buildTargetJars") {
     group = "build"
-    description = "Builds and collects the current release jars into builtJars/<loader>."
+    description = "Builds and collects the current release jars into builtJars/<loader>/<version>."
     dependsOn("collectTargetJars")
 }
 
 releaseProjectsByLoader.each { loader, projectPaths ->
     tasks.register("collect${loader.capitalize()}Jars", Sync) {
         group = "build"
-        description = "Copies the current remapped ${loader} jars into builtJars/${loader}."
+        description = "Copies the current remapped ${loader} jars into builtJars/${loader}/${rootProject.version}."
         dependsOn(projectPaths.collect { "${it}:remapJar" })
         into(layout.projectDirectory.dir("builtJars/${loader}"))
-        from(projectPaths.collect { projectPath ->
-            project(projectPath).tasks.named("remapJar").flatMap { it.archiveFile }
-        })
+        into(rootProject.version.toString()) {
+            from(projectPaths.collect { projectPath ->
+                project(projectPath).tasks.named("remapJar").flatMap { it.archiveFile }
+            })
+        }
     }
 }
 
 tasks.register("collectTargetJars") {
     group = "build"
-    description = "Copies the current remapped loader jars into builtJars/<loader>."
+    description = "Copies the current remapped loader jars into builtJars/<loader>/<version>."
     dependsOn(
         "collectFabricJars",
         "collectForgeJars",
@@ -220,8 +228,7 @@ tasks.register("buildForgeTargets") {
         ":platform-forge-1_20_1:build",
         ":platform-forge-1_20_4:build",
         ":platform-forge-1_20_6:build",
-        ":platform-forge-1_21_1:build",
-        ":platform-forge-1_21_4:build"
+        ":platform-forge-1_21_1:build"
     )
 }
 
@@ -230,7 +237,11 @@ tasks.register("buildNeoForgeTargets") {
     description = "Builds every currently wired NeoForge target jar."
     dependsOn(
         ":platform-neoforge-1_20_1:build",
-        ":platform-neoforge-1_20_4:build"
+        ":platform-neoforge-1_20_4:build",
+        ":platform-neoforge-1_20_6:build",
+        ":platform-neoforge-1_21_1:build",
+        ":platform-neoforge-1_21_4:build",
+        ":platform-neoforge-1_21_11:build"
     )
 }
 
