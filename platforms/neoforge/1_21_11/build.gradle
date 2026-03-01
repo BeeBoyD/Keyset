@@ -33,6 +33,7 @@ sourceSets {
         java {
             srcDir(project(":core").file("src/main/java"))
             srcDir(project(":common-v1_21-to-v1_21_11").file("src/main/java"))
+            srcDir(project(":platform-neoforge-1_20_6").file("src/main/java"))
             srcDir(project(":platform-fabric-1_21_11").file("src/main/java"))
             exclude("net/beeboyd/keyset/platform/fabric/KeysetFabricClient.java")
         }

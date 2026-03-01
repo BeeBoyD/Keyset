@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Last updated: 2026-03-01 07:57 EET
+Last updated: 2026-03-01 08:14 EET
 
 ### Added
 
@@ -17,6 +17,7 @@ Last updated: 2026-03-01 07:57 EET
 - Forge leaf modules for `1.20.6` and `1.21.1`.
 - NeoForge leaf modules for `1.20.1-1.20.2`, `1.20.4`, `1.20.6`, `1.21.1`, `1.21.4`, and `1.21.11`.
 - A root `run-fabric.sh` helper that maps requested Fabric versions to the nearest supported dev-launch leaf.
+- Root `run-forge.sh` and `run-neoforge.sh` helpers that map requested loader versions to the nearest supported dev-launch leaf.
 - A root `buildAllJars` alias and collected `builtJars/fabric`, `builtJars/forge`, and `builtJars/neoforge` output directories for the current remapped release jars.
 
 ### Changed
@@ -53,6 +54,8 @@ Last updated: 2026-03-01 07:57 EET
 - Fixed modern Forge pack metadata for `1.20.6` and `1.21.1` so those leaves ship valid resource-pack metadata with the correct pack formats.
 - Fixed NeoForge `1.20.6+` remap conflicts by switching those leaves to Architectury's patched NeoForge Yarn mappings.
 - Fixed NeoForge `1.20.6+` dev resource metadata by using `META-INF/neoforge.mods.toml` instead of the older Forge-style `mods.toml`.
+- Fixed modern NeoForge bootstrap wiring so `1.20.6+` leaves are treated as valid NeoForge mods, initialize their client hooks, and reload resources normally in dev.
+- Fixed modern NeoForge keybinding registration across the `1.20.6` string-category API and the `1.21.x` `KeyBinding.Category` API.
 
 ## v0.1.0 - TBD
 

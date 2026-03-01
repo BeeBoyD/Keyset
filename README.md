@@ -165,6 +165,16 @@ Run a Fabric dev client by requested version:
 ./run-fabric.sh latest
 ```
 
+Run Forge or NeoForge the same way:
+
+```bash
+./run-forge.sh 1.21.1
+./run-neoforge.sh 1.20.6
+./run-neoforge.sh 1.21.11
+```
+
+You can override the default JDK 21 launcher with `KEYSET_JAVA_HOME=/path/to/jdk`.
+
 Representative direct launcher examples:
 
 ```bash
