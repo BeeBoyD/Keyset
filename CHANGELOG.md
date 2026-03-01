@@ -6,10 +6,12 @@
 
 - Added a root `run-quilt.sh` helper that maps requested Quilt versions to the matching Fabric-compatible dev target.
 - Added a tracked `logo.png` project logo for public-facing repo and future release branding.
+- Added `README-modrinth.md` for a Modrinth-focused project description and release page copy.
 
 ### Changed
 
 - Rewrote the README for a public release audience and split Quilt into its own support-matrix column.
+- Expanded the public docs with badges, Modrinth links, privacy notes, and a more detailed step-by-step usage guide.
 
 ## v1.0.0-alpha - 2026-03-01
 
