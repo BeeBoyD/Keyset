@@ -73,9 +73,12 @@ def projectDirectories = [
     "platform-forge-1_20_4"   : "platforms/forge/1_20_4",
     "platform-forge-1_20_6"   : "platforms/forge/1_20_6",
     "platform-forge-1_21_1"   : "platforms/forge/1_21_1",
-    "platform-forge-1_21_4"   : "platforms/forge/1_21_4",
     "platform-neoforge-1_20_1": "platforms/neoforge/1_20_1",
-    "platform-neoforge-1_20_4": "platforms/neoforge/1_20_4"
+    "platform-neoforge-1_20_4": "platforms/neoforge/1_20_4",
+    "platform-neoforge-1_20_6": "platforms/neoforge/1_20_6",
+    "platform-neoforge-1_21_1": "platforms/neoforge/1_21_1",
+    "platform-neoforge-1_21_4": "platforms/neoforge/1_21_4",
+    "platform-neoforge-1_21_11": "platforms/neoforge/1_21_11"
 ]
 
 projectDirectories.each { projectName, projectPath ->
