@@ -43,6 +43,15 @@ sourceSets {
             exclude("fabric.mod.json", "pack.mcmeta")
         }
     }
+    launcherPatch {
+        compileClasspath += main.compileClasspath + main.output
+        runtimeClasspath += output + compileClasspath
+    }
+    eventbusPatch {
+        compileClasspath += main.compileClasspath + main.output
+        runtimeClasspath += output + compileClasspath
+    }
+    bootstrapPatch
 }
 
 configurations.configureEach {
@@ -53,6 +62,12 @@ dependencies {
     minecraft "com.mojang:minecraft:${project.property('minecraftVersion_1_21_1')}"
     mappings "net.fabricmc:yarn:${project.property('yarnMappings_1_21_1')}:v2"
     forge "net.minecraftforge:forge:${project.property('forgeVersion_1_21_1')}"
+    bootstrapPatchImplementation "net.minecraftforge:bootstrap-api:2.1.8"
+}
+
+def bootstrapPatchJar = tasks.register("bootstrapPatchJar", Jar) {
+    archiveClassifier = "bootstrap-patch"
+    from(sourceSets.bootstrapPatch.output)
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -63,6 +78,43 @@ tasks.withType(JavaExec).configureEach {
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(21)
     }
+}
+
+def forgeDevFmlConfig = layout.projectDirectory.file("run/config/fml.toml")
+
+tasks.register("prepareForgeDevFmlConfig") {
+    outputs.file(forgeDevFmlConfig)
+
+    doLast {
+        def configFile = forgeDevFmlConfig.asFile
+        configFile.parentFile.mkdirs()
+        configFile.text = """# Disable Forge's early window for this 1.21.1 dev leaf to avoid the current fmlearlydisplay crash on macOS.
+versionCheck = true
+defaultConfigPath = "defaultconfigs"
+disableOptimizedDFU = true
+maxThreads = -1
+earlyWindowControl = false
+earlyWindowProvider = "dummyprovider"
+earlyWindowWidth = 854
+earlyWindowHeight = 480
+earlyWindowFBScale = 1
+earlyWindowMaximized = false
+earlyWindowSkipGLVersions = []
+earlyWindowLogHelpMessage = false
+earlyWindowSquir = false
+earlyWindowShowCPU = false
+"""
+    }
+}
+
+tasks.named("runClient") {
+    dependsOn(tasks.named("prepareForgeDevFmlConfig"))
+    dependsOn(tasks.named("compileLauncherPatchJava"))
+    dependsOn(tasks.named("compileEventbusPatchJava"))
+    dependsOn(bootstrapPatchJar)
+    systemProperty("keyset.fmlloaderPatchPath", sourceSets.launcherPatch.output.classesDirs.singleFile.absolutePath)
+    systemProperty("keyset.eventbusPatchPath", sourceSets.eventbusPatch.output.classesDirs.singleFile.absolutePath)
+    classpath += files(bootstrapPatchJar.flatMap { it.archiveFile })
 }
 
 processResources {

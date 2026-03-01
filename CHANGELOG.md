@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Last updated: 2026-03-01 08:14 EET
+Last updated: 2026-03-01 09:04 EET
 
 ### Added
 
@@ -52,6 +52,7 @@ Last updated: 2026-03-01 08:14 EET
 - Fixed NeoForge bootstrap wiring for `1.20.1` and `1.20.4`.
 - Fixed NeoForge `1.20.4` metadata so the dev runtime uses the correct `mods.toml` format and loader range.
 - Fixed modern Forge pack metadata for `1.20.6` and `1.21.1` so those leaves ship valid resource-pack metadata with the correct pack formats.
+- Fixed the Forge `1.21.1` userdev bootstrap on Loom by patching `fmlloader`'s synthetic Minecraft jar metadata to stay named `minecraft`, which removes the `Could not find module minecraft` launch failure and allows the Keyset Forge bootstrap to initialize.
 - Fixed NeoForge `1.20.6+` remap conflicts by switching those leaves to Architectury's patched NeoForge Yarn mappings.
 - Fixed NeoForge `1.20.6+` dev resource metadata by using `META-INF/neoforge.mods.toml` instead of the older Forge-style `mods.toml`.
 - Fixed modern NeoForge bootstrap wiring so `1.20.6+` leaves are treated as valid NeoForge mods, initialize their client hooks, and reload resources normally in dev.

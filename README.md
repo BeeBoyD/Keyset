@@ -175,6 +175,8 @@ Run Forge or NeoForge the same way:
 
 You can override the default JDK 21 launcher with `KEYSET_JAVA_HOME=/path/to/jdk`.
 
+The Forge `1.21.1` dev leaf carries a local `fmlloader` userdev shim so the Loom merged jar still launches as the `minecraft` game module instead of collapsing into Forge's module name.
+
 Representative direct launcher examples:
 
 ```bash
