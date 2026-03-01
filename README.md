@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" alt="Keyset logo" width="192" />
+</p>
+
 # Keyset
 
 Keyset is a vanilla-friendly keybind manager for modded Minecraft.
