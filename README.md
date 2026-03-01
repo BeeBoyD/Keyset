@@ -37,9 +37,10 @@ Keyset keeps that workflow client-side, additive, and close to vanilla UI expect
 | 1.19.4 | Supported | Supported | N/A | Verified |
 | 1.20.1-1.20.2 | Supported | Supported | Supported | Verified |
 | 1.20.3-1.20.4 | Supported | Supported | Supported | Verified |
-| 1.20.5-1.20.6 | Supported | Supported | Blocked | Forge verified, NeoForge currently blocked by Loom/Yarn remap conflicts |
-| 1.21.1-1.21.4 | Supported | Build-verified | Blocked | Forge jars build; NeoForge currently blocked by Loom/Yarn remap conflicts |
-| 1.21.5-1.21.11 | Supported | Blocked | Blocked | Current shared Yarn-based Forge and NeoForge toolchain is blocked upstream |
+| 1.20.5-1.20.6 | Supported | Supported | Supported | Verified with patched NeoForge Yarn mappings |
+| 1.21.1 | Supported | Supported | Supported | Verified |
+| 1.21.2-1.21.4 | Supported | N/A | Build-verified | Forge support is intentionally capped at `1.21.1`; NeoForge uses patched Yarn mappings |
+| 1.21.5-1.21.11 | Supported | N/A | Supported | NeoForge `1.21.11` dev launch verified |
 
 Quilt uses the Fabric-compatible targets.
 
@@ -119,9 +120,9 @@ The root is grouped by responsibility now instead of keeping every module flat:
 - `platforms/fabric/*`
   Fabric and Quilt-compatible leaf modules.
 - `platforms/forge/*`
-  Forge leaf modules, now including modern `1.20.6`, `1.21.1`, and `1.21.4` leaves.
+  Forge leaf modules, capped at `1.21.1` for the active support graph.
 - `platforms/neoforge/*`
-  NeoForge leaf modules.
+  NeoForge leaf modules, including patched-mappings leaves for `1.20.6+`.
 
 Loader leaves stay thin on purpose. Feature logic belongs in `modules/core`, not in per-loader branches.
 
@@ -154,8 +155,8 @@ Examples:
 
 - `keyset-fabric-1.20.1-1.20.2-0.1.0-SNAPSHOT.jar`
 - `keyset-forge-1.20.3-1.20.6-0.1.0-SNAPSHOT.jar`
-- `keyset-forge-1.21.4-0.1.0-SNAPSHOT.jar`
-- `keyset-neoforge-1.20.4-0.1.0-SNAPSHOT.jar`
+- `keyset-forge-1.21.1-0.1.0-SNAPSHOT.jar`
+- `keyset-neoforge-1.21-1.21.11-0.1.0-SNAPSHOT.jar`
 
 Run a Fabric dev client by requested version:
 
@@ -187,4 +188,4 @@ Release bytecode targets currently align like this:
 
 ## Status
 
-This repo is in active pre-release development. The shared core, full Fabric matrix, and Forge through `1.21.4` are wired. NeoForge is currently verified through `1.20.4`; `1.20.6+` and Forge `1.21.11` are still blocked by upstream Architectury Loom/Yarn remap conflicts on the shared Yarn-based stack.
+This repo is in active pre-release development. The shared core, full Fabric matrix, Forge through `1.21.1`, and NeoForge through `1.21.11` are wired. Modern NeoForge leaves use Architectury's patched Yarn mappings to stay on the shared named-source stack, while Forge is intentionally capped at `1.21.1` in the active graph.
