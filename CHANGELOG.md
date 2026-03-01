@@ -2,65 +2,38 @@
 
 ## Unreleased
 
-Last updated: 2026-03-01 09:15 EET
+No unreleased changes yet.
+
+## v1.0.0-alpha - 2026-03-01
+
+Released: 2026-03-01 09:15 EET
 
 ### Added
 
-- Multi-project Gradle scaffold with shared core modules, version shims, and loader leaf targets.
-- Spotless formatting, Gradle wrapper support, and workspace verification tasks.
-- Immutable core profile models, starter profiles, lifecycle operations, and JSON persistence with safe file writes.
-- Unit coverage for starter profiles, fallback behavior, and config round-trips.
-- Loader-agnostic live binding descriptors and a pure conflict analysis engine with grouping and filtering.
-- A playable Fabric UI flow with profile management, conflict browsing, direct bind actions, clipboard import/export, and safe auto-fix preview/apply/undo.
-- Exact Fabric leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, `1.19.2`, `1.19.4`, `1.20.1`, `1.20.4`, `1.20.6`, `1.21.1`, `1.21.4`, `1.21.9`, and `1.21.11`.
-- Forge leaf modules for `1.16.5`, `1.17.1`, `1.18.2`, `1.19.2`, `1.19.4`, `1.20.1-1.20.2`, and `1.20.4`.
-- Forge leaf modules for `1.20.6` and `1.21.1`.
-- NeoForge leaf modules for `1.20.1-1.20.2`, `1.20.4`, `1.20.6`, `1.21.1`, `1.21.4`, and `1.21.11`.
-- A root `run-fabric.sh` helper that maps requested Fabric versions to the nearest supported dev-launch leaf.
-- Root `run-forge.sh` and `run-neoforge.sh` helpers that map requested loader versions to the nearest supported dev-launch leaf.
-- A root `buildAllJars` alias and collected `builtJars/<loader>/<version>` output directories for the current remapped release jars.
+- Shared core modules for profile models, config persistence, conflict analysis, and safe auto-resolve logic.
+- Starter profiles: `Default`, `PvP`, `Building`, and `Tech`.
+- Profile create, rename, duplicate, delete, save, and instant switching flows.
+- Conflict browser with search, grouping, and selected-conflict quick actions.
+- Preview/apply/undo auto-fix flow.
+- Clipboard JSON export/import.
+- Fabric / Quilt targets from `1.16.5` through `1.21.11`.
+- Forge targets from `1.16.5` through `1.21.1`.
+- NeoForge targets from `1.20.1` through `1.21.11`.
+- Root launch helpers: `run-fabric.sh`, `run-forge.sh`, and `run-neoforge.sh`.
+- Versioned collected release jars in `builtJars/<loader>/<version>`.
 
 ### Changed
 
-- Documented the support matrix and the multi-loader architecture in the README.
-- Documented import behavior for unavailable keys, starter-profile seeding, stable profile ids, and auto-fix rules.
-- Synced manual edits made in the vanilla keybind screen back into the active Keyset profile as sticky user changes.
-- Iterated on the Fabric UI with a more compact layout, tooltips, profile state badges, contextual footer guidance, and selected-profile conflict previews.
-- Upgraded the modern Fabric build stack to Gradle `9.2.0` and Loom `1.15.4`.
-- Upgraded Architectury Loom from `1.13.460` to `1.13.467` while expanding the modern Forge build line.
-- Documented the per-range Java toolchain strategy and exact verified Fabric/Forge/NeoForge targets.
-- Refined the public README into a mod-page style overview with clearer setup, behavior, and development sections.
-- Reorganized the repo root so shared code now lives under `modules/` and loader leaves live under `platforms/`, which makes the multiloader layout easier to scan and maintain.
-- Standardized current release jar names so supported Minecraft ranges are visible directly in the artifact filename.
-- Moved release jar collection out of `build/artifacts` and into root-level `builtJars/<loader>/<version>` folders.
-- Capped the active Forge support graph at `1.21.1` and moved modern `1.20.6+` NeoForge leaves onto Architectury's patched Yarn mappings.
-- Bumped the current mod version line to `1.0.0-alpha`.
+- Reorganized the repo into `modules/` and `platforms/` to make the multiloader layout easier to maintain.
+- Standardized jar names so supported Minecraft ranges are visible in the artifact filename.
+- Refined the public README into a cleaner release-facing project page.
+- Capped the active Forge line at `1.21.1`.
+- Set the active release version to `1.0.0-alpha`.
 
 ### Fixed
 
-- Fixed Forge and NeoForge dev resource roots by adding valid `pack.mcmeta` metadata, removing the old `failed to load a valid ResourcePackInfo` warning from current `1.20.x` launches.
-- Fixed the shared modern `1.20.4+` Keyset screen shell so its custom panels render from `renderBackground(...)` on clients whose base `Screen.render(...)` repaints the background.
-- Fixed the shared `1.20.1-1.20.2` Keyset screen render path so Forge, NeoForge, and Fabric clients that do not call `renderBackground(...)` from `Screen.render(...)` do not leave stale Controls frames or tooltip trails behind the Keyset UI.
-- Fixed the `1.21.11` crash caused by applying background blur twice in one frame.
-- Fixed modern Fabric custom text rendering so badges, headers, empty states, conflict rows, and rebind helper text no longer appear as blank hit targets.
-- Fixed the `1.21.11` conflict list renderer so row text uses entry geometry instead of mouse coordinates while hovered.
-- Fixed overlapping and clipped controls on the Fabric Keyset screen by moving auto-fix actions into a shared footer row, trimming verbose copy, and preserving list space on short windows.
-- Fixed Fabric screen text layering and button placement regressions across old and new leaves.
-- Fixed legacy Fabric metadata so `1.16.5` and `1.17.1` use the correct `fabric` aggregator id.
-- Fixed version-leaf wiring for `1.19.2`, `1.20.4`, `1.21.1`, `1.21.4`, and `1.21.9` so each target uses the correct screen/input/keybinding API surface.
-- Fixed core JSON parsing to stay compatible with older Gson versions bundled by legacy Forge leaves.
-- Fixed legacy Forge bootstrap shims for `1.17.1`, `1.18.2`, and `1.19.2`.
-- Fixed NeoForge bootstrap wiring for `1.20.1` and `1.20.4`.
-- Fixed NeoForge `1.20.4` metadata so the dev runtime uses the correct `mods.toml` format and loader range.
-- Fixed modern Forge pack metadata for `1.20.6` and `1.21.1` so those leaves ship valid resource-pack metadata with the correct pack formats.
-- Fixed the Forge `1.21.1` userdev bootstrap on Loom by patching `fmlloader`'s synthetic Minecraft jar metadata to stay named `minecraft`, which removes the `Could not find module minecraft` launch failure and allows the Keyset Forge bootstrap to initialize.
-- Fixed NeoForge `1.20.6+` remap conflicts by switching those leaves to Architectury's patched NeoForge Yarn mappings.
-- Fixed NeoForge `1.20.6+` dev resource metadata by using `META-INF/neoforge.mods.toml` instead of the older Forge-style `mods.toml`.
-- Fixed modern NeoForge bootstrap wiring so `1.20.6+` leaves are treated as valid NeoForge mods, initialize their client hooks, and reload resources normally in dev.
-- Fixed modern NeoForge keybinding registration across the `1.20.6` string-category API and the `1.21.x` `KeyBinding.Category` API.
-
-## v0.1.0 - TBD
-
-- Added: Initial public release not cut yet.
-- Changed: Pending release branch.
-- Fixed: Pending release branch.
+- Core JSON parsing compatibility for older Gson versions bundled by legacy leaves.
+- Fabric UI rendering issues across old and modern versions, including text visibility, selection geometry, clipping, and screen redraw regressions.
+- Forge and NeoForge resource-pack metadata so current dev launches no longer fail resource discovery due to missing `pack.mcmeta`.
+- NeoForge `1.20.6+` bootstrap and metadata wiring so modern NeoForge leaves load as valid mods and initialize correctly.
+- Forge `1.21.1` userdev bootstrap so the synthetic Minecraft module stays named `minecraft` and the client launches cleanly in the current Loom-based setup.
