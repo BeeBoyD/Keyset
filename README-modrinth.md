@@ -1,13 +1,11 @@
-<p align="center">
-  <img src="logo.png" alt="Keyset logo" width="192" />
-</p>
+![Keyset logo](logo-modrinth.png)
 
 # Keyset
 
-[![GitHub Release](https://img.shields.io/github/v/release/BeeBoyD/Keyset?display_name=tag&label=GitHub%20Release)](https://github.com/BeeBoyD/Keyset/releases)
 [![Modrinth](https://img.shields.io/modrinth/dt/keyset?logo=modrinth&label=Modrinth)](https://modrinth.com/project/keyset)
+[![Source](https://img.shields.io/badge/source-GitHub-24292f)](https://github.com/BeeBoyD/Keyset)
 [![License](https://img.shields.io/github/license/BeeBoyD/Keyset)](https://github.com/BeeBoyD/Keyset/blob/main/LICENSE)
-[![Client-Side](https://img.shields.io/badge/side-client--side-4caf50)](https://github.com/BeeBoyD/Keyset)
+[![Client-Side](https://img.shields.io/badge/side-client--side-4caf50)](https://modrinth.com/project/keyset)
 
 Keyset is a vanilla-friendly keybind manager for modded Minecraft.
 
@@ -25,10 +23,9 @@ It gives you multiple control profiles, a clear conflict view, and a safe auto-f
 
 ## 📦 Downloads
 
-- [GitHub Releases](https://github.com/BeeBoyD/Keyset/releases)
-- [Modrinth Releases](https://modrinth.com/project/keyset)
+Download Keyset from [Modrinth](https://modrinth.com/project/keyset).
 
-Release assets are published per loader and Minecraft range, for example:
+Published files are split by loader and Minecraft range, for example:
 
 - `keyset-fabric-1.20.1-1.20.2-1.0.0-alpha.jar`
 - `keyset-forge-1.21.1-1.0.0-alpha.jar`
@@ -155,22 +152,6 @@ That file stays on your machine unless you choose to export or share it yourself
 - Safe to include in packs
 - Does not add gameplay content
 - Designed to stay additive instead of fighting other keybind mods
-
-## ⚙️ Config
-
-Schema:
-
-```json
-{
-  "schema": 1,
-  "activeProfile": "default",
-  "profiles": {
-    "default": {
-      "name": "Default"
-    }
-  }
-}
-```
 
 ## 🚧 Status
 
