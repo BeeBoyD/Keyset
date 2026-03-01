@@ -5,6 +5,7 @@
 ### Added
 
 - Added a root `run-quilt.sh` helper that maps requested Quilt versions to the matching Fabric-compatible dev target.
+- Added a tracked `logo.png` project logo for public-facing repo and future release branding.
 
 ### Changed
 
