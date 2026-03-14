@@ -21,9 +21,10 @@ import net.minecraft.text.Text;
 /** Scrollable list used by the Keyset screen for conflicts and auto-resolve previews. */
 public final class KeysetConflictListWidget
     extends ElementListWidget<KeysetConflictListWidget.Entry> {
-  private static final int ROW_HEIGHT = 24;
+  private static final int ROW_HEIGHT = 28;
 
   private final Listener listener;
+  private boolean hidden;
 
   public KeysetConflictListWidget(
       MinecraftClient client, int width, int top, int bottom, Listener listener) {
@@ -78,9 +79,10 @@ public final class KeysetConflictListWidget
             Text.translatable(
                 "keyset.resolve.summary",
                 Integer.valueOf(previewPlan.getChanges().size()),
-                Integer.valueOf(previewPlan.getUnresolvedBindings()))));
+                Integer.valueOf(previewPlan.getUnresolvedBindings())),
+            true));
     if (previewPlan.getChanges().isEmpty()) {
-      entries.add(new PreviewEntry(this, Text.translatable("keyset.resolve.no_preview")));
+      entries.add(new PreviewEntry(this, Text.translatable("keyset.resolve.no_preview"), false));
     } else {
       for (AutoResolveChange change : previewPlan.getChanges()) {
         entries.add(
@@ -90,7 +92,8 @@ public final class KeysetConflictListWidget
                     "keyset.resolve.change",
                     change.getBindingName(),
                     change.getOldKeyDisplayName(),
-                    change.getNewKeyDisplayName())));
+                    change.getNewKeyDisplayName()),
+                false));
       }
     }
 
@@ -103,6 +106,12 @@ public final class KeysetConflictListWidget
     clearEntries();
     setSelected(null);
     listener.onBindingSelected(null);
+  }
+
+  public void setHidden(boolean hidden) {
+    this.hidden = hidden;
+    this.visible = !hidden;
+    this.active = !hidden;
   }
 
   public void selectBinding(String bindingId) {
@@ -127,28 +136,12 @@ public final class KeysetConflictListWidget
 
   @Override
   public int getRowWidth() {
-    return width - 16;
+    return width - 18;
   }
 
   @Override
   protected int getScrollbarX() {
     return getRowRight() - 6;
-  }
-
-  private int rowContentX() {
-    return getRowLeft();
-  }
-
-  private int rowContentWidth() {
-    return getRowWidth();
-  }
-
-  private Text fitText(Text text, int maxWidth) {
-    return Text.literal(ellipsize(text.getString(), maxWidth));
-  }
-
-  private Text fitText(String text, int maxWidth) {
-    return Text.literal(ellipsize(text, maxWidth));
   }
 
   @Override
@@ -160,7 +153,25 @@ public final class KeysetConflictListWidget
   @Override
   protected void drawSelectionHighlight(DrawContext context, Entry entry, int alpha) {}
 
-  void handleSelection(Entry entry) {
+  Text fitText(Text text, int maxWidth) {
+    return Text.literal(ellipsize(text.getString(), maxWidth));
+  }
+
+  Text fitText(String text, int maxWidth) {
+    return Text.literal(ellipsize(text, maxWidth));
+  }
+
+  float emphasisFor(int y, int entryHeight) {
+    int viewportTop = getY();
+    int viewportHeight = getHeight();
+    int rowCenter = y + (entryHeight / 2);
+    int viewportCenter = viewportTop + (viewportHeight / 2);
+    float distance =
+        Math.abs((float) (rowCenter - viewportCenter)) / (float) Math.max(24, viewportHeight);
+    return clamp(1.0F - (distance * 0.7F), 0.58F, 1.0F);
+  }
+
+  private void handleSelection(Entry entry) {
     if (entry == null || entry.bindingId() == null) {
       if (entry != null && entry.jumpTargetBindingId() != null) {
         selectBinding(entry.jumpTargetBindingId());
@@ -194,6 +205,20 @@ public final class KeysetConflictListWidget
 
     setSelected(null);
     listener.onBindingSelected(null);
+  }
+
+  private static int scaleAlpha(int color, float alphaScale) {
+    int alpha = (color >>> 24) & 0xFF;
+    int scaledAlpha = Math.max(0, Math.min(255, Math.round(alpha * alphaScale)));
+    return (scaledAlpha << 24) | (color & 0x00FFFFFF);
+  }
+
+  private static int clamp(int value, int min, int max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  private static float clamp(float value, float min, float max) {
+    return Math.max(min, Math.min(max, value));
   }
 
   private static String firstBindingId(KeysetConflictGroup group) {
@@ -288,13 +313,27 @@ public final class KeysetConflictListWidget
       int contentX = getContentX();
       int contentY = getContentY();
       int contentWidth = getContentWidth();
-      context.fill(x, y, x + entryWidth, y + entryHeight - 1, 0x6A1C2330);
+      float emphasis = owner.emphasisFor(y, entryHeight);
+      int offset = Math.round((1.0F - emphasis) * 8.0F);
+
+      context.fill(
+          x,
+          y + 3,
+          x + entryWidth,
+          y + entryHeight - 3,
+          scaleAlpha(0xFF202A36, 0.72F * emphasis));
+      context.fill(
+          x,
+          y + 3,
+          x + 4,
+          y + entryHeight - 3,
+          scaleAlpha(0xFFF0C870, 0.9F * emphasis));
       context.drawTextWithShadow(
           owner.client.textRenderer,
-          owner.fitText(text, contentWidth - 8),
-          contentX + 4,
-          contentY + 6,
-          0xFFE8D7A0);
+          owner.fitText(text, Math.max(28, contentWidth - 20)),
+          contentX + 10 + offset,
+          contentY + 8,
+          scaleAlpha(0xFFF5DEA0, emphasis));
     }
   }
 
@@ -322,12 +361,17 @@ public final class KeysetConflictListWidget
     @Override
     public void render(
         DrawContext context, int mouseX, int mouseY, boolean hovered, float tickDelta) {
+      int contentX = getContentX();
+      int contentY = getContentY();
+      int contentWidth = getContentWidth();
+      float emphasis = owner.emphasisFor(getY(), getHeight());
+      int offset = Math.round((1.0F - emphasis) * 6.0F);
       context.drawTextWithShadow(
           owner.client.textRenderer,
-          owner.fitText(text, getContentWidth() - 10),
-          getContentX() + 10,
-          getContentY() + 6,
-          0xFFB8C7D9);
+          owner.fitText(text, Math.max(24, contentWidth - 22)),
+          contentX + 14 + offset,
+          contentY + 8,
+          scaleAlpha(0xFF9FB4C9, 0.95F * emphasis));
     }
   }
 
@@ -367,47 +411,105 @@ public final class KeysetConflictListWidget
       int contentY = getContentY();
       int contentWidth = getContentWidth();
       boolean selected = owner.getSelectedOrNull() == this;
-      if (selected) {
-        context.fill(x, y, x + entryWidth, y + entryHeight - 1, 0x7A304A68);
-        context.drawStrokedRectangle(x, y, entryWidth, entryHeight - 1, 0xFF8AB3D6);
-      } else if (hovered) {
-        context.fill(x, y, x + entryWidth, y + entryHeight - 1, 0x4A28313A);
+      float emphasis = owner.emphasisFor(y, entryHeight);
+      int contentOffset = Math.round((1.0F - emphasis) * 6.0F);
+
+      int fillColor =
+          selected
+              ? scaleAlpha(0xFF24384B, 0.92F)
+              : hovered
+                  ? scaleAlpha(0xFF1A2430, 0.92F * emphasis)
+                  : scaleAlpha(0xFF141C26, 0.86F * emphasis);
+      int borderColor =
+          selected ? 0xFF8FD9F0 : hovered ? scaleAlpha(0xFF51697F, 0.92F) : 0x00000000;
+      int accentColor = selected ? 0xFF8FD9F0 : scaleAlpha(0xFF4D5F73, emphasis);
+      int nameColor = selected ? 0xFFF8FBFF : scaleAlpha(0xFFE6EEF6, emphasis);
+      int metaColor = selected ? 0xFFD0E6F7 : scaleAlpha(0xFF99AEC3, emphasis);
+
+      context.fill(x, y + 2, x + entryWidth, y + entryHeight - 2, fillColor);
+      context.fill(x, y + 2, x + 3, y + entryHeight - 2, accentColor);
+      if (borderColor != 0) {
+        context.drawStrokedRectangle(x, y + 2, entryWidth, entryHeight - 4, borderColor);
       }
 
+      String keyLabel = bindingDescriptor.getKeyDisplayName();
+      int badgeWidth =
+          clamp(owner.client.textRenderer.getWidth(keyLabel) + 14, 42, Math.max(52, entryWidth / 3));
+      int badgeX = x + entryWidth - badgeWidth - 10;
+      int badgeY = y + 6;
+      int keyBadgeFill = selected ? 0xFF33526B : scaleAlpha(0xFF273647, 0.92F * emphasis);
+      int keyBadgeBorder = selected ? 0xFF8FD9F0 : scaleAlpha(0xFF60788C, emphasis);
+      context.fill(badgeX, badgeY, badgeX + badgeWidth, badgeY + 14, keyBadgeFill);
+      context.drawStrokedRectangle(badgeX, badgeY, badgeWidth, 14, keyBadgeBorder);
+      context.drawCenteredTextWithShadow(
+          owner.client.textRenderer,
+          owner.fitText(keyLabel, Math.max(22, badgeWidth - 8)),
+          badgeX + (badgeWidth / 2),
+          badgeY + 3,
+          selected ? 0xFFF4FBFF : scaleAlpha(0xFFD7E4F2, emphasis));
+
+      int textMaxWidth = Math.max(24, badgeX - contentX - 18);
       context.drawTextWithShadow(
           owner.client.textRenderer,
-          owner.fitText(bindingDescriptor.getDisplayName(), contentWidth - 12),
-          contentX + 6,
+          owner.fitText(bindingDescriptor.getDisplayName(), textMaxWidth),
+          contentX + 8 + contentOffset,
           contentY + 3,
-          0xFFF2F5F8);
+          nameColor);
       context.drawTextWithShadow(
           owner.client.textRenderer,
-          owner.fitText(
-              bindingDescriptor.getCategoryName() + "  |  " + bindingDescriptor.getKeyDisplayName(),
-              contentWidth - 12),
-          contentX + 6,
-          contentY + 13,
-          0xFFAFC0D4);
+          owner.fitText(bindingDescriptor.getCategoryName(), textMaxWidth),
+          contentX + 8 + contentOffset,
+          contentY + 15,
+          metaColor);
     }
   }
 
   private static final class PreviewEntry extends Entry {
     private final Text text;
+    private final boolean summary;
 
-    private PreviewEntry(KeysetConflictListWidget owner, Text text) {
+    private PreviewEntry(KeysetConflictListWidget owner, Text text, boolean summary) {
       super(owner);
       this.text = text;
+      this.summary = summary;
     }
 
     @Override
     public void render(
         DrawContext context, int mouseX, int mouseY, boolean hovered, float tickDelta) {
+      int x = getX();
+      int y = getY();
+      int entryWidth = getWidth();
+      int entryHeight = getHeight();
+      int contentX = getContentX();
+      int contentY = getContentY();
+      int contentWidth = getContentWidth();
+      float emphasis = owner.emphasisFor(y, entryHeight);
+      int offset = Math.round((1.0F - emphasis) * 4.0F);
+
+      if (summary) {
+        context.fill(
+            x,
+            y + 2,
+            x + entryWidth,
+            y + entryHeight - 2,
+            scaleAlpha(0xFF1E3124, 0.88F));
+        context.fill(x, y + 2, x + 3, y + entryHeight - 2, 0xFF9DDA84);
+      } else if (hovered) {
+        context.fill(
+            x,
+            y + 2,
+            x + entryWidth,
+            y + entryHeight - 2,
+            scaleAlpha(0xFF182029, 0.84F * emphasis));
+      }
+
       context.drawTextWithShadow(
           owner.client.textRenderer,
-          owner.fitText(text, getContentWidth() - 8),
-          getContentX() + 4,
-          getContentY() + 6,
-          0xFFE0E6ED);
+          owner.fitText(text, Math.max(24, contentWidth - 14)),
+          contentX + 8 + offset,
+          contentY + 8,
+          summary ? 0xFFF0F7ED : scaleAlpha(0xFFE2EAF3, emphasis));
     }
   }
 }
