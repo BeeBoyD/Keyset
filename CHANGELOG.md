@@ -2,17 +2,25 @@
 
 ## Unreleased
 
+## v1.0.0 - 2026-03-14
+
+Released: 2026-03-14 13:30 EET
+
 ### Added
 
-- Added a root `run-quilt.sh` helper that maps requested Quilt versions to the matching Fabric-compatible dev target.
-- Added a tracked `logo.png` project logo for public-facing repo and future release branding.
-- Added `README-modrinth.md` for a Modrinth-focused project description and release page copy.
+- Launch branding assets and a Modrinth-focused project page.
 
 ### Changed
 
-- Rewrote the README for a public release audience and split Quilt into its own support-matrix column.
-- Expanded the public docs with badges, Modrinth links, privacy notes, and a more detailed step-by-step usage guide.
-- Shortened Modrinth README section headers to fit Modrinth description formatting rules.
+- Promoted the active release line from `1.0.0-alpha` to `1.0.0`.
+- Rebuilt the modern Fabric UI into a dashboard layout with a profile deck, conflict navigator, clearer action cards, and richer conflict rows.
+- Refined button labels, helper copy, and tooltips so live edits, preview mode, and Safe Fix are easier to understand.
+- Rewrote the public README and Modrinth copy for the stable launch.
+- Updated the public-facing mod description to better explain the core value of the mod.
+
+### Fixed
+
+- Kept the redesigned UI compiling across the current DrawContext Fabric leaves: `1.20.1`, `1.20.4`, `1.20.6`, `1.21.1`, `1.21.4`, `1.21.9`, and `1.21.11`.
 
 ## v1.0.0-alpha - 2026-03-01
 
