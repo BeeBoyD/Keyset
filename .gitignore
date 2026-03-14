@@ -14,7 +14,9 @@ build/
 # Runtime
 run/
 logs/
-builtJars/
+builtJars/*
+!builtJars/1.0.0/
+!builtJars/1.0.0/**
 
 # Misc
 out/
