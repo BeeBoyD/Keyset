@@ -324,17 +324,8 @@ public final class KeysetConflictListWidget
       int offset = Math.round((1.0F - emphasis) * 8.0F);
 
       context.fill(
-          x,
-          y + 3,
-          x + entryWidth,
-          y + entryHeight - 3,
-          scaleAlpha(0xFF202A36, 0.72F * emphasis));
-      context.fill(
-          x,
-          y + 3,
-          x + 4,
-          y + entryHeight - 3,
-          scaleAlpha(0xFFF0C870, 0.9F * emphasis));
+          x, y + 3, x + entryWidth, y + entryHeight - 3, scaleAlpha(0xFF202A36, 0.72F * emphasis));
+      context.fill(x, y + 3, x + 4, y + entryHeight - 3, scaleAlpha(0xFFF0C870, 0.9F * emphasis));
       context.drawTextWithShadow(
           owner.client.textRenderer,
           owner.fitText(text, Math.max(28, entryWidth - 24)),
@@ -450,9 +441,7 @@ public final class KeysetConflictListWidget
       String keyLabel = bindingDescriptor.getKeyDisplayName();
       int badgeWidth =
           clamp(
-              owner.client.textRenderer.getWidth(keyLabel) + 14,
-              42,
-              Math.max(52, entryWidth / 3));
+              owner.client.textRenderer.getWidth(keyLabel) + 14, 42, Math.max(52, entryWidth / 3));
       int badgeX = x + entryWidth - badgeWidth - 10;
       int badgeY = y + 6;
       int keyBadgeFill = selected ? 0xFF33526B : scaleAlpha(0xFF273647, 0.92F * emphasis);
@@ -508,12 +497,7 @@ public final class KeysetConflictListWidget
       int offset = Math.round((1.0F - emphasis) * 4.0F);
 
       if (summary) {
-        context.fill(
-            x,
-            y + 2,
-            x + entryWidth,
-            y + entryHeight - 2,
-            scaleAlpha(0xFF1E3124, 0.88F));
+        context.fill(x, y + 2, x + entryWidth, y + entryHeight - 2, scaleAlpha(0xFF1E3124, 0.88F));
         context.fill(x, y + 2, x + 3, y + entryHeight - 2, 0xFF9DDA84);
       } else if (hovered) {
         context.fill(

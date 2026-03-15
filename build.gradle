@@ -60,7 +60,7 @@ subprojects {
         spotless {
             java {
                 target("src/*/java/**/*.java")
-                googleJavaFormat("1.24.0")
+                googleJavaFormat("1.35.0")
             }
             format("misc") {
                 target(
@@ -114,8 +114,6 @@ def releaseProjectsByLoader = [
     ]
 ]
 
-def releaseLeafProjects = releaseProjectsByLoader.values().flatten()
-
 def releaseArtifactLabels = [
     "platform-fabric-1_16_5"   : "fabric-1.16.5",
     "platform-fabric-1_17_1"   : "fabric-1.17.1",
@@ -155,54 +153,41 @@ subprojects {
     }
 }
 
+def releaseBundleDir = "builtJars/${rootProject.version}"
+
 tasks.register("buildRepresentativeTarget") {
     group = "verification"
     description = "Builds the primary fully wired Fabric target jar."
-    dependsOn(":platform-fabric-1_21_11:build")
-}
-
-tasks.register("buildFabricTargets") {
-    group = "verification"
-    description = "Builds every currently wired Fabric target jar."
-    dependsOn(
-        ":platform-fabric-1_16_5:build",
-        ":platform-fabric-1_17_1:build",
-        ":platform-fabric-1_18_2:build",
-        ":platform-fabric-1_19_2:build",
-        ":platform-fabric-1_19_4:build",
-        ":platform-fabric-1_20_1:build",
-        ":platform-fabric-1_20_4:build",
-        ":platform-fabric-1_20_6:build",
-        ":platform-fabric-1_21_1:build",
-        ":platform-fabric-1_21_4:build",
-        ":platform-fabric-1_21_9:build",
-        ":platform-fabric-1_21_11:build"
-    )
+    dependsOn("${releaseProjectsByLoader.fabric.last()}:build")
 }
 
 tasks.register("buildTargetJars") {
     group = "build"
-    description = "Builds and collects the current release jars into builtJars/<loader>/<version>."
+    description = "Builds and collects the current release jars into builtJars/<version>/<loader>."
     dependsOn("collectTargetJars")
 }
 
 releaseProjectsByLoader.each { loader, projectPaths ->
+    tasks.register("build${loader.capitalize()}Targets") {
+        group = "verification"
+        description = "Builds every currently wired ${loader} target jar."
+        dependsOn(projectPaths.collect { "${it}:build" })
+    }
+
     tasks.register("collect${loader.capitalize()}Jars", Sync) {
         group = "build"
-        description = "Copies the current remapped ${loader} jars into builtJars/${loader}/${rootProject.version}."
+        description = "Copies the current remapped ${loader} jars into ${releaseBundleDir}/${loader}."
         dependsOn(projectPaths.collect { "${it}:remapJar" })
-        into(layout.projectDirectory.dir("builtJars/${loader}"))
-        into(rootProject.version.toString()) {
-            from(projectPaths.collect { projectPath ->
-                project(projectPath).tasks.named("remapJar").flatMap { it.archiveFile }
-            })
-        }
+        into(layout.projectDirectory.dir("${releaseBundleDir}/${loader}"))
+        from(projectPaths.collect { projectPath ->
+            project(projectPath).tasks.named("remapJar").flatMap { it.archiveFile }
+        })
     }
 }
 
 tasks.register("collectTargetJars") {
     group = "build"
-    description = "Copies the current remapped loader jars into builtJars/<loader>/<version>."
+    description = "Copies the current remapped loader jars into builtJars/<version>/<loader>."
     dependsOn(
         "collectFabricJars",
         "collectForgeJars",
@@ -214,35 +199,6 @@ tasks.register("buildAllJars") {
     group = "build"
     description = "Alias for buildTargetJars."
     dependsOn("buildTargetJars")
-}
-
-tasks.register("buildForgeTargets") {
-    group = "verification"
-    description = "Builds every currently wired Forge target jar."
-    dependsOn(
-        ":platform-forge-1_16_5:build",
-        ":platform-forge-1_17_1:build",
-        ":platform-forge-1_18_2:build",
-        ":platform-forge-1_19_2:build",
-        ":platform-forge-1_19_4:build",
-        ":platform-forge-1_20_1:build",
-        ":platform-forge-1_20_4:build",
-        ":platform-forge-1_20_6:build",
-        ":platform-forge-1_21_1:build"
-    )
-}
-
-tasks.register("buildNeoForgeTargets") {
-    group = "verification"
-    description = "Builds every currently wired NeoForge target jar."
-    dependsOn(
-        ":platform-neoforge-1_20_1:build",
-        ":platform-neoforge-1_20_4:build",
-        ":platform-neoforge-1_20_6:build",
-        ":platform-neoforge-1_21_1:build",
-        ":platform-neoforge-1_21_4:build",
-        ":platform-neoforge-1_21_11:build"
-    )
 }
 
 tasks.register("verifyWorkspace") {

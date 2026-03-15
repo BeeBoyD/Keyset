@@ -21,6 +21,10 @@ Released: 2026-03-14 13:30 EET
 ### Fixed
 
 - Kept the redesigned modern UI compiling across the current `1.20.1+` DrawContext leaves: `1.20.1`, `1.20.4`, `1.20.6`, `1.21.1`, `1.21.4`, `1.21.9`, and `1.21.11`.
+- Fixed Fabric / Quilt `1.0.0` runtime bundling so shared profile classes are present in shipped release jars.
+- Replaced release-brittle private-field reflection in the Controls button flow and keybind jump screen with remap-safe runtime paths.
+- Made the Controls screen button injection idempotent so reopening the screen or changing GUI scale does not create duplicate buttons in fallback corners.
+- Cleaned the release collection flow so versioned artifacts are gathered directly into `builtJars/<version>/<loader>`.
 
 ## v1.0.0-alpha - 2026-03-01
 
@@ -38,7 +42,7 @@ Released: 2026-03-01 09:15 EET
 - Forge targets from `1.16.5` through `1.21.1`.
 - NeoForge targets from `1.20.1` through `1.21.11`.
 - Root launch helpers: `run-fabric.sh`, `run-forge.sh`, and `run-neoforge.sh`.
-- Versioned collected release jars in `builtJars/<loader>/<version>`.
+- Versioned collected release jars in `builtJars/<version>/<loader>`.
 
 ### Changed
 

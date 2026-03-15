@@ -18,7 +18,10 @@
 - `./gradlew build`
 - `./gradlew buildRepresentativeTarget`
 - `./gradlew buildTargetJars`
+- `./gradlew collectTargetJars`
 - `./gradlew verifyWorkspace`
+
+Release jars are collected into `builtJars/<version>/<loader>`.
 
 ## Module Layout
 - `core`: loader-agnostic logic, data models, serialization, conflict engine, auto-resolve engine, and UI contracts.

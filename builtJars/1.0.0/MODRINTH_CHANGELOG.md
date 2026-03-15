@@ -11,6 +11,7 @@ This release focuses on making the mod much easier to understand day to day: all
 - Responsive layout fixes for narrow and short windows
 - Better conflict navigation and safer preview/apply flow for cleanup
 - Refreshed public docs and release packaging for the stable launch
+- Post-launch stability fixes for release jars, Controls button behavior, and GUI-scale reopening
 
 ## Compatibility
 
