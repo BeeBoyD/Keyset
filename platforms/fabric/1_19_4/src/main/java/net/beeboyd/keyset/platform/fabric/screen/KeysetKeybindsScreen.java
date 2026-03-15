@@ -1,6 +1,6 @@
 package net.beeboyd.keyset.platform.fabric.screen;
 
-import java.lang.reflect.Field;
+import java.util.Arrays;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.option.ControlsListWidget;
@@ -17,6 +17,7 @@ import net.minecraft.util.Util;
  */
 public final class KeysetKeybindsScreen extends KeybindsScreen {
   private final KeysetFabricService service;
+  private final GameOptions gameOptions;
   private final String targetBindingId;
   private final boolean reassignOnOpen;
   private final Text helperText;
@@ -29,6 +30,7 @@ public final class KeysetKeybindsScreen extends KeybindsScreen {
       boolean reassignOnOpen) {
     super(parent, gameOptions);
     this.service = service;
+    this.gameOptions = gameOptions;
     this.targetBindingId = targetBindingId;
     this.reassignOnOpen = reassignOnOpen;
     this.helperText =
@@ -62,52 +64,59 @@ public final class KeysetKeybindsScreen extends KeybindsScreen {
   }
 
   private void focusTargetBinding() {
-    try {
-      ControlsListWidget controlsList = controlsList();
-      if (controlsList == null) {
-        return;
+    ControlsListWidget controlsList = controlsList();
+    KeyBinding targetBinding = targetBinding();
+    int targetIndex = targetBinding == null ? -1 : targetEntryIndex(targetBinding);
+    if (controlsList == null || targetIndex < 0 || targetIndex >= controlsList.children().size()) {
+      return;
+    }
+
+    Object entry = controlsList.children().get(targetIndex);
+    if (entry instanceof ControlsListWidget.Entry) {
+      controlsList.setSelected((ControlsListWidget.Entry) entry);
+      controlsList.setScrollAmount(Math.max(0.0D, (targetIndex * 24) - 48));
+    }
+
+    if (reassignOnOpen) {
+      selectedKeyBinding = targetBinding;
+      lastKeyCodeUpdateTime = Util.getMeasuringTimeMs();
+    }
+  }
+
+  private ControlsListWidget controlsList() {
+    for (Object child : children()) {
+      if (child instanceof ControlsListWidget) {
+        return (ControlsListWidget) child;
       }
+    }
+    return null;
+  }
 
-      KeyBinding targetBinding = null;
-      int index = 0;
-      for (Object entry : controlsList.children()) {
-        if (!(entry instanceof ControlsListWidget.Entry)) {
-          index++;
-          continue;
-        }
+  private KeyBinding targetBinding() {
+    for (KeyBinding binding : gameOptions.allKeys) {
+      if (targetBindingId.equals(binding.getTranslationKey())) {
+        return binding;
+      }
+    }
+    return null;
+  }
 
-        KeyBinding binding = extractBinding(entry);
-        if (binding != null && targetBindingId.equals(binding.getTranslationKey())) {
-          controlsList.setSelected((ControlsListWidget.Entry) entry);
-          controlsList.setScrollAmount(Math.max(0.0D, (index * 24) - 48));
-          targetBinding = binding;
-          break;
-        }
+  private int targetEntryIndex(KeyBinding targetBinding) {
+    KeyBinding[] bindings = Arrays.copyOf(gameOptions.allKeys, gameOptions.allKeys.length);
+    Arrays.sort(bindings);
+    Object currentCategory = null;
+    int index = 0;
+    for (KeyBinding binding : bindings) {
+      Object category = binding.getCategory();
+      if (currentCategory == null || !currentCategory.equals(category)) {
+        currentCategory = category;
         index++;
       }
-
-      if (reassignOnOpen && targetBinding != null) {
-        selectedKeyBinding = targetBinding;
-        lastKeyCodeUpdateTime = Util.getMeasuringTimeMs();
+      if (binding == targetBinding) {
+        return index;
       }
-    } catch (ReflectiveOperationException ignored) {
-      // Falling back to vanilla list behavior is acceptable for this version-local convenience.
+      index++;
     }
-  }
-
-  private ControlsListWidget controlsList() throws ReflectiveOperationException {
-    Field controlsListField = KeybindsScreen.class.getDeclaredField("controlsList");
-    controlsListField.setAccessible(true);
-    return (ControlsListWidget) controlsListField.get(this);
-  }
-
-  private KeyBinding extractBinding(Object entry) throws ReflectiveOperationException {
-    if (!entry.getClass().getName().endsWith("KeyBindingEntry")) {
-      return null;
-    }
-
-    Field bindingField = entry.getClass().getDeclaredField("binding");
-    bindingField.setAccessible(true);
-    return (KeyBinding) bindingField.get(entry);
+    return -1;
   }
 }

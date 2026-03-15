@@ -169,7 +169,8 @@ public final class KeysetScreen extends Screen {
     int filterInnerX = filterCardX + CARD_PADDING;
     int filterInnerWidth = filterCardWidth - (CARD_PADDING * 2);
     int searchY = filterCardY + (pagedLayout ? 18 : 30);
-    int groupToggleWidth = pagedLayout ? (stackFilterControls ? Math.min(120, filterInnerWidth) : 88) : 104;
+    int groupToggleWidth =
+        pagedLayout ? (stackFilterControls ? Math.min(120, filterInnerWidth) : 88) : 104;
     int searchWidth =
         stackFilterControls ? filterInnerWidth : filterInnerWidth - groupToggleWidth - ROW_GAP;
     int groupToggleX = stackFilterControls ? filterInnerX : filterInnerX + searchWidth + ROW_GAP;
@@ -178,7 +179,8 @@ public final class KeysetScreen extends Screen {
 
     int selectionInnerX = selectionCardX + CARD_PADDING;
     int selectionInnerWidth = selectionCardWidth - (CARD_PADDING * 2);
-    int detailActionsY = selectionCardY + selectionCardHeight - BUTTON_HEIGHT - (pagedLayout ? 8 : 10);
+    int detailActionsY =
+        selectionCardY + selectionCardHeight - BUTTON_HEIGHT - (pagedLayout ? 8 : 10);
     int detailButtonWidth = (selectionInnerWidth - (ROW_GAP * 2)) / 3;
 
     int resolveInnerX = resolveCardX + CARD_PADDING;
@@ -281,7 +283,9 @@ public final class KeysetScreen extends Screen {
                 useThreeColumnProfileGrid
                     ? profileInnerX + ((profileThreeColumnWidth + profileButtonGap) * 2)
                     : profileInnerX,
-                useThreeColumnProfileGrid ? profileRowY : profileRowY + BUTTON_HEIGHT + profileButtonGap,
+                useThreeColumnProfileGrid
+                    ? profileRowY
+                    : profileRowY + BUTTON_HEIGHT + profileButtonGap,
                 useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
                 button -> applySelected(),
                 "keyset.tip.profile_apply"));
@@ -292,49 +296,51 @@ public final class KeysetScreen extends Screen {
                 useThreeColumnProfileGrid
                     ? profileInnerX
                     : profileInnerX + profileTwoColumnWidth + profileButtonGap,
-                useThreeColumnProfileGrid ? profileRowY + BUTTON_HEIGHT + profileButtonGap : profileRowY + BUTTON_HEIGHT + profileButtonGap,
+                useThreeColumnProfileGrid
+                    ? profileRowY + BUTTON_HEIGHT + profileButtonGap
+                    : profileRowY + BUTTON_HEIGHT + profileButtonGap,
                 useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
                 button -> captureCurrent(),
                 "keyset.tip.profile_capture"));
 
     renameButton =
         addDrawableChild(
-        button(
-            "keyset.profile.rename",
-            useThreeColumnProfileGrid
-                ? profileInnerX + profileThreeColumnWidth + profileButtonGap
-                : profileInnerX,
-            useThreeColumnProfileGrid
-                ? profileRowY + BUTTON_HEIGHT + profileButtonGap
-                : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 2),
-            useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
-            button -> renameSelected(),
-            "keyset.tip.profile_rename"));
+            button(
+                "keyset.profile.rename",
+                useThreeColumnProfileGrid
+                    ? profileInnerX + profileThreeColumnWidth + profileButtonGap
+                    : profileInnerX,
+                useThreeColumnProfileGrid
+                    ? profileRowY + BUTTON_HEIGHT + profileButtonGap
+                    : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 2),
+                useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
+                button -> renameSelected(),
+                "keyset.tip.profile_rename"));
     createButton =
         addDrawableChild(
-        button(
-            "keyset.profile.new",
-            useThreeColumnProfileGrid
-                ? profileInnerX + ((profileThreeColumnWidth + profileButtonGap) * 2)
-                : profileInnerX + profileTwoColumnWidth + profileButtonGap,
-            useThreeColumnProfileGrid
-                ? profileRowY + BUTTON_HEIGHT + profileButtonGap
-                : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 2),
-            useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
-            button -> createProfile(),
-            "keyset.tip.profile_new"));
+            button(
+                "keyset.profile.new",
+                useThreeColumnProfileGrid
+                    ? profileInnerX + ((profileThreeColumnWidth + profileButtonGap) * 2)
+                    : profileInnerX + profileTwoColumnWidth + profileButtonGap,
+                useThreeColumnProfileGrid
+                    ? profileRowY + BUTTON_HEIGHT + profileButtonGap
+                    : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 2),
+                useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
+                button -> createProfile(),
+                "keyset.tip.profile_new"));
 
     duplicateButton =
         addDrawableChild(
-        button(
-            "keyset.profile.duplicate",
-            profileInnerX,
-            useThreeColumnProfileGrid
-                ? profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 2)
-                : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 3),
-            useThreeColumnProfileGrid ? profileTwoColumnWidth : profileTwoColumnWidth,
-            button -> duplicateSelected(),
-            "keyset.tip.profile_duplicate"));
+            button(
+                "keyset.profile.duplicate",
+                profileInnerX,
+                useThreeColumnProfileGrid
+                    ? profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 2)
+                    : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 3),
+                useThreeColumnProfileGrid ? profileTwoColumnWidth : profileTwoColumnWidth,
+                button -> duplicateSelected(),
+                "keyset.tip.profile_duplicate"));
     deleteButton =
         addDrawableChild(
             button(
@@ -349,26 +355,26 @@ public final class KeysetScreen extends Screen {
 
     exportButton =
         addDrawableChild(
-        button(
-            "keyset.export",
-            profileInnerX,
-            useThreeColumnProfileGrid
-                ? profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 3)
-                : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 4),
-            profileTwoColumnWidth,
-            button -> exportSelected(),
-            "keyset.tip.export"));
+            button(
+                "keyset.export",
+                profileInnerX,
+                useThreeColumnProfileGrid
+                    ? profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 3)
+                    : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 4),
+                profileTwoColumnWidth,
+                button -> exportSelected(),
+                "keyset.tip.export"));
     importButton =
         addDrawableChild(
-        button(
-            "keyset.import",
-            profileInnerX + profileTwoColumnWidth + profileButtonGap,
-            useThreeColumnProfileGrid
-                ? profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 3)
-                : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 4),
-            profileTwoColumnWidth,
-            button -> importProfiles(),
-            "keyset.tip.import"));
+            button(
+                "keyset.import",
+                profileInnerX + profileTwoColumnWidth + profileButtonGap,
+                useThreeColumnProfileGrid
+                    ? profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 3)
+                    : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 4),
+                profileTwoColumnWidth,
+                button -> importProfiles(),
+                "keyset.tip.import"));
 
     jumpButton =
         addDrawableChild(
@@ -428,13 +434,13 @@ public final class KeysetScreen extends Screen {
 
     doneButton =
         addDrawableChild(
-        button(
-            "gui.done",
-            width - SCREEN_PADDING - doneButtonWidth,
-            footerY,
-            doneButtonWidth,
-            button -> close(),
-            "keyset.tip.done"));
+            button(
+                "gui.done",
+                width - SCREEN_PADDING - doneButtonWidth,
+                footerY,
+                doneButtonWidth,
+                button -> close(),
+                "keyset.tip.done"));
 
     conflictListWidget =
         addDrawableChild(
@@ -487,7 +493,9 @@ public final class KeysetScreen extends Screen {
       microLayout = pagedLayout && (width < 360 || height < 280);
       stackHeaderMetrics = !pagedLayout && headerWidth < 760;
       headerHeight =
-          pagedLayout ? (microLayout ? 44 : HEADER_HEIGHT) : (stackHeaderMetrics ? 76 : HEADER_HEIGHT);
+          pagedLayout
+              ? (microLayout ? 44 : HEADER_HEIGHT)
+              : (stackHeaderMetrics ? 76 : HEADER_HEIGHT);
       footerY = height - SCREEN_PADDING - BUTTON_HEIGHT;
       doneButtonWidth = pagedLayout && microLayout ? 72 : 92;
       compactTabsX = SCREEN_PADDING;
@@ -596,7 +604,8 @@ public final class KeysetScreen extends Screen {
           }
 
           int firstShrink = Math.min(preferredCardHeight - minCardHeight, (shrinkNeeded + 1) / 2);
-          int secondShrink = Math.min(preferredCardHeight - minCardHeight, shrinkNeeded - firstShrink);
+          int secondShrink =
+              Math.min(preferredCardHeight - minCardHeight, shrinkNeeded - firstShrink);
           selectionCardHeight = preferredCardHeight - firstShrink;
           resolveCardHeight = preferredCardHeight - secondShrink;
         } else {
@@ -718,7 +727,14 @@ public final class KeysetScreen extends Screen {
               filterCardHeight,
               PANEL_FILL,
               PANEL_BORDER);
-          drawPanel(context, listCardX, listCardY, listCardWidth, listCardHeight, PANEL_FILL, PANEL_BORDER);
+          drawPanel(
+              context,
+              listCardX,
+              listCardY,
+              listCardWidth,
+              listCardHeight,
+              PANEL_FILL,
+              PANEL_BORDER);
           return;
         case FIXES:
           drawPanel(
@@ -742,11 +758,25 @@ public final class KeysetScreen extends Screen {
     }
 
     drawPanel(
-        context, profileCardX, profileCardY, profileCardWidth, profileCardHeight, PANEL_FILL, PANEL_BORDER);
-    drawPanel(context, helpCardX, helpCardY, helpCardWidth, helpCardHeight, PANEL_FILL, PANEL_BORDER);
+        context,
+        profileCardX,
+        profileCardY,
+        profileCardWidth,
+        profileCardHeight,
+        PANEL_FILL,
+        PANEL_BORDER);
     drawPanel(
-        context, filterCardX, filterCardY, filterCardWidth, filterCardHeight, PANEL_FILL, PANEL_BORDER);
-    drawPanel(context, listCardX, listCardY, listCardWidth, listCardHeight, PANEL_FILL, PANEL_BORDER);
+        context, helpCardX, helpCardY, helpCardWidth, helpCardHeight, PANEL_FILL, PANEL_BORDER);
+    drawPanel(
+        context,
+        filterCardX,
+        filterCardY,
+        filterCardWidth,
+        filterCardHeight,
+        PANEL_FILL,
+        PANEL_BORDER);
+    drawPanel(
+        context, listCardX, listCardY, listCardWidth, listCardHeight, PANEL_FILL, PANEL_BORDER);
     drawPanel(
         context,
         selectionCardX,
@@ -756,7 +786,13 @@ public final class KeysetScreen extends Screen {
         PANEL_FILL,
         PANEL_BORDER);
     drawPanel(
-        context, resolveCardX, resolveCardY, resolveCardWidth, resolveCardHeight, PANEL_FILL, PANEL_BORDER);
+        context,
+        resolveCardX,
+        resolveCardY,
+        resolveCardWidth,
+        resolveCardHeight,
+        PANEL_FILL,
+        PANEL_BORDER);
   }
 
   private void drawForeground(DrawContext context) {
@@ -807,7 +843,8 @@ public final class KeysetScreen extends Screen {
             previewPlan != null
                 ? Text.translatable(
                     "keyset.metric.changes", Integer.valueOf(previewPlan.getChanges().size()))
-                : Text.translatable("keyset.metric.bindings", Integer.valueOf(visibleConflictBindings)),
+                : Text.translatable(
+                    "keyset.metric.bindings", Integer.valueOf(visibleConflictBindings)),
             CHIP_ACCENT_FILL,
             CHIP_ACCENT_BORDER,
             TITLE_COLOR);
@@ -913,11 +950,7 @@ public final class KeysetScreen extends Screen {
     int stepY = helpCardY + 10;
 
     context.drawTextWithShadow(
-        textRenderer,
-        Text.translatable("keyset.section.help"),
-        contentX,
-        stepY,
-        LABEL_COLOR);
+        textRenderer, Text.translatable("keyset.section.help"), contentX, stepY, LABEL_COLOR);
     stepY += 18;
     stepY = drawHelpStep(context, contentX, contentWidth, stepY, "1", "keyset.help.step1");
     stepY = drawHelpStep(context, contentX, contentWidth, stepY, "2", "keyset.help.step2");
@@ -937,7 +970,15 @@ public final class KeysetScreen extends Screen {
 
   private int drawHelpStep(
       DrawContext context, int x, int maxWidth, int y, String stepNumber, String translationKey) {
-    drawSmallChip(context, x, y, 18, Text.literal(stepNumber), CHIP_ACCENT_FILL, CHIP_ACCENT_BORDER, TITLE_COLOR);
+    drawSmallChip(
+        context,
+        x,
+        y,
+        18,
+        Text.literal(stepNumber),
+        CHIP_ACCENT_FILL,
+        CHIP_ACCENT_BORDER,
+        TITLE_COLOR);
     int textX = x + 24;
     int textWidth = Math.max(24, maxWidth - 24);
     int lineHeight = textRenderer.fontHeight + 2;
@@ -1004,7 +1045,8 @@ public final class KeysetScreen extends Screen {
     int contentX = selectionCardX + CARD_PADDING;
     int contentWidth = selectionCardWidth - (CARD_PADDING * 2);
     int textWidth = contentWidth;
-    int detailActionsY = selectionCardY + selectionCardHeight - BUTTON_HEIGHT - (pagedLayout ? 8 : 10);
+    int detailActionsY =
+        selectionCardY + selectionCardHeight - BUTTON_HEIGHT - (pagedLayout ? 8 : 10);
     boolean compactCard = denseLayout || selectionCardWidth < 360;
 
     drawTrimmedText(
@@ -1077,12 +1119,16 @@ public final class KeysetScreen extends Screen {
       } else {
         compactSummary = bodyText;
       }
-      drawTrimmedText(context, compactSummary, contentX, selectionCardY + 25, textWidth, TITLE_COLOR);
+      drawTrimmedText(
+          context, compactSummary, contentX, selectionCardY + 25, textWidth, TITLE_COLOR);
       return;
     }
 
     int titleY = selectionCardY + (compactCard ? 24 : pagedLayout ? 24 : 31);
-    int bodyY = compactCard ? titleY + textRenderer.fontHeight + 6 : selectionCardY + (pagedLayout ? 36 : 44);
+    int bodyY =
+        compactCard
+            ? titleY + textRenderer.fontHeight + 6
+            : selectionCardY + (pagedLayout ? 36 : 44);
     drawTrimmedText(context, titleText, contentX, titleY, textWidth, TITLE_COLOR);
     drawWrappedTextBlock(
         context,
@@ -1132,7 +1178,10 @@ public final class KeysetScreen extends Screen {
         compactCard
             ? textRenderer.fontHeight + 2
             : Math.max(
-                12, resolveActionsY - (resolveCardY + (pagedLayout ? 22 : 28)) - (pagedLayout ? 6 : 26)),
+                12,
+                resolveActionsY
+                    - (resolveCardY + (pagedLayout ? 22 : 28))
+                    - (pagedLayout ? 6 : 26)),
         BODY_COLOR);
 
     int chipY = resolveActionsY - (pagedLayout ? 18 : 20);
@@ -1148,20 +1197,19 @@ public final class KeysetScreen extends Screen {
               chipY,
               112,
               Text.translatable(
-                  "keyset.metric.unresolved",
-                  Integer.valueOf(previewPlan.getUnresolvedBindings())),
+                  "keyset.metric.unresolved", Integer.valueOf(previewPlan.getUnresolvedBindings())),
               CHIP_FILL,
               CHIP_BORDER,
               BODY_COLOR);
       chipRight -= 6;
-          drawRightChip(
-              context,
-              chipRight,
-              chipY,
-              112,
-              Text.translatable(
-                  "keyset.metric.changes", Integer.valueOf(previewPlan.getChanges().size())),
-              CHIP_ACTIVE_FILL,
+      drawRightChip(
+          context,
+          chipRight,
+          chipY,
+          112,
+          Text.translatable(
+              "keyset.metric.changes", Integer.valueOf(previewPlan.getChanges().size())),
+          CHIP_ACTIVE_FILL,
           CHIP_ACTIVE_BORDER,
           TITLE_COLOR);
       return;
@@ -1190,7 +1238,9 @@ public final class KeysetScreen extends Screen {
         Text.literal(ellipsize(footerMessage, Math.max(40, availableWidth))),
         SCREEN_PADDING,
         footerY + 5,
-        statusMessage.isEmpty() ? MUTED_COLOR : errorStatus ? STATUS_ERROR_COLOR : STATUS_SUCCESS_COLOR);
+        statusMessage.isEmpty()
+            ? MUTED_COLOR
+            : errorStatus ? STATUS_ERROR_COLOR : STATUS_SUCCESS_COLOR);
   }
 
   private void drawEmptyStateIfNeeded(DrawContext context) {
@@ -1216,7 +1266,8 @@ public final class KeysetScreen extends Screen {
       return Text.translatable("keyset.summary.none");
     }
     if (visibleConflictBindings <= 0) {
-      return Text.translatable("keyset.summary.clean", config.getProfile(selectedProfileId).getName());
+      return Text.translatable(
+          "keyset.summary.clean", config.getProfile(selectedProfileId).getName());
     }
     return Text.translatable(
         "keyset.summary.selected",
@@ -1225,7 +1276,13 @@ public final class KeysetScreen extends Screen {
   }
 
   private void drawPanel(
-      DrawContext context, int x, int y, int panelWidth, int panelHeight, int fillColor, int borderColor) {
+      DrawContext context,
+      int x,
+      int y,
+      int panelWidth,
+      int panelHeight,
+      int fillColor,
+      int borderColor) {
     context.fill(x + 2, y + 2, x + panelWidth + 2, y + panelHeight + 2, PANEL_SHADOW);
     context.fill(x, y, x + panelWidth, y + panelHeight, fillColor);
     context.drawStrokedRectangle(x, y, panelWidth, panelHeight, borderColor);
@@ -1239,7 +1296,8 @@ public final class KeysetScreen extends Screen {
       int fillColor,
       int borderColor,
       int textColor) {
-    return drawRightChip(context, rightX, y, Integer.MAX_VALUE, text, fillColor, borderColor, textColor);
+    return drawRightChip(
+        context, rightX, y, Integer.MAX_VALUE, text, fillColor, borderColor, textColor);
   }
 
   private int drawRightChip(
@@ -1252,7 +1310,8 @@ public final class KeysetScreen extends Screen {
       int borderColor,
       int textColor) {
     int chipWidth = Math.min(maxWidth, Math.max(34, textRenderer.getWidth(text) + 14));
-    drawSmallChip(context, rightX - chipWidth, y, chipWidth, text, fillColor, borderColor, textColor);
+    drawSmallChip(
+        context, rightX - chipWidth, y, chipWidth, text, fillColor, borderColor, textColor);
     return rightX - chipWidth;
   }
 
@@ -1264,7 +1323,8 @@ public final class KeysetScreen extends Screen {
       int fillColor,
       int borderColor,
       int textColor) {
-    drawAdaptiveChip(context, rightX, y, Integer.MAX_VALUE, text, fillColor, borderColor, textColor);
+    drawAdaptiveChip(
+        context, rightX, y, Integer.MAX_VALUE, text, fillColor, borderColor, textColor);
   }
 
   private void drawAdaptiveChip(
@@ -1277,10 +1337,12 @@ public final class KeysetScreen extends Screen {
       int borderColor,
       int textColor) {
     int chipWidth = Math.min(maxWidth, Math.max(34, textRenderer.getWidth(text) + 14));
-    drawSmallChip(context, rightX - chipWidth, y, chipWidth, text, fillColor, borderColor, textColor);
+    drawSmallChip(
+        context, rightX - chipWidth, y, chipWidth, text, fillColor, borderColor, textColor);
   }
 
-  private void drawChip(DrawContext context, int x, int y, int chipWidth, Text text, boolean active) {
+  private void drawChip(
+      DrawContext context, int x, int y, int chipWidth, Text text, boolean active) {
     drawSmallChip(
         context,
         x,
@@ -1621,7 +1683,8 @@ public final class KeysetScreen extends Screen {
       applyPreviewButton.active = previewPlan != null && !previewPlan.getChanges().isEmpty();
       undoButton.active = undoState != null;
 
-      boolean bindingActionsActive = selectedBinding != null && previewPlan == null && activeSelection;
+      boolean bindingActionsActive =
+          selectedBinding != null && previewPlan == null && activeSelection;
       jumpButton.active = bindingActionsActive;
       clearBindingButton.active = bindingActionsActive;
       reassignButton.active = bindingActionsActive;
@@ -1658,7 +1721,8 @@ public final class KeysetScreen extends Screen {
     nextProfileButton.setMessage(
         Text.translatable(compactButtons ? "keyset.compact.profile.next" : "keyset.profile.next"));
     applyButton.setMessage(
-        Text.translatable(compactButtons ? "keyset.compact.profile.apply" : "keyset.profile.apply"));
+        Text.translatable(
+            compactButtons ? "keyset.compact.profile.apply" : "keyset.profile.apply"));
     captureButton.setMessage(
         Text.translatable(
             compactButtons ? "keyset.compact.profile.capture" : "keyset.profile.capture"));

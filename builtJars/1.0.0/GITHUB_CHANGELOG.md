@@ -25,6 +25,13 @@ Release date: `2026-03-14`
 - Added compact and paged fallbacks for narrow or short detail views.
 - Lowered the compact-mode threshold slightly so full-page detail screens remain usable on smaller windows before paging kicks in.
 
+## Post-Launch Stability Fixes
+
+- Fixed the Fabric / Quilt `1.0.0` release jars so shared core profile classes are bundled in production artifacts instead of only being available in dev runs.
+- Replaced release-brittle reflective access in the Controls button placement path and keybind jump screen with remap-safe logic that survives shipped runtime mappings.
+- Made the Controls screen injection path idempotent so reopening the Controls screen or changing GUI scale no longer spawns duplicate Keyset buttons in fallback positions.
+- Cleaned the release packaging flow so versioned jars are collected directly into `builtJars/<version>/<loader>`.
+
 ## Compatibility And Behavior
 
 - Profile data remains compatible across the supported release line.

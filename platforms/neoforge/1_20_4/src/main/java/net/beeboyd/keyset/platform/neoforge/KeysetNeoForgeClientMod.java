@@ -98,20 +98,32 @@ public final class KeysetNeoForgeClientMod {
         return;
       }
 
+      event.getListenersList().stream()
+          .filter(ClickableWidget.class::isInstance)
+          .map(ClickableWidget.class::cast)
+          .filter(ClientOnly::isKeysetControlsButton)
+          .forEach(event::removeListener);
       List<ClickableWidget> buttons =
           event.getListenersList().stream()
               .filter(ClickableWidget.class::isInstance)
               .map(ClickableWidget.class::cast)
+              .filter(button -> !isKeysetControlsButton(button))
               .toList();
       int[] placement =
           findControlsButtonPlacement(buttons, controlsScreen.width, controlsScreen.height);
       ButtonWidget keysetButton =
           ButtonWidget.builder(
-                  Text.translatable("keyset.open"),
-                  button -> requestOpenScreen(controlsScreen))
+                  Text.translatable("keyset.open"), button -> requestOpenScreen(controlsScreen))
               .dimensions(placement[0], placement[1], CONTROLS_BUTTON_WIDTH, CONTROLS_BUTTON_HEIGHT)
               .build();
       event.addListener(keysetButton);
+    }
+
+    private static boolean isKeysetControlsButton(ClickableWidget button) {
+      return button instanceof ButtonWidget
+          && button.getWidth() == CONTROLS_BUTTON_WIDTH
+          && button.getHeight() == CONTROLS_BUTTON_HEIGHT
+          && button.getMessage().getString().equals(Text.translatable("keyset.open").getString());
     }
 
     private void requestOpenScreen(Screen parent) {
@@ -156,11 +168,11 @@ public final class KeysetNeoForgeClientMod {
     }
 
     private static boolean overlapsExisting(List<? extends ClickableWidget> buttons, int x, int y) {
-      for (Object button : buttons) {
-        int otherX = intField(button, "x", -1000);
-        int otherY = intField(button, "y", -1000);
-        int otherWidth = intField(button, "width", 150);
-        int otherHeight = intField(button, "height", CONTROLS_BUTTON_HEIGHT);
+      for (ClickableWidget button : buttons) {
+        int otherX = button.getX();
+        int otherY = button.getY();
+        int otherWidth = button.getWidth();
+        int otherHeight = button.getHeight();
         if (rectanglesOverlap(
             x,
             y,
@@ -189,20 +201,6 @@ public final class KeysetNeoForgeClientMod {
           && x + width > otherX
           && y < otherY + otherHeight
           && y + height > otherY;
-    }
-
-    private static int intField(Object target, String name, int fallback) {
-      Field field = findField(target.getClass(), name);
-      if (field == null) {
-        return fallback;
-      }
-
-      try {
-        field.setAccessible(true);
-        return field.getInt(target);
-      } catch (IllegalAccessException ignored) {
-        return fallback;
-      }
     }
 
     private static Field findField(Class<?> type, String name) {

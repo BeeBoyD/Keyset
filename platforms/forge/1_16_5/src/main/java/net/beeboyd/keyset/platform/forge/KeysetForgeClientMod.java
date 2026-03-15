@@ -2,7 +2,6 @@ package net.beeboyd.keyset.platform.forge;
 
 import static net.beeboyd.keyset.platform.fabric.KeysetTextCompat.translatable;
 
-import java.lang.reflect.Field;
 import java.util.List;
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService;
@@ -85,6 +84,11 @@ public final class KeysetForgeClientMod {
       }
       ControlsOptionsScreen controlsScreen = (ControlsOptionsScreen) event.getGui();
 
+      event.getWidgetList().stream()
+          .filter(ClickableWidget.class::isInstance)
+          .map(ClickableWidget.class::cast)
+          .filter(ClientOnly::isKeysetControlsButton)
+          .forEach(event::removeWidget);
       List<? extends ClickableWidget> buttons = event.getWidgetList();
       int[] placement =
           findControlsButtonPlacement(buttons, controlsScreen.width, controlsScreen.height);
@@ -97,6 +101,13 @@ public final class KeysetForgeClientMod {
               translatable("keyset.open"),
               button -> requestOpenScreen(controlsScreen));
       event.addWidget(keysetButton);
+    }
+
+    private static boolean isKeysetControlsButton(ClickableWidget button) {
+      return button instanceof ButtonWidget
+          && button.getWidth() == CONTROLS_BUTTON_WIDTH
+          && button.getHeight() == CONTROLS_BUTTON_HEIGHT
+          && button.getMessage().getString().equals(translatable("keyset.open").getString());
     }
 
     private void requestOpenScreen(Screen parent) {
@@ -141,11 +152,11 @@ public final class KeysetForgeClientMod {
     }
 
     private static boolean overlapsExisting(List<? extends ClickableWidget> buttons, int x, int y) {
-      for (Object button : buttons) {
-        int otherX = intField(button, "x", -1000);
-        int otherY = intField(button, "y", -1000);
-        int otherWidth = intField(button, "width", 150);
-        int otherHeight = intField(button, "height", CONTROLS_BUTTON_HEIGHT);
+      for (ClickableWidget button : buttons) {
+        int otherX = button.x;
+        int otherY = button.y;
+        int otherWidth = button.getWidth();
+        int otherHeight = button.getHeight();
         if (rectanglesOverlap(
             x,
             y,
@@ -174,32 +185,6 @@ public final class KeysetForgeClientMod {
           && x + width > otherX
           && y < otherY + otherHeight
           && y + height > otherY;
-    }
-
-    private static int intField(Object target, String name, int fallback) {
-      Field field = findField(target.getClass(), name);
-      if (field == null) {
-        return fallback;
-      }
-
-      try {
-        field.setAccessible(true);
-        return field.getInt(target);
-      } catch (IllegalAccessException ignored) {
-        return fallback;
-      }
-    }
-
-    private static Field findField(Class<?> type, String name) {
-      Class<?> current = type;
-      while (current != null) {
-        try {
-          return current.getDeclaredField(name);
-        } catch (NoSuchFieldException ignored) {
-          current = current.getSuperclass();
-        }
-      }
-      return null;
     }
   }
 }
