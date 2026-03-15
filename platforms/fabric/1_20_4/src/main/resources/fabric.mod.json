@@ -8,6 +8,7 @@
     "BeeBoyD"
   ],
   "license": "MIT",
+  "icon": "assets/keyset/logo-modrinth.png",
   "environment": "client",
   "entrypoints": {
     "client": [
