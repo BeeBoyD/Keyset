@@ -11,6 +11,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.option.ControlsOptionsScreen;
 import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -29,6 +30,8 @@ public final class KeysetFabricClient implements ClientModInitializer {
   private static final KeysetFabricService SERVICE = new KeysetFabricService();
 
   private KeyBinding openScreenKeyBinding;
+  private Screen pendingParentScreen;
+  private boolean openScreenRequested;
 
   public static KeysetFabricService getService() {
     return SERVICE;
@@ -59,8 +62,10 @@ public final class KeysetFabricClient implements ClientModInitializer {
     ClientTickEvents.END_CLIENT_TICK.register(
         client -> {
           while (openScreenKeyBinding.wasPressed()) {
-            client.setScreen(new KeysetScreen(client.currentScreen, SERVICE));
+            requestOpenScreen(client.currentScreen);
           }
+
+          flushPendingOpen(client);
         });
 
     ScreenEvents.AFTER_INIT.register(
@@ -74,13 +79,29 @@ public final class KeysetFabricClient implements ClientModInitializer {
           ButtonWidget keysetButton =
               ButtonWidget.builder(
                       Text.translatable("keyset.open"),
-                      button -> client.setScreen(new KeysetScreen(screen, SERVICE)))
+                      button -> requestOpenScreen(screen))
                   .dimensions(
                       placement[0], placement[1], CONTROLS_BUTTON_WIDTH, CONTROLS_BUTTON_HEIGHT)
                   .build();
           keysetButton.setTooltip(Tooltip.of(Text.translatable("keyset.subtitle")));
           buttons.add(keysetButton);
         });
+  }
+
+  private void requestOpenScreen(Screen parent) {
+    pendingParentScreen = parent;
+    openScreenRequested = true;
+  }
+
+  private void flushPendingOpen(net.minecraft.client.MinecraftClient client) {
+    if (!openScreenRequested || client == null) {
+      return;
+    }
+
+    openScreenRequested = false;
+    Screen parent = pendingParentScreen;
+    pendingParentScreen = null;
+    client.setScreen(new KeysetScreen(parent != null ? parent : client.currentScreen, SERVICE));
   }
 
   private static int[] findControlsButtonPlacement(
