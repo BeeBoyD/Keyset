@@ -41,6 +41,14 @@ subprojects {
             withSourcesJar()
         }
 
+        sourceSets {
+            main {
+                resources {
+                    srcDir(rootProject.file("shared-resources"))
+                }
+            }
+        }
+
         dependencies {
             testImplementation platform("org.junit:junit-bom:5.10.3")
             testImplementation "org.junit.jupiter:junit-jupiter"
