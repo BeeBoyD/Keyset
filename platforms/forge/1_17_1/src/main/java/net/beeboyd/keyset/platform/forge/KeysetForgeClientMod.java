@@ -8,6 +8,7 @@ import net.beeboyd.keyset.core.KeysetCoreMetadata;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService;
 import net.beeboyd.keyset.platform.fabric.screen.KeysetScreen;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.option.ControlsOptionsScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
@@ -41,6 +42,8 @@ public final class KeysetForgeClientMod {
     private final KeyBinding openScreenKeyBinding =
         new KeyBinding(
             "keyset.key.open_screen", InputUtil.UNKNOWN_KEY.getCode(), KeyBinding.MISC_CATEGORY);
+    private Screen pendingParentScreen;
+    private boolean openScreenRequested;
     private boolean started;
 
     private ClientOnly() {
@@ -70,8 +73,10 @@ public final class KeysetForgeClientMod {
       }
 
       while (openScreenKeyBinding.wasPressed()) {
-        client.setScreen(new KeysetScreen(client.currentScreen, SERVICE));
+        requestOpenScreen(client.currentScreen);
       }
+
+      flushPendingOpen(client);
     }
 
     private void onScreenInit(GuiScreenEvent.InitGuiEvent.Post event) {
@@ -93,10 +98,24 @@ public final class KeysetForgeClientMod {
               CONTROLS_BUTTON_WIDTH,
               CONTROLS_BUTTON_HEIGHT,
               translatable("keyset.open"),
-              button ->
-                  MinecraftClient.getInstance()
-                      .setScreen(new KeysetScreen(controlsScreen, SERVICE)));
+              button -> requestOpenScreen(controlsScreen));
       event.addWidget(keysetButton);
+    }
+
+    private void requestOpenScreen(Screen parent) {
+      pendingParentScreen = parent;
+      openScreenRequested = true;
+    }
+
+    private void flushPendingOpen(MinecraftClient client) {
+      if (!openScreenRequested || client == null) {
+        return;
+      }
+
+      openScreenRequested = false;
+      Screen parent = pendingParentScreen;
+      pendingParentScreen = null;
+      client.setScreen(new KeysetScreen(parent != null ? parent : client.currentScreen, SERVICE));
     }
 
     private static int[] findControlsButtonPlacement(
