@@ -13,6 +13,15 @@ base {
     archivesName = "keyset-fabric-1.20.3-1.20.6"
 }
 
+sourceSets {
+    main {
+        java {
+            srcDir(project(":core").file("src/main/java"))
+            srcDir(project(":common-v1_20_3-to-v1_20_6").file("src/main/java"))
+        }
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.property('minecraftVersion_1_20_6')}"
     mappings "net.fabricmc:yarn:${project.property('yarnMappings_1_20_6')}:v2"
