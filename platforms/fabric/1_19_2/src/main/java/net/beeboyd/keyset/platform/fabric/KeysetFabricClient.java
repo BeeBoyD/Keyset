@@ -2,7 +2,6 @@ package net.beeboyd.keyset.platform.fabric;
 
 import static net.beeboyd.keyset.platform.fabric.KeysetTextCompat.translatable;
 
-import java.lang.reflect.Field;
 import java.util.List;
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
 import net.beeboyd.keyset.platform.fabric.screen.KeysetScreen;
@@ -75,6 +74,7 @@ public final class KeysetFabricClient implements ClientModInitializer {
           }
 
           List<ClickableWidget> buttons = Screens.getButtons(screen);
+          buttons.removeIf(KeysetFabricClient::isKeysetControlsButton);
           int[] placement = findControlsButtonPlacement(buttons, scaledWidth, scaledHeight);
           ButtonWidget keysetButton =
               new ButtonWidget(
@@ -86,6 +86,13 @@ public final class KeysetFabricClient implements ClientModInitializer {
                   button -> requestOpenScreen(screen));
           buttons.add(keysetButton);
         });
+  }
+
+  private static boolean isKeysetControlsButton(ClickableWidget button) {
+    return button instanceof ButtonWidget
+        && button.getWidth() == CONTROLS_BUTTON_WIDTH
+        && button.getHeight() == CONTROLS_BUTTON_HEIGHT
+        && button.getMessage().getString().equals(translatable("keyset.open").getString());
   }
 
   private void requestOpenScreen(Screen parent) {
@@ -130,20 +137,16 @@ public final class KeysetFabricClient implements ClientModInitializer {
   }
 
   private static boolean overlapsExisting(List<? extends ClickableWidget> buttons, int x, int y) {
-    for (Object button : buttons) {
-      int otherX = intField(button, "x", -1000);
-      int otherY = intField(button, "y", -1000);
-      int otherWidth = intField(button, "width", 150);
-      int otherHeight = intField(button, "height", CONTROLS_BUTTON_HEIGHT);
+    for (ClickableWidget button : buttons) {
       if (rectanglesOverlap(
           x,
           y,
           CONTROLS_BUTTON_WIDTH,
           CONTROLS_BUTTON_HEIGHT,
-          otherX,
-          otherY,
-          otherWidth,
-          otherHeight)) {
+          button.x,
+          button.y,
+          button.getWidth(),
+          button.getHeight())) {
         return true;
       }
     }
@@ -163,31 +166,5 @@ public final class KeysetFabricClient implements ClientModInitializer {
         && x + width > otherX
         && y < otherY + otherHeight
         && y + height > otherY;
-  }
-
-  private static int intField(Object target, String name, int fallback) {
-    Field field = findField(target.getClass(), name);
-    if (field == null) {
-      return fallback;
-    }
-
-    try {
-      field.setAccessible(true);
-      return field.getInt(target);
-    } catch (IllegalAccessException ignored) {
-      return fallback;
-    }
-  }
-
-  private static Field findField(Class<?> type, String name) {
-    Class<?> current = type;
-    while (current != null) {
-      try {
-        return current.getDeclaredField(name);
-      } catch (NoSuchFieldException ignored) {
-        current = current.getSuperclass();
-      }
-    }
-    return null;
   }
 }
