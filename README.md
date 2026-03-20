@@ -14,9 +14,10 @@ Keyset is a profile-based keybind manager for modded Minecraft.
 
 It lets you store full control layouts, switch between them instantly, inspect conflicts with context, and preview safer cleanup before anything gets applied.
 
-> ⚠️ **Future support policy for versions below `1.20.1`:**
-> Future releases for Minecraft versions below `1.20.1` will be limited to critical bug fixes only.
-> Profile compatibility will stay the same across the supported release line.
+> ⚠️ **Release line note:**
+> `1.1.x` targets Minecraft `1.20.1+`.
+> Older `1.16.5-1.19.4` builds remain on the `1.0.x` line and only receive critical bug fixes.
+> Profile compatibility stays the same across the supported release line.
 
 ## ✨ Why Keyset
 
@@ -26,14 +27,14 @@ It lets you store full control layouts, switch between them instantly, inspect c
 - Fix one bind directly or run a guided cleanup pass
 - Export and import profile JSON for backup or sharing
 
-## 🚀 1.0.0 Highlights
+## 🚀 1.1.0 Highlights
 
-- Modern `1.20.1+` releases now use a cleaner dashboard-style Keyset screen
-- Labels and workflow text are clearer about live edits, previews, and Safe Fix behavior
-- Conflict browsing is easier to scan and act on quickly
-- The release line is now stable at `1.0.0`
+- The active release line now focuses on modern `1.20.1+` loaders and Minecraft versions
+- Opening Keyset from `Controls` is more reliable across reopen, resize, and GUI scale changes
+- Manual edits made in vanilla `Controls` now sync back into the active profile with visible status
+- Config loading is safer with backup recovery, broken-file archiving, and clearer recovery messages
 
-Legacy `1.16.5-1.19.4` builds keep the same core features and profile format, but stay on the older screen layout.
+Legacy `1.16.5-1.19.4` builds stay available on the `1.0.x` line with the same profile format, but the active UI and feature work now lives on `1.20.1+`.
 
 ## 📥 Download
 
@@ -43,15 +44,15 @@ Legacy `1.16.5-1.19.4` builds keep the same core features and profile format, bu
 
 Release assets are split by loader and Minecraft range, for example:
 
-- `keyset-fabric-1.20.1-1.20.2-1.0.0.jar`
-- `keyset-forge-1.21.1-1.0.0.jar`
-- `keyset-neoforge-1.21-1.21.11-1.0.0.jar`
+- `keyset-fabric-1.20.1-1.20.2-1.1.0.jar`
+- `keyset-forge-1.21.1-1.1.0.jar`
+- `keyset-neoforge-1.21-1.21.11-1.1.0.jar`
 
 Notes:
 
 - Quilt uses the Fabric-compatible jars.
 - Forge support is intentionally capped at `1.21.1`.
-- Forge `1.16.5` and `1.17.1` remain early targets.
+- Older `1.16.5-1.19.4` builds remain available on the `1.0.x` line for critical bug fixes only.
 
 ## 🧭 Quick Start
 
@@ -95,19 +96,22 @@ Notes:
 
 ## ✅ Supported Versions
 
+Current `1.1.x` release line:
+
 | Minecraft | Fabric | Quilt | Forge | NeoForge |
 | --- | --- | --- | --- | --- |
-| 1.16.5 | ✅ | ✅ | ⚠️ | N/A |
-| 1.17.1 | ✅ | ✅ | ⚠️ | N/A |
-| 1.18.2 | ✅ | ✅ | ✅ | N/A |
-| 1.19.2 | ✅ | ✅ | ✅ | N/A |
-| 1.19.4 | ✅ | ✅ | ✅ | N/A |
 | 1.20.1-1.20.2 | ✅ | ✅ | ✅ | ✅ |
 | 1.20.3-1.20.4 | ✅ | ✅ | ✅ | ✅ |
 | 1.20.5-1.20.6 | ✅ | ✅ | ✅ | ✅ |
 | 1.21.1 | ✅ | ✅ | ✅ | ✅ |
 | 1.21.2-1.21.4 | ✅ | ✅ | ❌ | ✅ |
 | 1.21.5-1.21.11 | ✅ | ✅ | ❌ | ✅ |
+
+Legacy maintenance line:
+
+- `1.0.x` remains available for `1.16.5-1.19.4`
+- Those older builds are now critical-fix-only
+- Profile compatibility remains stable across the supported release line
 
 ## 🔒 Privacy
 
@@ -128,4 +132,4 @@ config/keybindprofiles.json
 
 ## 📍 Status
 
-Current stable release line: `1.0.0`
+Current stable release line: `1.1.0`

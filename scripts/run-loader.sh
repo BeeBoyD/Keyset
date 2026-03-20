@@ -15,7 +15,7 @@ case "$loader" in
     support_line="1.16.5, 1.17.1, 1.18.2, 1.19.2-1.19.4, 1.20.1-1.20.6, 1.21-1.21.11, latest"
     notes=(
       "- This resolves a requested Minecraft version to the nearest supported Fabric leaf module."
-      "- Dev launch still runs the module's configured representative Minecraft target."
+      "- The active 1.1.x release line ships 1.20.1+; older Fabric leaves are maintenance-only."
     )
     examples=(
       "./run-fabric.sh 1.21.3"
@@ -28,7 +28,7 @@ case "$loader" in
     support_line="1.16.5, 1.17.1, 1.18.2, 1.19.2-1.19.4, 1.20.1-1.20.6, 1.21-1.21.1, latest"
     notes=(
       "- This resolves a requested Minecraft version to the nearest supported Forge leaf module."
-      "- Forge support in the active graph is capped at 1.21.1."
+      "- The active 1.1.x release line ships 1.20.1+ and still caps Forge at 1.21.1."
     )
     examples=(
       "./run-forge.sh 1.20.6"
@@ -54,7 +54,7 @@ case "$loader" in
     support_line="1.16.5, 1.17.1, 1.18.2, 1.19.2-1.19.4, 1.20.1-1.20.6, 1.21-1.21.11, latest"
     notes=(
       "- Quilt uses the Fabric-compatible targets in this repo."
-      "- This resolves a requested Quilt version to the nearest supported Fabric leaf module."
+      "- The active 1.1.x release line ships 1.20.1+; older Quilt/Fabric leaves are maintenance-only."
     )
     examples=(
       "./run-quilt.sh 1.21.3"

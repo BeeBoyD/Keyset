@@ -3,8 +3,11 @@ package net.beeboyd.keyset.platform.neoforge;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService;
+import net.beeboyd.keyset.platform.fabric.screen.KeysetKeybindsScreen;
 import net.beeboyd.keyset.platform.fabric.screen.KeysetScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
@@ -51,6 +54,8 @@ public final class KeysetNeoForgeClientMod {
     private Screen pendingParentScreen;
     private boolean openScreenRequested;
     private boolean started;
+    private final Map<Screen, ClickableWidget> injectedControlsButtons =
+        new WeakHashMap<Screen, ClickableWidget>();
 
     private ClientOnly(IEventBus modBus) {
       LOGGER.info("Keyset NeoForge client bootstrap loaded");
@@ -95,16 +100,11 @@ public final class KeysetNeoForgeClientMod {
         return;
       }
 
-      event.getListenersList().stream()
-          .filter(ClickableWidget.class::isInstance)
-          .map(ClickableWidget.class::cast)
-          .filter(ClientOnly::isKeysetControlsButton)
-          .forEach(event::removeListener);
+      removeInjectedControlsButton(event, controlsScreen);
       List<ClickableWidget> buttons =
           event.getListenersList().stream()
               .filter(ClickableWidget.class::isInstance)
               .map(ClickableWidget.class::cast)
-              .filter(button -> !isKeysetControlsButton(button))
               .toList();
       int[] placement =
           findControlsButtonPlacement(buttons, controlsScreen.width, controlsScreen.height);
@@ -114,16 +114,20 @@ public final class KeysetNeoForgeClientMod {
               .dimensions(placement[0], placement[1], CONTROLS_BUTTON_WIDTH, CONTROLS_BUTTON_HEIGHT)
               .build();
       event.addListener(keysetButton);
+      injectedControlsButtons.put(controlsScreen, keysetButton);
     }
 
-    private static boolean isKeysetControlsButton(ClickableWidget button) {
-      return button instanceof ButtonWidget
-          && button.getWidth() == CONTROLS_BUTTON_WIDTH
-          && button.getHeight() == CONTROLS_BUTTON_HEIGHT
-          && button.getMessage().getString().equals(Text.translatable("keyset.open").getString());
+    private void removeInjectedControlsButton(ScreenEvent.Init.Post event, Screen screen) {
+      ClickableWidget existingButton = injectedControlsButtons.remove(screen);
+      if (existingButton != null) {
+        event.removeListener(existingButton);
+      }
     }
 
     private void requestOpenScreen(Screen parent) {
+      if (isKeysetScreen(parent)) {
+        return;
+      }
       pendingParentScreen = parent;
       openScreenRequested = true;
     }
@@ -136,7 +140,14 @@ public final class KeysetNeoForgeClientMod {
       openScreenRequested = false;
       Screen parent = pendingParentScreen;
       pendingParentScreen = null;
+      if (isKeysetScreen(client.currentScreen) || isKeysetScreen(parent)) {
+        return;
+      }
       client.setScreen(new KeysetScreen(parent != null ? parent : client.currentScreen, SERVICE));
+    }
+
+    private static boolean isKeysetScreen(Screen screen) {
+      return screen instanceof KeysetScreen || screen instanceof KeysetKeybindsScreen;
     }
 
     private static int[] findControlsButtonPlacement(
