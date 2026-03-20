@@ -16,7 +16,9 @@ sourceSets {
             project(":core").file("src/main/java"),
             project(":common-v1_21-to-v1_21_11").file("src/main/java")
         ])
-        resources.setSrcDirs([project(":platform-fabric-1_21_11").file("src/main/resources")])
+        resources {
+            srcDir(project(":platform-fabric-1_21_11").file("src/main/resources"))
+        }
     }
 }
 

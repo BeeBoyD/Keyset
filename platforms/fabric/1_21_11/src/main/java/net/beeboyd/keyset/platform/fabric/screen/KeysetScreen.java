@@ -98,9 +98,14 @@ public final class KeysetScreen extends Screen {
   private int listBottom;
   private int footerY;
   private int doneButtonWidth;
+  private int buttonHeight;
+  private int pagedCardHeaderHeight;
+  private int listRowHeight;
+  private int listInset;
   private boolean compactLayout;
   private boolean pagedLayout;
   private boolean microLayout;
+  private boolean ultraCompactLayout;
   private boolean stackHeaderMetrics;
   private boolean stackActionCards;
   private boolean stackFilterControls;
@@ -159,33 +164,45 @@ public final class KeysetScreen extends Screen {
 
     int profileInnerX = profileCardX + CARD_PADDING;
     int profileInnerWidth = profileCardWidth - (CARD_PADDING * 2);
-    int profileButtonGap = pagedLayout ? 2 : ROW_GAP;
-    int profileFieldY = pagedLayout ? profileCardY + 24 : profileCardY + 68;
-    int profileRowY = profileFieldY + BUTTON_HEIGHT + (pagedLayout ? 4 : 8);
+    int profileButtonGap = pagedLayout ? (microLayout ? (ultraCompactLayout ? 0 : 1) : 2) : ROW_GAP;
+    int controlGap = pagedLayout ? (microLayout ? (ultraCompactLayout ? 2 : 3) : 4) : 8;
+    int profileFieldY =
+        pagedLayout
+            ? profileCardY + pagedCardHeaderHeight + (microLayout ? 8 : 10)
+            : profileCardY + 68;
+    int profileRowY = profileFieldY + buttonHeight + controlGap;
+    int profileActionStep = buttonHeight + profileButtonGap;
     int profileThreeColumnWidth = (profileInnerWidth - (profileButtonGap * 2)) / 3;
     int profileTwoColumnWidth = (profileInnerWidth - profileButtonGap) / 2;
-    boolean useThreeColumnProfileGrid = pagedLayout && profileInnerWidth >= 210;
+    int minimumProfileGridWidth = microLayout ? (ultraCompactLayout ? 186 : 192) : 210;
+    boolean useThreeColumnProfileGrid = pagedLayout && profileInnerWidth >= minimumProfileGridWidth;
 
     int filterInnerX = filterCardX + CARD_PADDING;
     int filterInnerWidth = filterCardWidth - (CARD_PADDING * 2);
-    int searchY = filterCardY + (pagedLayout ? 18 : 30);
+    int searchY = filterCardY + (pagedLayout ? pagedCardHeaderHeight + (microLayout ? 2 : 4) : 30);
     int groupToggleWidth =
-        pagedLayout ? (stackFilterControls ? Math.min(120, filterInnerWidth) : 88) : 104;
+        pagedLayout
+            ? (stackFilterControls ? Math.min(microLayout ? 108 : 120, filterInnerWidth) : 88)
+            : 104;
     int searchWidth =
-        stackFilterControls ? filterInnerWidth : filterInnerWidth - groupToggleWidth - ROW_GAP;
-    int groupToggleX = stackFilterControls ? filterInnerX : filterInnerX + searchWidth + ROW_GAP;
-    int groupToggleY =
-        stackFilterControls ? searchY + BUTTON_HEIGHT + (pagedLayout ? 2 : ROW_GAP) : searchY;
+        stackFilterControls
+            ? filterInnerWidth
+            : filterInnerWidth - groupToggleWidth - (pagedLayout ? profileButtonGap : ROW_GAP);
+    int groupToggleX =
+        stackFilterControls
+            ? filterInnerX
+            : filterInnerX + searchWidth + (pagedLayout ? profileButtonGap : ROW_GAP);
+    int groupToggleY = stackFilterControls ? searchY + buttonHeight + profileButtonGap : searchY;
 
     int selectionInnerX = selectionCardX + CARD_PADDING;
     int selectionInnerWidth = selectionCardWidth - (CARD_PADDING * 2);
     int detailActionsY =
-        selectionCardY + selectionCardHeight - BUTTON_HEIGHT - (pagedLayout ? 8 : 10);
+        selectionCardY + selectionCardHeight - buttonHeight - (pagedLayout ? 6 : 10);
     int detailButtonWidth = (selectionInnerWidth - (ROW_GAP * 2)) / 3;
 
     int resolveInnerX = resolveCardX + CARD_PADDING;
     int resolveInnerWidth = resolveCardWidth - (CARD_PADDING * 2);
-    int resolveActionsY = resolveCardY + resolveCardHeight - BUTTON_HEIGHT - (pagedLayout ? 8 : 10);
+    int resolveActionsY = resolveCardY + resolveCardHeight - buttonHeight - (pagedLayout ? 6 : 10);
     int resolveButtonWidth = (resolveInnerWidth - (ROW_GAP * 2)) / 3;
     int compactTabButtonWidth = Math.max(60, (compactTabsWidth - (CARD_GAP * 2)) / 3);
 
@@ -224,7 +241,7 @@ public final class KeysetScreen extends Screen {
                 filterInnerX,
                 searchY,
                 searchWidth,
-                BUTTON_HEIGHT,
+                buttonHeight,
                 Text.translatable("keyset.search")));
     searchField.setMaxLength(80);
     searchField.setPlaceholder(Text.translatable("keyset.search.placeholder"));
@@ -239,7 +256,7 @@ public final class KeysetScreen extends Screen {
         addDrawableChild(
             ButtonWidget.builder(
                     Text.translatable("keyset.group.by_key"), button -> toggleGroupMode())
-                .dimensions(groupToggleX, groupToggleY, groupToggleWidth, BUTTON_HEIGHT)
+                .dimensions(groupToggleX, groupToggleY, groupToggleWidth, buttonHeight)
                 .build());
     setTooltip(groupToggleButton, "keyset.tip.group");
 
@@ -250,7 +267,7 @@ public final class KeysetScreen extends Screen {
                 profileInnerX,
                 profileFieldY,
                 profileInnerWidth,
-                BUTTON_HEIGHT,
+                buttonHeight,
                 Text.translatable("keyset.profile.name")));
     profileNameField.setMaxLength(40);
     setTooltip(profileNameField, "keyset.tip.profile_name");
@@ -283,9 +300,7 @@ public final class KeysetScreen extends Screen {
                 useThreeColumnProfileGrid
                     ? profileInnerX + ((profileThreeColumnWidth + profileButtonGap) * 2)
                     : profileInnerX,
-                useThreeColumnProfileGrid
-                    ? profileRowY
-                    : profileRowY + BUTTON_HEIGHT + profileButtonGap,
+                useThreeColumnProfileGrid ? profileRowY : profileRowY + profileActionStep,
                 useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
                 button -> applySelected(),
                 "keyset.tip.profile_apply"));
@@ -297,8 +312,8 @@ public final class KeysetScreen extends Screen {
                     ? profileInnerX
                     : profileInnerX + profileTwoColumnWidth + profileButtonGap,
                 useThreeColumnProfileGrid
-                    ? profileRowY + BUTTON_HEIGHT + profileButtonGap
-                    : profileRowY + BUTTON_HEIGHT + profileButtonGap,
+                    ? profileRowY + profileActionStep
+                    : profileRowY + profileActionStep,
                 useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
                 button -> captureCurrent(),
                 "keyset.tip.profile_capture"));
@@ -311,8 +326,8 @@ public final class KeysetScreen extends Screen {
                     ? profileInnerX + profileThreeColumnWidth + profileButtonGap
                     : profileInnerX,
                 useThreeColumnProfileGrid
-                    ? profileRowY + BUTTON_HEIGHT + profileButtonGap
-                    : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 2),
+                    ? profileRowY + profileActionStep
+                    : profileRowY + (profileActionStep * 2),
                 useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
                 button -> renameSelected(),
                 "keyset.tip.profile_rename"));
@@ -324,8 +339,8 @@ public final class KeysetScreen extends Screen {
                     ? profileInnerX + ((profileThreeColumnWidth + profileButtonGap) * 2)
                     : profileInnerX + profileTwoColumnWidth + profileButtonGap,
                 useThreeColumnProfileGrid
-                    ? profileRowY + BUTTON_HEIGHT + profileButtonGap
-                    : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 2),
+                    ? profileRowY + profileActionStep
+                    : profileRowY + (profileActionStep * 2),
                 useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
                 button -> createProfile(),
                 "keyset.tip.profile_new"));
@@ -336,8 +351,8 @@ public final class KeysetScreen extends Screen {
                 "keyset.profile.duplicate",
                 profileInnerX,
                 useThreeColumnProfileGrid
-                    ? profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 2)
-                    : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 3),
+                    ? profileRowY + (profileActionStep * 2)
+                    : profileRowY + (profileActionStep * 3),
                 useThreeColumnProfileGrid ? profileTwoColumnWidth : profileTwoColumnWidth,
                 button -> duplicateSelected(),
                 "keyset.tip.profile_duplicate"));
@@ -347,8 +362,8 @@ public final class KeysetScreen extends Screen {
                 "keyset.profile.delete",
                 profileInnerX + profileTwoColumnWidth + profileButtonGap,
                 useThreeColumnProfileGrid
-                    ? profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 2)
-                    : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 3),
+                    ? profileRowY + (profileActionStep * 2)
+                    : profileRowY + (profileActionStep * 3),
                 profileTwoColumnWidth,
                 button -> deleteSelected(),
                 "keyset.tip.profile_delete"));
@@ -359,8 +374,8 @@ public final class KeysetScreen extends Screen {
                 "keyset.export",
                 profileInnerX,
                 useThreeColumnProfileGrid
-                    ? profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 3)
-                    : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 4),
+                    ? profileRowY + (profileActionStep * 3)
+                    : profileRowY + (profileActionStep * 4),
                 profileTwoColumnWidth,
                 button -> exportSelected(),
                 "keyset.tip.export"));
@@ -370,8 +385,8 @@ public final class KeysetScreen extends Screen {
                 "keyset.import",
                 profileInnerX + profileTwoColumnWidth + profileButtonGap,
                 useThreeColumnProfileGrid
-                    ? profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 3)
-                    : profileRowY + ((BUTTON_HEIGHT + profileButtonGap) * 4),
+                    ? profileRowY + (profileActionStep * 3)
+                    : profileRowY + (profileActionStep * 4),
                 profileTwoColumnWidth,
                 button -> importProfiles(),
                 "keyset.tip.import"));
@@ -449,6 +464,7 @@ public final class KeysetScreen extends Screen {
                 listCardWidth - 16,
                 listTop,
                 listBottom,
+                listRowHeight,
                 bindingDescriptor -> {
                   selectedBinding = bindingDescriptor;
                   refreshButtons();
@@ -457,6 +473,7 @@ public final class KeysetScreen extends Screen {
 
     try {
       reloadState(null, null);
+      applyPendingStatusNotice();
     } catch (IOException exception) {
       setStatus(exception.getMessage(), true);
     }
@@ -472,6 +489,7 @@ public final class KeysetScreen extends Screen {
 
   @Override
   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    applyPendingStatusNotice();
     super.render(context, mouseX, mouseY, delta);
     drawForeground(context);
   }
@@ -490,14 +508,17 @@ public final class KeysetScreen extends Screen {
       headerY = 10;
       headerWidth = width - (SCREEN_PADDING * 2);
       pagedLayout = forcePagedLayout || width < 600 || height < 340;
-      microLayout = pagedLayout && (width < 360 || height < 280);
+      microLayout = pagedLayout && (width < 380 || height < 300);
+      ultraCompactLayout = pagedLayout && (width < 340 || height < 260);
+      buttonHeight = ultraCompactLayout ? 14 : (pagedLayout && microLayout ? 16 : BUTTON_HEIGHT);
+      pagedCardHeaderHeight = pagedLayout ? (ultraCompactLayout ? 14 : 18) : 0;
       stackHeaderMetrics = !pagedLayout && headerWidth < 760;
       headerHeight =
           pagedLayout
-              ? (microLayout ? 44 : HEADER_HEIGHT)
+              ? (ultraCompactLayout ? 40 : (microLayout ? 44 : HEADER_HEIGHT))
               : (stackHeaderMetrics ? 76 : HEADER_HEIGHT);
-      footerY = height - SCREEN_PADDING - BUTTON_HEIGHT;
-      doneButtonWidth = pagedLayout && microLayout ? 72 : 92;
+      footerY = height - SCREEN_PADDING - buttonHeight;
+      doneButtonWidth = pagedLayout ? (ultraCompactLayout ? 68 : (microLayout ? 72 : 92)) : 92;
       compactTabsX = SCREEN_PADDING;
       compactTabsY = headerY + headerHeight + 6;
       compactTabsWidth = headerWidth;
@@ -508,7 +529,7 @@ public final class KeysetScreen extends Screen {
 
       if (pagedLayout) {
         sidebarX = SCREEN_PADDING;
-        sidebarY = compactTabsY + BUTTON_HEIGHT + 6;
+        sidebarY = compactTabsY + buttonHeight + (ultraCompactLayout ? 4 : 6);
         sidebarWidth = headerWidth;
         mainX = sidebarX;
         mainY = sidebarY;
@@ -517,7 +538,21 @@ public final class KeysetScreen extends Screen {
         profileCardX = sidebarX;
         profileCardY = sidebarY;
         profileCardWidth = sidebarWidth;
-        profileCardHeight = Math.max(104, contentBottom - sidebarY);
+        int profileInnerWidth = profileCardWidth - (CARD_PADDING * 2);
+        int profileButtonGap = microLayout ? (ultraCompactLayout ? 0 : 1) : 2;
+        int controlGap = microLayout ? (ultraCompactLayout ? 2 : 3) : 4;
+        int profileFieldOffset = pagedCardHeaderHeight + (microLayout ? 8 : 10);
+        int profileActionStep = buttonHeight + profileButtonGap;
+        int profileGridWidth = microLayout ? (ultraCompactLayout ? 186 : 192) : 210;
+        int profileRows = profileInnerWidth >= profileGridWidth ? 4 : 5;
+        int requiredProfileHeight =
+            profileFieldOffset
+                + buttonHeight
+                + controlGap
+                + ((profileRows - 1) * profileActionStep)
+                + buttonHeight
+                + (ultraCompactLayout ? 6 : 10);
+        profileCardHeight = Math.max(requiredProfileHeight, contentBottom - sidebarY);
 
         helpCardX = profileCardX;
         helpCardY = profileCardY;
@@ -528,7 +563,11 @@ public final class KeysetScreen extends Screen {
         filterCardY = mainY;
         filterCardWidth = mainWidth;
         stackFilterControls = filterCardWidth < 300;
-        filterCardHeight = stackFilterControls ? 58 : 44;
+        filterCardHeight =
+            pagedCardHeaderHeight
+                + (stackFilterControls
+                    ? (buttonHeight * 2) + (ultraCompactLayout ? 6 : 10)
+                    : buttonHeight + (ultraCompactLayout ? 6 : 10));
         showNavigatorSummary = !microLayout && filterCardWidth >= 360;
 
         listCardX = mainX;
@@ -539,16 +578,23 @@ public final class KeysetScreen extends Screen {
         selectionCardX = mainX;
         selectionCardY = mainY;
         selectionCardWidth = mainWidth;
-        selectionCardHeight = Math.max(54, (contentBottom - mainY - CARD_GAP) / 2);
+        selectionCardHeight =
+            Math.max(
+                ultraCompactLayout ? 46 : (microLayout ? 50 : 54),
+                (contentBottom - mainY - CARD_GAP) / 2);
         resolveCardX = mainX;
         resolveCardY = selectionCardY + selectionCardHeight + CARD_GAP;
         resolveCardWidth = mainWidth;
-        resolveCardHeight = Math.max(42, contentBottom - resolveCardY);
+        resolveCardHeight =
+            Math.max(
+                ultraCompactLayout ? 34 : (microLayout ? 38 : 42), contentBottom - resolveCardY);
 
         stackActionCards = true;
         denseLayout = true;
-        listTop = listCardY + 8;
-        listBottom = listCardY + listCardHeight - 8;
+        listRowHeight = ultraCompactLayout ? 20 : (microLayout ? 22 : 24);
+        listInset = ultraCompactLayout ? 4 : (microLayout ? 6 : 8);
+        listTop = listCardY + listInset;
+        listBottom = listCardY + listCardHeight - listInset;
         return;
       }
 
@@ -582,6 +628,8 @@ public final class KeysetScreen extends Screen {
 
       stackActionCards = mainWidth < 820;
       denseLayout = stackActionCards || compactLayout;
+      listRowHeight = denseLayout ? 24 : 28;
+      listInset = denseLayout ? 6 : 8;
 
       listCardX = mainX;
       listCardY = filterCardY + filterCardHeight + CARD_GAP;
@@ -636,8 +684,8 @@ public final class KeysetScreen extends Screen {
         listCardHeight = Math.max(72, selectionCardY - listCardY - CARD_GAP);
       }
 
-      listTop = listCardY + 8;
-      listBottom = listCardY + listCardHeight - 8;
+      listTop = listCardY + listInset;
+      listBottom = listCardY + listCardHeight - listInset;
       return;
     }
   }
@@ -651,7 +699,7 @@ public final class KeysetScreen extends Screen {
       String tooltipKey) {
     ButtonWidget widget =
         ButtonWidget.builder(Text.translatable(messageKey), action)
-            .dimensions(x, y, buttonWidth, BUTTON_HEIGHT)
+            .dimensions(x, y, buttonWidth, buttonHeight)
             .build();
     setTooltip(widget, tooltipKey);
     return widget;
@@ -665,7 +713,7 @@ public final class KeysetScreen extends Screen {
       ButtonWidget.PressAction action,
       Text tooltipText) {
     ButtonWidget widget =
-        ButtonWidget.builder(message, action).dimensions(x, y, buttonWidth, BUTTON_HEIGHT).build();
+        ButtonWidget.builder(message, action).dimensions(x, y, buttonWidth, buttonHeight).build();
     if (tooltipText != null) {
       setTooltip(widget, tooltipText);
     }
@@ -704,7 +752,7 @@ public final class KeysetScreen extends Screen {
           compactTabsX,
           compactTabsY - 2,
           compactTabsWidth,
-          BUTTON_HEIGHT + 4,
+          buttonHeight + 4,
           PANEL_FILL,
           PANEL_BORDER);
       switch (compactPage) {
@@ -1046,8 +1094,10 @@ public final class KeysetScreen extends Screen {
     int contentWidth = selectionCardWidth - (CARD_PADDING * 2);
     int textWidth = contentWidth;
     int detailActionsY =
-        selectionCardY + selectionCardHeight - BUTTON_HEIGHT - (pagedLayout ? 8 : 10);
+        selectionCardY + selectionCardHeight - buttonHeight - (pagedLayout ? 6 : 10);
     boolean compactCard = denseLayout || selectionCardWidth < 360;
+    int summaryY = pagedLayout ? selectionCardY + pagedCardHeaderHeight + 4 : selectionCardY + 25;
+    int compactSummaryHeight = detailActionsY - summaryY - 4;
 
     drawTrimmedText(
         context,
@@ -1119,16 +1169,14 @@ public final class KeysetScreen extends Screen {
       } else {
         compactSummary = bodyText;
       }
-      drawTrimmedText(
-          context, compactSummary, contentX, selectionCardY + 25, textWidth, TITLE_COLOR);
+      if (compactSummaryHeight >= textRenderer.fontHeight) {
+        drawTrimmedText(context, compactSummary, contentX, summaryY, textWidth, TITLE_COLOR);
+      }
       return;
     }
 
-    int titleY = selectionCardY + (compactCard ? 24 : pagedLayout ? 24 : 31);
-    int bodyY =
-        compactCard
-            ? titleY + textRenderer.fontHeight + 6
-            : selectionCardY + (pagedLayout ? 36 : 44);
+    int titleY = pagedLayout ? selectionCardY + pagedCardHeaderHeight + 2 : selectionCardY + 31;
+    int bodyY = pagedLayout ? titleY + textRenderer.fontHeight + 4 : selectionCardY + 44;
     drawTrimmedText(context, titleText, contentX, titleY, textWidth, TITLE_COLOR);
     drawWrappedTextBlock(
         context,
@@ -1143,8 +1191,13 @@ public final class KeysetScreen extends Screen {
   private void drawResolveCard(DrawContext context) {
     int contentX = resolveCardX + CARD_PADDING;
     int contentWidth = resolveCardWidth - (CARD_PADDING * 2);
-    int resolveActionsY = resolveCardY + resolveCardHeight - BUTTON_HEIGHT - (pagedLayout ? 8 : 10);
+    int resolveActionsY = resolveCardY + resolveCardHeight - buttonHeight - (pagedLayout ? 6 : 10);
     boolean compactCard = denseLayout || resolveCardWidth < 300;
+    int bodyY = pagedLayout ? resolveCardY + pagedCardHeaderHeight + 4 : resolveCardY + 28;
+    int bodyHeight =
+        compactCard
+            ? textRenderer.fontHeight + 2
+            : Math.max(12, resolveActionsY - bodyY - (pagedLayout ? 4 : 26));
     drawTrimmedText(
         context,
         Text.translatable("keyset.section.resolve"),
@@ -1169,20 +1222,10 @@ public final class KeysetScreen extends Screen {
       bodyText = Text.translatable("keyset.resolve.card.ready_body");
     }
 
-    drawWrappedTextBlock(
-        context,
-        bodyText,
-        contentX,
-        resolveCardY + (pagedLayout ? 22 : 28),
-        contentWidth,
-        compactCard
-            ? textRenderer.fontHeight + 2
-            : Math.max(
-                12,
-                resolveActionsY
-                    - (resolveCardY + (pagedLayout ? 22 : 28))
-                    - (pagedLayout ? 6 : 26)),
-        BODY_COLOR);
+    if (resolveActionsY - bodyY >= textRenderer.fontHeight) {
+      drawWrappedTextBlock(
+          context, bodyText, contentX, bodyY, contentWidth, bodyHeight, BODY_COLOR);
+    }
 
     int chipY = resolveActionsY - (pagedLayout ? 18 : 20);
     if (previewPlan != null) {
@@ -1800,6 +1843,14 @@ public final class KeysetScreen extends Screen {
     setInitialFocus(searchField);
   }
 
+  private void applyPendingStatusNotice() {
+    KeysetFabricService.StatusNotice notice = service.consumeStatusNotice();
+    if (notice == null) {
+      return;
+    }
+    setStatus(notice.getMessage(), notice.isError());
+  }
+
   private void updateDynamicTooltips(boolean activeSelection, boolean bindingActionsActive) {
     setTooltip(
         applyButton,
@@ -1915,7 +1966,9 @@ public final class KeysetScreen extends Screen {
   private void runAction(Action action) {
     try {
       action.run();
+      applyPendingStatusNotice();
     } catch (IllegalArgumentException | IllegalStateException | IOException exception) {
+      service.consumeStatusNotice();
       setStatus(exception.getMessage(), true);
     }
   }

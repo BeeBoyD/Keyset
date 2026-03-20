@@ -50,8 +50,16 @@ public final class KeysetKeybindsScreen extends KeybindsScreen {
       if (client != null) {
         service.syncActiveProfileFromCurrentManual(client);
       }
-    } catch (Exception ignored) {
-      // The parent Keyset screen will surface any later load failure.
+    } catch (Exception exception) {
+      String detail = exception.getMessage();
+      service.reportStatusNotice(
+          Text.translatable(
+                  "keyset.error.manual_sync_failed",
+                  detail == null || detail.trim().isEmpty()
+                      ? exception.getClass().getSimpleName()
+                      : detail)
+              .getString(),
+          true);
     }
 
     super.removed();

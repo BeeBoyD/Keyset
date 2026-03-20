@@ -1,7 +1,10 @@
 package net.beeboyd.keyset.platform.fabric;
 
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
+import net.beeboyd.keyset.platform.fabric.screen.KeysetKeybindsScreen;
 import net.beeboyd.keyset.platform.fabric.screen.KeysetScreen;
 import net.beeboyd.keyset.shim.v1201.Keyset1201Range;
 import net.fabricmc.api.ClientModInitializer;
@@ -31,6 +34,8 @@ public final class KeysetFabricClient implements ClientModInitializer {
   private KeyBinding openScreenKeyBinding;
   private Screen pendingParentScreen;
   private boolean openScreenRequested;
+  private final Map<Screen, ClickableWidget> injectedControlsButtons =
+      new WeakHashMap<Screen, ClickableWidget>();
 
   public static KeysetFabricService getService() {
     return SERVICE;
@@ -74,7 +79,7 @@ public final class KeysetFabricClient implements ClientModInitializer {
           }
 
           List<ClickableWidget> buttons = Screens.getButtons(screen);
-          buttons.removeIf(KeysetFabricClient::isKeysetControlsButton);
+          removeInjectedControlsButton(screen, buttons);
           int[] placement = findControlsButtonPlacement(buttons, scaledWidth, scaledHeight);
           ButtonWidget keysetButton =
               ButtonWidget.builder(
@@ -84,17 +89,21 @@ public final class KeysetFabricClient implements ClientModInitializer {
                   .build();
           keysetButton.setTooltip(Tooltip.of(Text.translatable("keyset.subtitle")));
           buttons.add(keysetButton);
+          injectedControlsButtons.put(screen, keysetButton);
         });
   }
 
-  private static boolean isKeysetControlsButton(ClickableWidget button) {
-    return button instanceof ButtonWidget
-        && button.getWidth() == CONTROLS_BUTTON_WIDTH
-        && button.getHeight() == CONTROLS_BUTTON_HEIGHT
-        && button.getMessage().getString().equals(Text.translatable("keyset.open").getString());
+  private void removeInjectedControlsButton(Screen screen, List<ClickableWidget> buttons) {
+    ClickableWidget existingButton = injectedControlsButtons.remove(screen);
+    if (existingButton != null) {
+      buttons.remove(existingButton);
+    }
   }
 
   private void requestOpenScreen(Screen parent) {
+    if (isKeysetScreen(parent)) {
+      return;
+    }
     pendingParentScreen = parent;
     openScreenRequested = true;
   }
@@ -107,7 +116,14 @@ public final class KeysetFabricClient implements ClientModInitializer {
     openScreenRequested = false;
     Screen parent = pendingParentScreen;
     pendingParentScreen = null;
+    if (isKeysetScreen(client.currentScreen) || isKeysetScreen(parent)) {
+      return;
+    }
     client.setScreen(new KeysetScreen(parent != null ? parent : client.currentScreen, SERVICE));
+  }
+
+  private static boolean isKeysetScreen(Screen screen) {
+    return screen instanceof KeysetScreen || screen instanceof KeysetKeybindsScreen;
   }
 
   private static int[] findControlsButtonPlacement(
