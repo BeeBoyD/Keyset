@@ -20,15 +20,17 @@ import net.minecraft.text.Text;
 /** Scrollable list used by the Keyset screen for conflicts and auto-resolve previews. */
 public final class KeysetConflictListWidget
     extends ElementListWidget<KeysetConflictListWidget.Entry> {
-  private static final int ROW_HEIGHT = 28;
+  private static final int DEFAULT_ROW_HEIGHT = 28;
 
   private final Listener listener;
+  private final boolean compactRows;
   private boolean hidden;
 
   public KeysetConflictListWidget(
-      MinecraftClient client, int width, int top, int bottom, Listener listener) {
-    super(client, width, bottom - top, top, bottom, ROW_HEIGHT);
+      MinecraftClient client, int width, int top, int bottom, int rowHeight, Listener listener) {
+    super(client, width, bottom - top, top, bottom, rowHeight);
     this.listener = listener;
+    compactRows = rowHeight < DEFAULT_ROW_HEIGHT;
     setRenderBackground(false);
     setRenderHorizontalShadows(false);
     setRenderSelection(false);
@@ -141,7 +143,7 @@ public final class KeysetConflictListWidget
 
   @Override
   public int getRowWidth() {
-    return width - 18;
+    return Math.max(40, width - 18);
   }
 
   @Override
@@ -173,6 +175,29 @@ public final class KeysetConflictListWidget
 
   private Text fitText(String text, int maxWidth) {
     return Text.literal(ellipsize(text, maxWidth));
+  }
+
+  // Keep row content centered from the actual row height so compact mode does not clip text.
+  private int singleLineTextY(int y, int entryHeight) {
+    return y + Math.max(2, (entryHeight - client.textRenderer.fontHeight) / 2);
+  }
+
+  private int bindingNameY(int y, int entryHeight) {
+    int lineGap = compactRows ? 1 : 2;
+    int totalTextHeight = (client.textRenderer.fontHeight * 2) + lineGap;
+    return y + Math.max(2, (entryHeight - totalTextHeight) / 2);
+  }
+
+  private int bindingMetaY(int nameY) {
+    return nameY + client.textRenderer.fontHeight + (compactRows ? 1 : 2);
+  }
+
+  private int badgeHeight() {
+    return compactRows ? 12 : 14;
+  }
+
+  private int badgeTextY(int badgeY) {
+    return badgeY + Math.max(1, (badgeHeight() - client.textRenderer.fontHeight) / 2);
   }
 
   private float emphasisFor(int y, int entryHeight) {
@@ -338,8 +363,8 @@ public final class KeysetConflictListWidget
       context.drawTextWithShadow(
           owner.client.textRenderer,
           owner.fitText(text, Math.max(28, entryWidth - 24)),
-          x + 10 + offset,
-          y + 8,
+          x + (owner.compactRows ? 8 : 10) + offset,
+          owner.singleLineTextY(y, entryHeight),
           scaleAlpha(0xFFF5DEA0, emphasis));
     }
   }
@@ -382,8 +407,8 @@ public final class KeysetConflictListWidget
       context.drawTextWithShadow(
           owner.client.textRenderer,
           owner.fitText(text, Math.max(24, entryWidth - 30)),
-          x + 14 + offset,
-          y + 8,
+          x + (owner.compactRows ? 12 : 14) + offset,
+          owner.singleLineTextY(y, entryHeight),
           scaleAlpha(0xFF9FB4C9, 0.95F * emphasis));
     }
   }
@@ -450,32 +475,36 @@ public final class KeysetConflictListWidget
       String keyLabel = bindingDescriptor.getKeyDisplayName();
       int badgeWidth =
           clamp(
-              owner.client.textRenderer.getWidth(keyLabel) + 14, 42, Math.max(52, entryWidth / 3));
+              owner.client.textRenderer.getWidth(keyLabel) + 14,
+              40,
+              Math.max(owner.compactRows ? 46 : 52, entryWidth / 3));
       int badgeX = x + entryWidth - badgeWidth - 10;
-      int badgeY = y + 6;
+      int badgeHeight = owner.badgeHeight();
+      int badgeY = y + Math.max(2, (entryHeight - badgeHeight) / 2);
       int keyBadgeFill = selected ? 0xFF33526B : scaleAlpha(0xFF273647, 0.92F * emphasis);
       int keyBadgeBorder = selected ? 0xFF8FD9F0 : scaleAlpha(0xFF60788C, emphasis);
-      context.fill(badgeX, badgeY, badgeX + badgeWidth, badgeY + 14, keyBadgeFill);
-      context.drawBorder(badgeX, badgeY, badgeWidth, 14, keyBadgeBorder);
+      context.fill(badgeX, badgeY, badgeX + badgeWidth, badgeY + badgeHeight, keyBadgeFill);
+      context.drawBorder(badgeX, badgeY, badgeWidth, badgeHeight, keyBadgeBorder);
       context.drawCenteredTextWithShadow(
           owner.client.textRenderer,
           owner.fitText(keyLabel, Math.max(22, badgeWidth - 8)),
           badgeX + (badgeWidth / 2),
-          badgeY + 3,
+          owner.badgeTextY(badgeY),
           selected ? 0xFFF4FBFF : scaleAlpha(0xFFD7E4F2, emphasis));
 
       int textMaxWidth = Math.max(24, badgeX - x - 18);
+      int nameY = owner.bindingNameY(y, entryHeight);
       context.drawTextWithShadow(
           owner.client.textRenderer,
           owner.fitText(bindingDescriptor.getDisplayName(), textMaxWidth),
-          x + 8 + contentOffset,
-          y + 4,
+          x + (owner.compactRows ? 6 : 8) + contentOffset,
+          nameY,
           nameColor);
       context.drawTextWithShadow(
           owner.client.textRenderer,
           owner.fitText(bindingDescriptor.getCategoryName(), textMaxWidth),
-          x + 8 + contentOffset,
-          y + 16,
+          x + (owner.compactRows ? 6 : 8) + contentOffset,
+          owner.bindingMetaY(nameY),
           metaColor);
     }
   }
@@ -521,7 +550,7 @@ public final class KeysetConflictListWidget
           owner.client.textRenderer,
           owner.fitText(text, Math.max(24, entryWidth - 14)),
           x + 8 + offset,
-          y + 8,
+          owner.singleLineTextY(y, entryHeight),
           summary ? 0xFFF0F7ED : scaleAlpha(0xFFE2EAF3, emphasis));
     }
   }

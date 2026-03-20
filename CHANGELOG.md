@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## v1.1.0 - 2026-03-20
+
+Released: 2026-03-20
+
+### Changed
+
+- Moved the active release line to `1.1.0` and narrowed packaged release targets to Minecraft `1.20.1+`.
+- Updated the public docs to make the modern release focus and legacy critical-fix policy clearer.
+- Tightened the modern UI copy so key actions, conflict selection, and recovery states are easier to understand.
+- Reworked the modern `1.20.1+` screen layout so compact and tiny windows scale down more gracefully instead of forcing full-size card content into the same space.
+
+### Fixed
+
+- Replaced broad "find the Keyset button by text" cleanup with per-screen button tracking, so reopening `Controls` or changing GUI scale no longer risks duplicate buttons or cross-mod collisions.
+- Prevented the global open-screen hotkey from stacking Keyset on top of an already-open Keyset screen.
+- Fixed multiple modern UI overlap cases by reserving real header space inside paged cards, shrinking compact conflict rows, and trimming low-space summaries before they collide with action buttons.
+- Fixed `1.21.9` Fabric resource packaging so shared assets like the embedded mod icon are present in release jars.
+- Stopped swallowing manual Controls-sync failures and now surface clear status messages when manual edits are saved back into the active profile.
+- Added safer config recovery with automatic backup refresh, backup-based recovery, timestamped broken-file archiving, and visible recovery warnings.
+
 ## v1.0.0 - 2026-03-14
 
 Released: 2026-03-14 13:30 EET

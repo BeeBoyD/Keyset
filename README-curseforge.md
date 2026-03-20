@@ -12,16 +12,17 @@ Save full control layouts, swap them instantly, inspect conflicts with context, 
 
 > 💡 **Support tip:** for faster updates, issue tracking, and the best support experience, please use the [Modrinth project page](https://modrinth.com/project/keyset).
 
-> ⚠️ **Future support policy for versions below `1.20.1`:**
-> Future releases for Minecraft versions below `1.20.1` will be limited to critical bug fixes only.
-> Profile compatibility will stay the same across the supported release line.
+> ⚠️ **Release line note:**
+> `1.1.x` targets Minecraft `1.20.1+`.
+> Older `1.16.5-1.19.4` builds remain on the `1.0.x` line and only receive critical bug fixes.
+> Profile compatibility stays the same across the supported release line.
 
 ## ✨ What It Does
 
 - Multiple keybind profiles with instant switching
 - Starter profiles: `Default`, `PvP`, `Building`, `Tech`
 - Conflict browser with search and grouping
-- Direct actions for the selected bind
+- Direct actions for the selected conflict
 - Safe auto-fix with preview, apply, and undo
 - Clipboard JSON export and import
 
@@ -42,19 +43,18 @@ Published files are split by loader and Minecraft range.
 
 ## ✅ Supported Versions
 
+Current `1.1.x` release line:
+
 | Minecraft | Fabric | Quilt | Forge | NeoForge |
 | --- | --- | --- | --- | --- |
-| 1.16.5 | ✅ | ✅ | ⚠️ | N/A |
-| 1.17.1 | ✅ | ✅ | ⚠️ | N/A |
-| 1.18.2 | ✅ | ✅ | ✅ | N/A |
-| 1.19.2 | ✅ | ✅ | ✅ | N/A |
-| 1.19.4 | ✅ | ✅ | ✅ | N/A |
 | 1.20.1-1.20.2 | ✅ | ✅ | ✅ | ✅ |
 | 1.20.3-1.20.4 | ✅ | ✅ | ✅ | ✅ |
 | 1.20.5-1.20.6 | ✅ | ✅ | ✅ | ✅ |
 | 1.21.1 | ✅ | ✅ | ✅ | ✅ |
 | 1.21.2-1.21.4 | ✅ | ✅ | ❌ | ✅ |
 | 1.21.5-1.21.11 | ✅ | ✅ | ❌ | ✅ |
+
+Older `1.16.5-1.19.4` builds remain available on the `1.0.x` line and are now critical-fix-only.
 
 ## 🔒 Privacy
 

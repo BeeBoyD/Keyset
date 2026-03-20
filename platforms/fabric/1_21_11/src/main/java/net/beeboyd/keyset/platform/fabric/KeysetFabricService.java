@@ -104,6 +104,7 @@ public final class KeysetFabricService {
   private final KeysetProfilesJson codec = new KeysetProfilesJson();
   private KeysetProfilesConfig config;
   private boolean loaded;
+  private StatusNotice pendingStatusNotice;
 
   public void onClientStarted(MinecraftClient client) throws IOException {
     ensureLoaded(client);
@@ -112,6 +113,16 @@ public final class KeysetFabricService {
   public KeysetProfilesConfig getConfig(MinecraftClient client) throws IOException {
     ensureLoaded(client);
     return config;
+  }
+
+  public StatusNotice consumeStatusNotice() {
+    StatusNotice notice = pendingStatusNotice;
+    pendingStatusNotice = null;
+    return notice;
+  }
+
+  public void reportStatusNotice(String message, boolean error) {
+    queueStatusNotice(message, error);
   }
 
   public List<KeysetProfile> listProfiles(MinecraftClient client) throws IOException {
@@ -334,6 +345,7 @@ public final class KeysetFabricService {
             manuallyChangedBindings,
             Collections.<String>emptySet());
     save(client);
+    queueStatusNotice(Text.translatable("keyset.status.manual_synced").getString(), false);
     return true;
   }
 
@@ -364,11 +376,9 @@ public final class KeysetFabricService {
       config = KeysetProfiles.normalize(codec.read(path));
     } catch (JsonParseException | IllegalArgumentException exception) {
       if (fileExists) {
-        Files.copy(path, brokenConfigPath(client), StandardCopyOption.REPLACE_EXISTING);
+        archiveConfigCopy(path, "broken");
       }
-      config = KeysetProfiles.createDefaultConfig();
-      config = seedStarterProfiles(client.options, config);
-      save(client);
+      config = recoverConfigAfterLoadFailure(client);
       loaded = true;
       applyProfile(client.options, requireProfile(config, config.getActiveProfileId()));
       return;
@@ -449,8 +459,36 @@ public final class KeysetFabricService {
             currentConfig.getSchemaVersion(), currentConfig.getActiveProfileId(), profiles));
   }
 
+  private KeysetProfilesConfig recoverConfigAfterLoadFailure(MinecraftClient client)
+      throws IOException {
+    Path backupPath = backupConfigPath(client);
+    if (Files.exists(backupPath)) {
+      try {
+        KeysetProfilesConfig recoveredConfig = KeysetProfiles.normalize(codec.read(backupPath));
+        recoveredConfig = seedStarterProfiles(client.options, recoveredConfig);
+        config = recoveredConfig;
+        save(client);
+        queueStatusNotice(
+            Text.translatable("keyset.status.config_recovered_backup").getString(), false);
+        return recoveredConfig;
+      } catch (JsonParseException | IllegalArgumentException exception) {
+        archiveConfigCopy(backupPath, "backup-broken");
+      }
+    }
+
+    KeysetProfilesConfig recoveredConfig =
+        seedStarterProfiles(client.options, KeysetProfiles.createDefaultConfig());
+    config = recoveredConfig;
+    save(client);
+    queueStatusNotice(
+        Text.translatable("keyset.status.config_recovered_default").getString(), true);
+    return recoveredConfig;
+  }
+
   private void save(MinecraftClient client) throws IOException {
-    codec.write(configPath(client), config);
+    Path path = configPath(client);
+    codec.write(path, config);
+    refreshBackup(path, backupConfigPath(client));
   }
 
   private Path configPath(MinecraftClient client) {
@@ -461,12 +499,55 @@ public final class KeysetFabricService {
         .resolve(KeysetCoreMetadata.CONFIG_FILE_NAME);
   }
 
-  private Path brokenConfigPath(MinecraftClient client) {
+  private Path backupConfigPath(MinecraftClient client) {
     return client
         .runDirectory
         .toPath()
         .resolve("config")
-        .resolve(KeysetCoreMetadata.CONFIG_FILE_NAME + ".broken");
+        .resolve(KeysetCoreMetadata.CONFIG_FILE_NAME + ".bak");
+  }
+
+  private void refreshBackup(Path path, Path backupPath) {
+    try {
+      Path parent = backupPath.getParent();
+      if (parent != null) {
+        Files.createDirectories(parent);
+      }
+      Files.copy(path, backupPath, StandardCopyOption.REPLACE_EXISTING);
+    } catch (IOException exception) {
+      queueStatusNotice(Text.translatable("keyset.status.config_backup_warning").getString(), true);
+    }
+  }
+
+  private void archiveConfigCopy(Path sourcePath, String label) {
+    if (sourcePath == null || !Files.exists(sourcePath)) {
+      return;
+    }
+
+    try {
+      Path parent = sourcePath.getParent();
+      if (parent != null) {
+        Files.createDirectories(parent);
+      }
+      String archivedName =
+          sourcePath.getFileName().toString() + "." + label + "." + System.currentTimeMillis();
+      Files.copy(
+          sourcePath, sourcePath.resolveSibling(archivedName), StandardCopyOption.REPLACE_EXISTING);
+    } catch (IOException exception) {
+      queueStatusNotice(
+          Text.translatable("keyset.status.config_archive_warning").getString(), true);
+    }
+  }
+
+  private void queueStatusNotice(String message, boolean error) {
+    String normalized = message == null ? "" : message.trim();
+    if (normalized.isEmpty()) {
+      return;
+    }
+    if (pendingStatusNotice != null && pendingStatusNotice.isError() && !error) {
+      return;
+    }
+    pendingStatusNotice = new StatusNotice(normalized, error);
   }
 
   private static KeysetProfile requireProfile(KeysetProfilesConfig config, String profileId) {
@@ -772,6 +853,24 @@ public final class KeysetFabricService {
     private KeyBindingDescriptorWithFlags(KeysetBindingDescriptor descriptor, int protectionScore) {
       this.descriptor = descriptor;
       this.protectionScore = protectionScore;
+    }
+  }
+
+  public static final class StatusNotice {
+    private final String message;
+    private final boolean error;
+
+    private StatusNotice(String message, boolean error) {
+      this.message = message;
+      this.error = error;
+    }
+
+    public String getMessage() {
+      return message;
+    }
+
+    public boolean isError() {
+      return error;
     }
   }
 }

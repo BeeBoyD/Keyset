@@ -12,9 +12,10 @@ Keyset is a profile-based keybind manager for modded Minecraft.
 
 Save full control layouts, swap them instantly, inspect conflicts with context, and preview safer cleanup before anything gets applied.
 
-> ⚠️ **Future support policy for versions below `1.20.1`:**
-> Future releases for Minecraft versions below `1.20.1` will be limited to critical bug fixes only.
-> Profile compatibility will stay the same across the supported release line.
+> ⚠️ **Release line note:**
+> `1.1.x` targets Minecraft `1.20.1+`.
+> Older `1.16.5-1.19.4` builds remain on the `1.0.x` line and only receive critical bug fixes.
+> Profile compatibility stays the same across the supported release line.
 
 ## ✨ Why It Helps
 
@@ -24,13 +25,13 @@ Save full control layouts, swap them instantly, inspect conflicts with context, 
 - Guided Safe Fix when you want a cleaner automated pass
 - JSON export and import for backup or sharing
 
-## 🚀 1.0.0 Highlights
+## 🚀 1.1.0 Highlights
 
-- Cleaner dashboard-style UI on modern `1.20.1+` releases
-- Better wording around live edits, previews, and Safe Fix
-- Stable `1.0.0` release line
+- Cleaner modern UI on the active `1.20.1+` line
+- More reliable Controls-screen button behavior and screen opening
+- Safer config recovery with backup restore and clearer status messages
 
-Legacy `1.16.5-1.19.4` builds keep the same feature set and profile format, but use the older screen layout.
+Older `1.16.5-1.19.4` builds stay available on the `1.0.x` line with the same profile format, but active development now lives on `1.20.1+`.
 
 ## 🧭 Quick Start
 
@@ -48,19 +49,16 @@ Legacy `1.16.5-1.19.4` builds keep the same feature set and profile format, but 
 
 Published files are split by loader and Minecraft range, for example:
 
-- `keyset-fabric-1.20.1-1.20.2-1.0.0.jar`
-- `keyset-forge-1.21.1-1.0.0.jar`
-- `keyset-neoforge-1.21-1.21.11-1.0.0.jar`
+- `keyset-fabric-1.20.1-1.20.2-1.1.0.jar`
+- `keyset-forge-1.21.1-1.1.0.jar`
+- `keyset-neoforge-1.21-1.21.11-1.1.0.jar`
 
 ## ✅ Supported Versions
 
+Current `1.1.x` release line:
+
 | Minecraft | Fabric | Quilt | Forge | NeoForge |
 | --- | --- | --- | --- | --- |
-| 1.16.5 | ✅ | ✅ | ⚠️ | N/A |
-| 1.17.1 | ✅ | ✅ | ⚠️ | N/A |
-| 1.18.2 | ✅ | ✅ | ✅ | N/A |
-| 1.19.2 | ✅ | ✅ | ✅ | N/A |
-| 1.19.4 | ✅ | ✅ | ✅ | N/A |
 | 1.20.1-1.20.2 | ✅ | ✅ | ✅ | ✅ |
 | 1.20.3-1.20.4 | ✅ | ✅ | ✅ | ✅ |
 | 1.20.5-1.20.6 | ✅ | ✅ | ✅ | ✅ |
@@ -72,7 +70,7 @@ Notes:
 
 - Quilt uses the Fabric-compatible jars.
 - Forge support is intentionally capped at `1.21.1`.
-- Forge `1.16.5` and `1.17.1` remain early targets.
+- Older `1.16.5-1.19.4` builds remain on the `1.0.x` line for critical bug fixes only.
 
 ## 🔒 Privacy
 
@@ -92,4 +90,4 @@ It does not send telemetry or upload your controls anywhere.
 
 ## 📍 Status
 
-Current stable release line: `1.0.0`
+Current stable release line: `1.1.0`
