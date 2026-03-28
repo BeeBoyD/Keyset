@@ -1,0 +1,132 @@
+plugins {
+    id "architectury-plugin"
+    id "dev.architectury.loom"
+    id "com.diffplug.spotless"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+// Architectury-loom does not yet support MC 26.1 (issue #328).
+// The same intermediary workaround as platform-fabric-26_1 is needed so that arch-loom
+// can resolve net.fabricmc:intermediary:26.1 during configuration (the POM version "0.0.0"
+// would otherwise fail Gradle's metadata validation, preventing forge() from being registered).
+def intermediaryLocalDir = new File(rootDir, ".gradle/intermediary-26.1-local")
+def intermediaryArtifactDir = new File(intermediaryLocalDir, "net/fabricmc/intermediary/26.1")
+if (!new File(intermediaryArtifactDir, "intermediary-26.1.jar").exists()) {
+    intermediaryArtifactDir.mkdirs()
+    def tinyV2Content = "tiny\t2\t0\tofficial\tintermediary\n".getBytes("UTF-8")
+    def zos
+    [new File(intermediaryArtifactDir, "intermediary-26.1.jar"),
+     new File(intermediaryArtifactDir, "intermediary-26.1-v2.jar")].each { jarFile ->
+        zos = new java.util.zip.ZipOutputStream(jarFile.newOutputStream())
+        try {
+            zos.putNextEntry(new java.util.zip.ZipEntry("mappings/mappings.tiny"))
+            zos.write(tinyV2Content)
+            zos.closeEntry()
+        } finally {
+            zos.close()
+        }
+    }
+    new File(intermediaryArtifactDir, "intermediary-26.1.pom").text = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>net.fabricmc</groupId>
+  <artifactId>intermediary</artifactId>
+  <version>26.1</version>
+</project>
+"""
+}
+
+repositories {
+    maven {
+        url = uri(intermediaryLocalDir)
+        content {
+            includeModule("net.fabricmc", "intermediary")
+        }
+    }
+}
+
+base {
+    archivesName = "keyset-forge-26.1"
+}
+
+loom {
+    silentMojangMappingsLicense()
+    mods {
+        main {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+architectury {
+    platformSetupLoomIde()
+    forge()
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir(project(":core").file("src/main/java"))
+            srcDir(project(":common-v26_1").file("src/main/java"))
+            srcDir(project(":platform-fabric-26_1").file("src/main/java"))
+            exclude("net/beeboyd/keyset/platform/fabric/KeysetFabricClient.java")
+        }
+        resources {
+            srcDir(project(":platform-fabric-26_1").file("src/main/resources"))
+            exclude("fabric.mod.json", "pack.mcmeta")
+        }
+    }
+}
+
+configurations.configureEach {
+    exclude(group: "net.fabricmc", module: "fabric-log4j-util")
+}
+
+// arch-loom 26.1 not yet supported (issue #328) — pre-create the forge configuration so
+// `forge "..."` in the dependencies block resolves as a method at configure time.
+configurations.maybeCreate("forge")
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.property('minecraftVersion_26_1')}"
+    // arch-loom 26.1 support pending — empty layered mappings so configuration succeeds.
+    mappings loom.layered {}
+    forge "net.minecraftforge:forge:${project.property('forgeVersion_26_1')}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+}
+
+tasks.withType(JavaExec).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+processResources {
+    from("src/main/resources") {
+        include("pack.mcmeta")
+    }
+    def expandProps = [
+        modId          : project.property("modId"),
+        modName        : project.property("modName"),
+        modVersion     : project.version,
+        modDescription : project.property("modDescription"),
+        minecraftVersion: project.property("supportedMinecraftRange_26_1"),
+        loaderVersion  : "[62,)"
+    ]
+    inputs.properties(expandProps)
+    filesMatching("META-INF/mods.toml") {
+        expand(expandProps)
+    }
+}
+
+jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

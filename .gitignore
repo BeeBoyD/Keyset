@@ -19,6 +19,8 @@ builtJars/*
 !builtJars/1.0.0/**
 !builtJars/1.1.0/
 !builtJars/1.1.0/**
+!builtJars/1.1.1/
+!builtJars/1.1.1/**
 
 # Misc
 out/

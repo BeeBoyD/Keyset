@@ -1,0 +1,115 @@
+plugins {
+    id "net.fabricmc.fabric-loom"
+    id "com.diffplug.spotless"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+// ---- Intermediary 26.1 local-maven workaround ----
+// net.fabricmc:intermediary:26.1 is an identity mapping (572 bytes) whose POM declares
+// version "0.0.0". Gradle's metadata validation rejects the version mismatch before
+// Loom even gets to process it. We create a local Maven layout with a fixed POM so
+// resolution succeeds. This runs at configuration time so Loom's detached configuration
+// can see it.
+def intermediaryLocalDir = new File(rootDir, ".gradle/intermediary-26.1-local")
+def intermediaryArtifactDir = new File(intermediaryLocalDir, "net/fabricmc/intermediary/26.1")
+if (!new File(intermediaryArtifactDir, "intermediary-26.1.jar").exists()) {
+    intermediaryArtifactDir.mkdirs()
+    // The 26.1 intermediary ships as a Tiny v1 file but Loom's IntermediateMappingsService
+    // requires Tiny v2. For an unobfuscated game, the mapping is identity (official == intermediary),
+    // so we synthesize a minimal Tiny v2 header with no class entries and serve it as both
+    // the plain and ":v2" classifier artifacts.
+    def tinyV2Content = "tiny\t2\t0\tofficial\tintermediary\n".getBytes("UTF-8")
+    def zos
+    [new File(intermediaryArtifactDir, "intermediary-26.1.jar"),
+     new File(intermediaryArtifactDir, "intermediary-26.1-v2.jar")].each { jarFile ->
+        zos = new java.util.zip.ZipOutputStream(jarFile.newOutputStream())
+        try {
+            zos.putNextEntry(new java.util.zip.ZipEntry("mappings/mappings.tiny"))
+            zos.write(tinyV2Content)
+            zos.closeEntry()
+        } finally {
+            zos.close()
+        }
+    }
+    new File(intermediaryArtifactDir, "intermediary-26.1.pom").text = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>net.fabricmc</groupId>
+  <artifactId>intermediary</artifactId>
+  <version>26.1</version>
+</project>
+"""
+}
+// ---- End workaround ----
+
+repositories {
+    // Fixed intermediary must be resolved before the global Fabric maven entry.
+    maven {
+        url = uri(intermediaryLocalDir)
+        content {
+            includeModule("net.fabricmc", "intermediary")
+        }
+    }
+}
+
+base {
+    archivesName = "keyset-fabric-26.1"
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir(project(":core").file("src/main/java"))
+            srcDir(project(":common-v26_1").file("src/main/java"))
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.property('minecraftVersion_26_1')}"
+    mappings loom.layered {}
+    implementation "net.fabricmc:fabric-loader:${project.property('fabricLoaderVersion_26_1')}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.property('fabricApiVersion_26_1')}"
+
+    implementation project(":common-v26_1")
+
+    // net.fabricmc.fabric-loom alpha does not automatically add sponge-mixin or ASM to the
+    // dev-launch classpath (unlike dev.architectury.loom which handles this automatically).
+    // Without these, Fabric Loader's classpath verifier fails at launch time.
+    runtimeOnly "net.fabricmc:sponge-mixin:0.17.0+mixin.0.8.7"
+    runtimeOnly "org.ow2.asm:asm:9.9"
+    runtimeOnly "org.ow2.asm:asm-tree:9.9"
+    runtimeOnly "org.ow2.asm:asm-commons:9.9"
+    runtimeOnly "org.ow2.asm:asm-analysis:9.9"
+    runtimeOnly "org.ow2.asm:asm-util:9.9"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+}
+
+tasks.withType(JavaExec).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+processResources {
+    inputs.property("modVersion", project.version)
+    filesMatching("fabric.mod.json") {
+        expand(
+            modId: project.property("modId"),
+            modName: project.property("modName"),
+            modVersion: project.version,
+            modDescription: project.property("modDescription"),
+            minecraftVersion: project.property("supportedMinecraftRange_26_1"),
+            javaVersion: "25"
+        )
+    }
+}
