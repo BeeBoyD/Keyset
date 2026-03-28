@@ -1,0 +1,19 @@
+modLoader = "javafml"
+loaderVersion = "${loaderVersion}"
+license = "MIT"
+
+[[mods]]
+modId = "${modId}"
+version = "${modVersion}"
+displayName = "${modName}"
+logoFile = "assets/keyset/logo-modrinth.png"
+authors = "BeeBoyD"
+displayTest = "IGNORE_SERVER_VERSION"
+description = '''${modDescription}'''
+
+[[dependencies.${modId}]]
+modId = "minecraft"
+type = "required"
+versionRange = "${minecraftVersion}"
+ordering = "NONE"
+side = "CLIENT"

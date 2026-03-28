@@ -1,0 +1,2011 @@
+package net.beeboyd.keyset.platform.fabric.screen;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import net.beeboyd.keyset.core.binding.KeysetBindingDescriptor;
+import net.beeboyd.keyset.core.conflict.KeysetConflict;
+import net.beeboyd.keyset.core.conflict.KeysetConflictGroup;
+import net.beeboyd.keyset.core.conflict.KeysetConflictGroupMode;
+import net.beeboyd.keyset.core.conflict.KeysetConflictQuery;
+import net.beeboyd.keyset.core.conflict.KeysetConflictReport;
+import net.beeboyd.keyset.core.profile.KeysetProfiles;
+import net.beeboyd.keyset.core.profile.KeysetProfilesConfig;
+import net.beeboyd.keyset.platform.fabric.KeysetFabricService;
+import net.beeboyd.keyset.platform.fabric.KeysetFabricService.AutoResolvePlan;
+import net.beeboyd.keyset.platform.fabric.KeysetFabricService.ImportResult;
+import net.beeboyd.keyset.platform.fabric.KeysetFabricService.UndoState;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
+
+/** Main Keyset screen for the representative Fabric target. */
+public final class KeysetScreen extends Screen {
+  private static final int SCREEN_PADDING = 12;
+  private static final int PANEL_GAP = 10;
+  private static final int CARD_GAP = 8;
+  private static final int ROW_GAP = 4;
+  private static final int CARD_PADDING = 10;
+  private static final int BUTTON_HEIGHT = 18;
+  private static final int HEADER_HEIGHT = 56;
+
+  private static final int SCREEN_BACKDROP = 0xE20B1015;
+  private static final int BACKDROP_BAND = 0x191C2B3A;
+  private static final int PANEL_SHADOW = 0x50000000;
+  private static final int HEADER_FILL = 0xD11A232D;
+  private static final int HEADER_BORDER = 0xFF4C677A;
+  private static final int PANEL_FILL = 0xCC161E28;
+  private static final int PANEL_BORDER = 0xFF465B6D;
+  private static final int CHIP_FILL = 0xB2263340;
+  private static final int CHIP_BORDER = 0xFF73889C;
+  private static final int CHIP_ACTIVE_FILL = 0xB12C4428;
+  private static final int CHIP_ACTIVE_BORDER = 0xFFA1D67E;
+  private static final int CHIP_ACCENT_FILL = 0xB1273948;
+  private static final int CHIP_ACCENT_BORDER = 0xFF86CDE8;
+  private static final int STATUS_SUCCESS_COLOR = 0xFF9EE6A1;
+  private static final int STATUS_ERROR_COLOR = 0xFFFFA58F;
+  private static final int TITLE_COLOR = 0xFFF4F8FC;
+  private static final int LABEL_COLOR = 0xFFF1D690;
+  private static final int BODY_COLOR = 0xFFD8E3EE;
+  private static final int MUTED_COLOR = 0xFFA3B6C8;
+
+  private final Screen parent;
+  private final KeysetFabricService service;
+
+  private int headerX;
+  private int headerY;
+  private int headerWidth;
+  private int headerHeight;
+  private int compactTabsX;
+  private int compactTabsY;
+  private int compactTabsWidth;
+  private int sidebarX;
+  private int sidebarY;
+  private int sidebarWidth;
+  private int profileCardX;
+  private int profileCardY;
+  private int profileCardWidth;
+  private int profileCardHeight;
+  private int helpCardX;
+  private int helpCardY;
+  private int helpCardWidth;
+  private int helpCardHeight;
+  private int mainX;
+  private int mainY;
+  private int mainWidth;
+  private int filterCardX;
+  private int filterCardY;
+  private int filterCardWidth;
+  private int filterCardHeight;
+  private int listCardX;
+  private int listCardY;
+  private int listCardWidth;
+  private int listCardHeight;
+  private int selectionCardX;
+  private int selectionCardY;
+  private int selectionCardWidth;
+  private int selectionCardHeight;
+  private int resolveCardX;
+  private int resolveCardY;
+  private int resolveCardWidth;
+  private int resolveCardHeight;
+  private int listTop;
+  private int listBottom;
+  private int footerY;
+  private int doneButtonWidth;
+  private int buttonHeight;
+  private int pagedCardHeaderHeight;
+  private int listRowHeight;
+  private int listInset;
+  private boolean compactLayout;
+  private boolean pagedLayout;
+  private boolean microLayout;
+  private boolean ultraCompactLayout;
+  private boolean stackHeaderMetrics;
+  private boolean stackActionCards;
+  private boolean stackFilterControls;
+  private boolean showNavigatorSummary;
+  private boolean denseLayout;
+  private CompactPage compactPage = CompactPage.PROFILES;
+
+  private EditBox searchField;
+  private EditBox profileNameField;
+  private KeysetConflictListWidget conflictListWidget;
+  private Button profilesTabButton;
+  private Button navigatorTabButton;
+  private Button fixesTabButton;
+  private Button previousProfileButton;
+  private Button nextProfileButton;
+  private Button groupToggleButton;
+  private Button applyButton;
+  private Button captureButton;
+  private Button renameButton;
+  private Button createButton;
+  private Button duplicateButton;
+  private Button deleteButton;
+  private Button exportButton;
+  private Button importButton;
+  private Button previewResolveButton;
+  private Button applyPreviewButton;
+  private Button jumpButton;
+  private Button clearBindingButton;
+  private Button reassignButton;
+  private Button undoButton;
+  private Button doneButton;
+
+  private KeysetProfilesConfig config;
+  private KeysetConflictReport conflictReport = KeysetConflictReport.empty();
+  private KeysetConflictGroupMode groupMode = KeysetConflictGroupMode.BY_KEY;
+  private String selectedProfileId;
+  private KeysetBindingDescriptor selectedBinding;
+  private AutoResolvePlan previewPlan;
+  private UndoState undoState;
+  private String statusMessage = "";
+  private boolean errorStatus;
+  private Component emptyStateTitle = Component.empty();
+  private Component emptyStateBody = Component.empty();
+  private int visibleConflictGroups;
+  private int visibleConflictBindings;
+
+  public KeysetScreen(Screen parent, KeysetFabricService service) {
+    super(Component.translatable("keyset.title"));
+    this.parent = parent;
+    this.service = service;
+  }
+
+  @Override
+  protected void repositionElements() {
+    rebuildWidgets();
+  }
+
+  @Override
+  protected void init() {
+    clearWidgets();
+    computeLayout();
+
+    int profileInnerX = profileCardX + CARD_PADDING;
+    int profileInnerWidth = profileCardWidth - (CARD_PADDING * 2);
+    int profileButtonGap = pagedLayout ? (microLayout ? (ultraCompactLayout ? 0 : 1) : 2) : ROW_GAP;
+    int controlGap = pagedLayout ? (microLayout ? (ultraCompactLayout ? 2 : 3) : 4) : 8;
+    int profileFieldY =
+        pagedLayout
+            ? profileCardY + pagedCardHeaderHeight + (microLayout ? 8 : 10)
+            : profileCardY + 68;
+    int profileRowY = profileFieldY + buttonHeight + controlGap;
+    int profileActionStep = buttonHeight + profileButtonGap;
+    int profileThreeColumnWidth = (profileInnerWidth - (profileButtonGap * 2)) / 3;
+    int profileTwoColumnWidth = (profileInnerWidth - profileButtonGap) / 2;
+    int minimumProfileGridWidth = microLayout ? (ultraCompactLayout ? 186 : 192) : 210;
+    boolean useThreeColumnProfileGrid = pagedLayout && profileInnerWidth >= minimumProfileGridWidth;
+
+    int filterInnerX = filterCardX + CARD_PADDING;
+    int filterInnerWidth = filterCardWidth - (CARD_PADDING * 2);
+    int searchY = filterCardY + (pagedLayout ? pagedCardHeaderHeight + (microLayout ? 2 : 4) : 30);
+    int groupToggleWidth =
+        pagedLayout
+            ? (stackFilterControls ? Math.min(microLayout ? 108 : 120, filterInnerWidth) : 88)
+            : 104;
+    int searchWidth =
+        stackFilterControls
+            ? filterInnerWidth
+            : filterInnerWidth - groupToggleWidth - (pagedLayout ? profileButtonGap : ROW_GAP);
+    int groupToggleX =
+        stackFilterControls
+            ? filterInnerX
+            : filterInnerX + searchWidth + (pagedLayout ? profileButtonGap : ROW_GAP);
+    int groupToggleY = stackFilterControls ? searchY + buttonHeight + profileButtonGap : searchY;
+
+    int selectionInnerX = selectionCardX + CARD_PADDING;
+    int selectionInnerWidth = selectionCardWidth - (CARD_PADDING * 2);
+    int detailActionsY =
+        selectionCardY + selectionCardHeight - buttonHeight - (pagedLayout ? 6 : 10);
+    int detailButtonWidth = (selectionInnerWidth - (ROW_GAP * 2)) / 3;
+
+    int resolveInnerX = resolveCardX + CARD_PADDING;
+    int resolveInnerWidth = resolveCardWidth - (CARD_PADDING * 2);
+    int resolveActionsY = resolveCardY + resolveCardHeight - buttonHeight - (pagedLayout ? 6 : 10);
+    int resolveButtonWidth = (resolveInnerWidth - (ROW_GAP * 2)) / 3;
+    int compactTabButtonWidth = Math.max(60, (compactTabsWidth - (CARD_GAP * 2)) / 3);
+
+    profilesTabButton =
+        addRenderableWidget(
+            button(
+                Component.translatable("keyset.tab.profiles"),
+                compactTabsX,
+                compactTabsY,
+                compactTabButtonWidth,
+                button -> openCompactPage(CompactPage.PROFILES),
+                Component.translatable("keyset.section.profile_card")));
+    navigatorTabButton =
+        addRenderableWidget(
+            button(
+                Component.translatable("keyset.tab.navigator"),
+                compactTabsX + compactTabButtonWidth + CARD_GAP,
+                compactTabsY,
+                compactTabButtonWidth,
+                button -> openCompactPage(CompactPage.NAVIGATOR),
+                Component.translatable("keyset.section.navigator")));
+    fixesTabButton =
+        addRenderableWidget(
+            button(
+                Component.translatable("keyset.tab.fixes"),
+                compactTabsX + ((compactTabButtonWidth + CARD_GAP) * 2),
+                compactTabsY,
+                compactTabButtonWidth,
+                button -> openCompactPage(CompactPage.FIXES),
+                Component.translatable("keyset.section.resolve")));
+
+    searchField =
+        addRenderableWidget(
+            new EditBox(
+                font,
+                filterInnerX,
+                searchY,
+                searchWidth,
+                buttonHeight,
+                Component.translatable("keyset.search")));
+    searchField.setMaxLength(80);
+    searchField.setHint(Component.translatable("keyset.search.placeholder"));
+    searchField.setResponder(
+        value -> {
+          previewPlan = null;
+          rebuildList(selectedBindingId());
+        });
+    setTooltip(searchField, "keyset.tip.search");
+
+    groupToggleButton =
+        addRenderableWidget(
+            Button.builder(
+                    Component.translatable("keyset.group.by_key"), button -> toggleGroupMode())
+                .bounds(groupToggleX, groupToggleY, groupToggleWidth, buttonHeight)
+                .build());
+    setTooltip(groupToggleButton, "keyset.tip.group");
+
+    profileNameField =
+        addRenderableWidget(
+            new EditBox(
+                font,
+                profileInnerX,
+                profileFieldY,
+                profileInnerWidth,
+                buttonHeight,
+                Component.translatable("keyset.profile.name")));
+    profileNameField.setMaxLength(40);
+    setTooltip(profileNameField, "keyset.tip.profile_name");
+
+    previousProfileButton =
+        addRenderableWidget(
+            button(
+                "keyset.profile.prev",
+                profileInnerX,
+                profileRowY,
+                useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
+                button -> selectRelative(-1),
+                "keyset.tip.profile_prev"));
+    nextProfileButton =
+        addRenderableWidget(
+            button(
+                "keyset.profile.next",
+                profileInnerX
+                    + (useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth)
+                    + profileButtonGap,
+                profileRowY,
+                useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
+                button -> selectRelative(1),
+                "keyset.tip.profile_next"));
+
+    applyButton =
+        addRenderableWidget(
+            button(
+                "keyset.profile.apply",
+                useThreeColumnProfileGrid
+                    ? profileInnerX + ((profileThreeColumnWidth + profileButtonGap) * 2)
+                    : profileInnerX,
+                useThreeColumnProfileGrid ? profileRowY : profileRowY + profileActionStep,
+                useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
+                button -> applySelected(),
+                "keyset.tip.profile_apply"));
+    captureButton =
+        addRenderableWidget(
+            button(
+                "keyset.profile.capture",
+                useThreeColumnProfileGrid
+                    ? profileInnerX
+                    : profileInnerX + profileTwoColumnWidth + profileButtonGap,
+                useThreeColumnProfileGrid
+                    ? profileRowY + profileActionStep
+                    : profileRowY + profileActionStep,
+                useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
+                button -> captureCurrent(),
+                "keyset.tip.profile_capture"));
+
+    renameButton =
+        addRenderableWidget(
+            button(
+                "keyset.profile.rename",
+                useThreeColumnProfileGrid
+                    ? profileInnerX + profileThreeColumnWidth + profileButtonGap
+                    : profileInnerX,
+                useThreeColumnProfileGrid
+                    ? profileRowY + profileActionStep
+                    : profileRowY + (profileActionStep * 2),
+                useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
+                button -> renameSelected(),
+                "keyset.tip.profile_rename"));
+    createButton =
+        addRenderableWidget(
+            button(
+                "keyset.profile.new",
+                useThreeColumnProfileGrid
+                    ? profileInnerX + ((profileThreeColumnWidth + profileButtonGap) * 2)
+                    : profileInnerX + profileTwoColumnWidth + profileButtonGap,
+                useThreeColumnProfileGrid
+                    ? profileRowY + profileActionStep
+                    : profileRowY + (profileActionStep * 2),
+                useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
+                button -> createProfile(),
+                "keyset.tip.profile_new"));
+
+    duplicateButton =
+        addRenderableWidget(
+            button(
+                "keyset.profile.duplicate",
+                profileInnerX,
+                useThreeColumnProfileGrid
+                    ? profileRowY + (profileActionStep * 2)
+                    : profileRowY + (profileActionStep * 3),
+                useThreeColumnProfileGrid ? profileTwoColumnWidth : profileTwoColumnWidth,
+                button -> duplicateSelected(),
+                "keyset.tip.profile_duplicate"));
+    deleteButton =
+        addRenderableWidget(
+            button(
+                "keyset.profile.delete",
+                profileInnerX + profileTwoColumnWidth + profileButtonGap,
+                useThreeColumnProfileGrid
+                    ? profileRowY + (profileActionStep * 2)
+                    : profileRowY + (profileActionStep * 3),
+                profileTwoColumnWidth,
+                button -> deleteSelected(),
+                "keyset.tip.profile_delete"));
+
+    exportButton =
+        addRenderableWidget(
+            button(
+                "keyset.export",
+                profileInnerX,
+                useThreeColumnProfileGrid
+                    ? profileRowY + (profileActionStep * 3)
+                    : profileRowY + (profileActionStep * 4),
+                profileTwoColumnWidth,
+                button -> exportSelected(),
+                "keyset.tip.export"));
+    importButton =
+        addRenderableWidget(
+            button(
+                "keyset.import",
+                profileInnerX + profileTwoColumnWidth + profileButtonGap,
+                useThreeColumnProfileGrid
+                    ? profileRowY + (profileActionStep * 3)
+                    : profileRowY + (profileActionStep * 4),
+                profileTwoColumnWidth,
+                button -> importProfiles(),
+                "keyset.tip.import"));
+
+    jumpButton =
+        addRenderableWidget(
+            button(
+                "keyset.binding.jump",
+                selectionInnerX,
+                detailActionsY,
+                detailButtonWidth,
+                button -> jumpToBinding(),
+                "keyset.tip.binding_jump"));
+    clearBindingButton =
+        addRenderableWidget(
+            button(
+                "keyset.binding.clear",
+                selectionInnerX + detailButtonWidth + ROW_GAP,
+                detailActionsY,
+                detailButtonWidth,
+                button -> clearSelectedBinding(),
+                "keyset.tip.binding_clear"));
+    reassignButton =
+        addRenderableWidget(
+            button(
+                "keyset.binding.reassign",
+                selectionInnerX + (detailButtonWidth + ROW_GAP) * 2,
+                detailActionsY,
+                detailButtonWidth,
+                button -> reassignSelectedBinding(),
+                "keyset.tip.binding_reassign"));
+
+    previewResolveButton =
+        addRenderableWidget(
+            button(
+                "keyset.resolve.preview",
+                resolveInnerX,
+                resolveActionsY,
+                resolveButtonWidth,
+                button -> previewResolve(),
+                "keyset.tip.resolve_preview"));
+    applyPreviewButton =
+        addRenderableWidget(
+            button(
+                "keyset.resolve.apply",
+                resolveInnerX + resolveButtonWidth + ROW_GAP,
+                resolveActionsY,
+                resolveButtonWidth,
+                button -> applyPreview(),
+                "keyset.tip.resolve_apply"));
+    undoButton =
+        addRenderableWidget(
+            button(
+                "keyset.resolve.undo",
+                resolveInnerX + (resolveButtonWidth + ROW_GAP) * 2,
+                resolveActionsY,
+                resolveButtonWidth,
+                button -> undoResolve(),
+                "keyset.tip.resolve_undo"));
+
+    doneButton =
+        addRenderableWidget(
+            button(
+                "gui.done",
+                width - SCREEN_PADDING - doneButtonWidth,
+                footerY,
+                doneButtonWidth,
+                button -> onClose(),
+                "keyset.tip.done"));
+
+    conflictListWidget =
+        addRenderableWidget(
+            new KeysetConflictListWidget(
+                minecraft,
+                listCardWidth - 16,
+                listTop,
+                listBottom,
+                listRowHeight,
+                bindingDescriptor -> {
+                  selectedBinding = bindingDescriptor;
+                  refreshButtons();
+                }));
+    conflictListWidget.setX(listCardX + 8);
+
+    try {
+      reloadState(null, null);
+      applyPendingStatusNotice();
+    } catch (IOException exception) {
+      setStatus(exception.getMessage(), true);
+    }
+
+    refreshButtons();
+    focusCurrentPage();
+  }
+
+  @Override
+  public void onClose() {
+    minecraft.setScreen(parent);
+  }
+
+  @Override
+  public void extractRenderState(
+      GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+    applyPendingStatusNotice();
+    super.extractRenderState(context, mouseX, mouseY, delta);
+    drawForeground(context);
+  }
+
+  @Override
+  public void extractBackground(
+      GuiGraphicsExtractor context, int mouseX, int mouseY, float partialTick) {
+    drawBackdrop(context);
+    drawHeaderPanel(context);
+    drawContentPanels(context);
+  }
+
+  private void computeLayout() {
+    boolean forcePagedLayout = false;
+    while (true) {
+      headerX = SCREEN_PADDING;
+      headerY = 10;
+      headerWidth = width - (SCREEN_PADDING * 2);
+      pagedLayout = forcePagedLayout || width < 600 || height < 340;
+      microLayout = pagedLayout && (width < 380 || height < 300);
+      ultraCompactLayout = pagedLayout && (width < 340 || height < 260);
+      buttonHeight = ultraCompactLayout ? 14 : (pagedLayout && microLayout ? 16 : BUTTON_HEIGHT);
+      pagedCardHeaderHeight = pagedLayout ? (ultraCompactLayout ? 14 : 18) : 0;
+      stackHeaderMetrics = !pagedLayout && headerWidth < 760;
+      headerHeight =
+          pagedLayout
+              ? (ultraCompactLayout ? 40 : (microLayout ? 44 : HEADER_HEIGHT))
+              : (stackHeaderMetrics ? 76 : HEADER_HEIGHT);
+      footerY = height - SCREEN_PADDING - buttonHeight;
+      doneButtonWidth = pagedLayout ? (ultraCompactLayout ? 68 : (microLayout ? 72 : 92)) : 92;
+      compactTabsX = SCREEN_PADDING;
+      compactTabsY = headerY + headerHeight + 6;
+      compactTabsWidth = headerWidth;
+
+      int contentTop = headerY + headerHeight + PANEL_GAP;
+      int contentBottom = footerY - PANEL_GAP;
+      compactLayout = pagedLayout || height < 300 || width < 520;
+
+      if (pagedLayout) {
+        sidebarX = SCREEN_PADDING;
+        sidebarY = compactTabsY + buttonHeight + (ultraCompactLayout ? 4 : 6);
+        sidebarWidth = headerWidth;
+        mainX = sidebarX;
+        mainY = sidebarY;
+        mainWidth = sidebarWidth;
+
+        profileCardX = sidebarX;
+        profileCardY = sidebarY;
+        profileCardWidth = sidebarWidth;
+        int profileInnerWidth = profileCardWidth - (CARD_PADDING * 2);
+        int profileButtonGap = microLayout ? (ultraCompactLayout ? 0 : 1) : 2;
+        int controlGap = microLayout ? (ultraCompactLayout ? 2 : 3) : 4;
+        int profileFieldOffset = pagedCardHeaderHeight + (microLayout ? 8 : 10);
+        int profileActionStep = buttonHeight + profileButtonGap;
+        int profileGridWidth = microLayout ? (ultraCompactLayout ? 186 : 192) : 210;
+        int profileRows = profileInnerWidth >= profileGridWidth ? 4 : 5;
+        int requiredProfileHeight =
+            profileFieldOffset
+                + buttonHeight
+                + controlGap
+                + ((profileRows - 1) * profileActionStep)
+                + buttonHeight
+                + (ultraCompactLayout ? 6 : 10);
+        profileCardHeight = Math.max(requiredProfileHeight, contentBottom - sidebarY);
+
+        helpCardX = profileCardX;
+        helpCardY = profileCardY;
+        helpCardWidth = profileCardWidth;
+        helpCardHeight = profileCardHeight;
+
+        filterCardX = mainX;
+        filterCardY = mainY;
+        filterCardWidth = mainWidth;
+        stackFilterControls = filterCardWidth < 300;
+        filterCardHeight =
+            pagedCardHeaderHeight
+                + (stackFilterControls
+                    ? (buttonHeight * 2) + (ultraCompactLayout ? 6 : 10)
+                    : buttonHeight + (ultraCompactLayout ? 6 : 10));
+        showNavigatorSummary = !microLayout && filterCardWidth >= 360;
+
+        listCardX = mainX;
+        listCardY = filterCardY + filterCardHeight + CARD_GAP;
+        listCardWidth = mainWidth;
+        listCardHeight = Math.max(72, contentBottom - listCardY);
+
+        selectionCardX = mainX;
+        selectionCardY = mainY;
+        selectionCardWidth = mainWidth;
+        selectionCardHeight =
+            Math.max(
+                ultraCompactLayout ? 46 : (microLayout ? 50 : 54),
+                (contentBottom - mainY - CARD_GAP) / 2);
+        resolveCardX = mainX;
+        resolveCardY = selectionCardY + selectionCardHeight + CARD_GAP;
+        resolveCardWidth = mainWidth;
+        resolveCardHeight =
+            Math.max(
+                ultraCompactLayout ? 34 : (microLayout ? 38 : 42), contentBottom - resolveCardY);
+
+        stackActionCards = true;
+        denseLayout = true;
+        listRowHeight = ultraCompactLayout ? 20 : (microLayout ? 22 : 24);
+        listInset = ultraCompactLayout ? 4 : (microLayout ? 6 : 8);
+        listTop = listCardY + listInset;
+        listBottom = listCardY + listCardHeight - listInset;
+        return;
+      }
+
+      stackFilterControls = false;
+
+      sidebarX = SCREEN_PADDING;
+      sidebarY = contentTop;
+      sidebarWidth = Math.max(196, Math.min(228, headerWidth / 3));
+      if (headerWidth - sidebarWidth - PANEL_GAP < 292) {
+        sidebarWidth = Math.max(184, headerWidth - PANEL_GAP - 292);
+      }
+      mainX = sidebarX + sidebarWidth + PANEL_GAP;
+      mainY = contentTop;
+      mainWidth = width - SCREEN_PADDING - mainX;
+
+      profileCardX = sidebarX;
+      profileCardY = sidebarY;
+      profileCardWidth = sidebarWidth;
+      profileCardHeight = compactLayout ? 230 : 240;
+
+      helpCardX = sidebarX;
+      helpCardY = profileCardY + profileCardHeight + CARD_GAP;
+      helpCardWidth = sidebarWidth;
+      helpCardHeight = Math.max(104, contentBottom - helpCardY);
+
+      filterCardX = mainX;
+      filterCardY = mainY;
+      filterCardWidth = mainWidth;
+      filterCardHeight = 58;
+      showNavigatorSummary = filterCardWidth >= 520;
+
+      stackActionCards = mainWidth < 820;
+      denseLayout = stackActionCards || compactLayout;
+      listRowHeight = denseLayout ? 24 : 28;
+      listInset = denseLayout ? 6 : 8;
+
+      listCardX = mainX;
+      listCardY = filterCardY + filterCardHeight + CARD_GAP;
+      listCardWidth = mainWidth;
+
+      if (stackActionCards) {
+        int preferredCardHeight = compactLayout ? 112 : 126;
+        int minCardHeight = compactLayout ? 72 : 84;
+        int minListHeight = compactLayout ? 76 : 96;
+        int availableMainHeight = contentBottom - listCardY;
+        int totalGapHeight = CARD_GAP * 2;
+        int availableListHeight = availableMainHeight - (preferredCardHeight * 2) - totalGapHeight;
+
+        if (availableListHeight < minListHeight) {
+          int shrinkBudget = (preferredCardHeight - minCardHeight) * 2;
+          int shrinkNeeded = minListHeight - availableListHeight;
+          if (shrinkNeeded > shrinkBudget) {
+            forcePagedLayout = true;
+            continue;
+          }
+
+          int firstShrink = Math.min(preferredCardHeight - minCardHeight, (shrinkNeeded + 1) / 2);
+          int secondShrink =
+              Math.min(preferredCardHeight - minCardHeight, shrinkNeeded - firstShrink);
+          selectionCardHeight = preferredCardHeight - firstShrink;
+          resolveCardHeight = preferredCardHeight - secondShrink;
+        } else {
+          selectionCardHeight = preferredCardHeight;
+          resolveCardHeight = preferredCardHeight;
+        }
+
+        selectionCardWidth = mainWidth;
+        resolveCardWidth = mainWidth;
+        selectionCardX = mainX;
+        resolveCardX = mainX;
+        resolveCardY = contentBottom - resolveCardHeight;
+        selectionCardY = resolveCardY - CARD_GAP - selectionCardHeight;
+        listCardHeight = Math.max(48, selectionCardY - listCardY - CARD_GAP);
+      } else {
+        selectionCardHeight = compactLayout ? 92 : 104;
+        resolveCardHeight = selectionCardHeight;
+        selectionCardY = contentBottom - selectionCardHeight;
+        resolveCardY = selectionCardY;
+        resolveCardWidth = Math.max(236, Math.min(268, mainWidth / 3));
+        selectionCardWidth = mainWidth - resolveCardWidth - CARD_GAP;
+        if (selectionCardWidth < 260) {
+          resolveCardWidth = Math.max(216, mainWidth / 2);
+          selectionCardWidth = mainWidth - resolveCardWidth - CARD_GAP;
+        }
+        selectionCardX = mainX;
+        resolveCardX = selectionCardX + selectionCardWidth + CARD_GAP;
+        listCardHeight = Math.max(72, selectionCardY - listCardY - CARD_GAP);
+      }
+
+      listTop = listCardY + listInset;
+      listBottom = listCardY + listCardHeight - listInset;
+      return;
+    }
+  }
+
+  private Button button(
+      String messageKey, int x, int y, int buttonWidth, Button.OnPress action, String tooltipKey) {
+    Button widget =
+        Button.builder(Component.translatable(messageKey), action)
+            .bounds(x, y, buttonWidth, buttonHeight)
+            .build();
+    setTooltip(widget, tooltipKey);
+    return widget;
+  }
+
+  private Button button(
+      Component message,
+      int x,
+      int y,
+      int buttonWidth,
+      Button.OnPress action,
+      Component tooltipText) {
+    Button widget = Button.builder(message, action).bounds(x, y, buttonWidth, buttonHeight).build();
+    if (tooltipText != null) {
+      setTooltip(widget, tooltipText);
+    }
+    return widget;
+  }
+
+  private void setTooltip(AbstractWidget widget, String translationKey) {
+    setTooltip(widget, Component.translatable(translationKey));
+  }
+
+  private void setTooltip(AbstractWidget widget, Component tooltipText) {
+    widget.setTooltip(Tooltip.create(tooltipText));
+  }
+
+  private void drawBackdrop(GuiGraphicsExtractor context) {
+    context.fill(0, 0, width, height, SCREEN_BACKDROP);
+    context.fill(0, 0, width, headerY + headerHeight + 26, BACKDROP_BAND);
+    for (int y = headerY + headerHeight + 6; y < height; y += 36) {
+      context.fill(0, y, width, y + 1, 0x1226384A);
+    }
+  }
+
+  private void drawHeaderPanel(GuiGraphicsExtractor context) {
+    drawPanel(context, headerX, headerY, headerWidth, headerHeight, HEADER_FILL, HEADER_BORDER);
+    context.fill(headerX + 1, headerY + 1, headerX + headerWidth - 1, headerY + 14, 0x22304B61);
+    int shimmer = (int) ((System.currentTimeMillis() / 45L) % 44L);
+    for (int x = headerX - shimmer; x < headerX + headerWidth; x += 44) {
+      context.fill(x, headerY + headerHeight - 7, x + 18, headerY + headerHeight - 5, 0x2250A4CA);
+    }
+  }
+
+  private void drawContentPanels(GuiGraphicsExtractor context) {
+    if (pagedLayout) {
+      drawPanel(
+          context,
+          compactTabsX,
+          compactTabsY - 2,
+          compactTabsWidth,
+          buttonHeight + 4,
+          PANEL_FILL,
+          PANEL_BORDER);
+      switch (compactPage) {
+        case PROFILES:
+          drawPanel(
+              context,
+              profileCardX,
+              profileCardY,
+              profileCardWidth,
+              profileCardHeight,
+              PANEL_FILL,
+              PANEL_BORDER);
+          return;
+        case NAVIGATOR:
+          drawPanel(
+              context,
+              filterCardX,
+              filterCardY,
+              filterCardWidth,
+              filterCardHeight,
+              PANEL_FILL,
+              PANEL_BORDER);
+          drawPanel(
+              context,
+              listCardX,
+              listCardY,
+              listCardWidth,
+              listCardHeight,
+              PANEL_FILL,
+              PANEL_BORDER);
+          return;
+        case FIXES:
+          drawPanel(
+              context,
+              selectionCardX,
+              selectionCardY,
+              selectionCardWidth,
+              selectionCardHeight,
+              PANEL_FILL,
+              PANEL_BORDER);
+          drawPanel(
+              context,
+              resolveCardX,
+              resolveCardY,
+              resolveCardWidth,
+              resolveCardHeight,
+              PANEL_FILL,
+              PANEL_BORDER);
+          return;
+      }
+    }
+
+    drawPanel(
+        context,
+        profileCardX,
+        profileCardY,
+        profileCardWidth,
+        profileCardHeight,
+        PANEL_FILL,
+        PANEL_BORDER);
+    drawPanel(
+        context, helpCardX, helpCardY, helpCardWidth, helpCardHeight, PANEL_FILL, PANEL_BORDER);
+    drawPanel(
+        context,
+        filterCardX,
+        filterCardY,
+        filterCardWidth,
+        filterCardHeight,
+        PANEL_FILL,
+        PANEL_BORDER);
+    drawPanel(
+        context, listCardX, listCardY, listCardWidth, listCardHeight, PANEL_FILL, PANEL_BORDER);
+    drawPanel(
+        context,
+        selectionCardX,
+        selectionCardY,
+        selectionCardWidth,
+        selectionCardHeight,
+        PANEL_FILL,
+        PANEL_BORDER);
+    drawPanel(
+        context,
+        resolveCardX,
+        resolveCardY,
+        resolveCardWidth,
+        resolveCardHeight,
+        PANEL_FILL,
+        PANEL_BORDER);
+  }
+
+  private void drawForeground(GuiGraphicsExtractor context) {
+    drawHeaderContent(context);
+    if (pagedLayout) {
+      switch (compactPage) {
+        case PROFILES:
+          drawProfileCard(context);
+          break;
+        case NAVIGATOR:
+          drawFilterCard(context);
+          drawEmptyStateIfNeeded(context);
+          break;
+        case FIXES:
+          drawSelectionCard(context);
+          drawResolveCard(context);
+          break;
+      }
+    } else {
+      drawProfileCard(context);
+      drawHelpCard(context);
+      drawFilterCard(context);
+      drawSelectionCard(context);
+      drawResolveCard(context);
+      drawEmptyStateIfNeeded(context);
+    }
+    drawFooter(context);
+  }
+
+  private void drawHeaderContent(GuiGraphicsExtractor context) {
+    context.text(font, title, headerX + 12, headerY + 11, TITLE_COLOR);
+    if (!microLayout) {
+      drawTrimmedText(
+          context,
+          Component.translatable("keyset.subtitle"),
+          headerX + 12,
+          stackHeaderMetrics ? headerY + 50 : headerY + 28,
+          headerWidth - 24,
+          BODY_COLOR);
+    }
+
+    if (pagedLayout) {
+      if (!microLayout) {
+        drawRightChip(
+            context,
+            headerX + headerWidth - 12,
+            headerY + 11,
+            previewPlan != null
+                ? Component.translatable(
+                    "keyset.metric.changes", Integer.valueOf(previewPlan.getChanges().size()))
+                : Component.translatable(
+                    "keyset.metric.bindings", Integer.valueOf(visibleConflictBindings)),
+            CHIP_ACCENT_FILL,
+            CHIP_ACCENT_BORDER,
+            TITLE_COLOR);
+      }
+      return;
+    }
+
+    int metricsY = stackHeaderMetrics ? headerY + 28 : headerY + 11;
+    int chipRight = headerX + headerWidth - 12;
+    chipRight =
+        drawRightChip(
+            context,
+            chipRight,
+            metricsY,
+            Component.translatable(
+                "keyset.metric.profiles",
+                Integer.valueOf(config == null ? 0 : config.getProfiles().size())),
+            CHIP_FILL,
+            CHIP_BORDER,
+            BODY_COLOR);
+    chipRight -= 6;
+
+    Component conflictChipText =
+        previewPlan != null
+            ? Component.translatable(
+                "keyset.metric.changes", Integer.valueOf(previewPlan.getChanges().size()))
+            : Component.translatable(
+                "keyset.metric.bindings", Integer.valueOf(visibleConflictBindings));
+    chipRight =
+        drawRightChip(
+            context,
+            chipRight,
+            metricsY,
+            conflictChipText,
+            CHIP_ACCENT_FILL,
+            CHIP_ACCENT_BORDER,
+            TITLE_COLOR);
+    chipRight -= 6;
+
+    Component profileStateText =
+        isSelectedProfileActive()
+            ? Component.translatable("keyset.profile.state.active")
+            : Component.translatable("keyset.profile.state.stored");
+    drawRightChip(
+        context,
+        chipRight,
+        metricsY,
+        profileStateText,
+        isSelectedProfileActive() ? CHIP_ACTIVE_FILL : CHIP_FILL,
+        isSelectedProfileActive() ? CHIP_ACTIVE_BORDER : CHIP_BORDER,
+        TITLE_COLOR);
+  }
+
+  private void drawProfileCard(GuiGraphicsExtractor context) {
+    int contentX = profileCardX + CARD_PADDING;
+    int contentWidth = profileCardWidth - (CARD_PADDING * 2);
+
+    context.text(
+        font,
+        Component.translatable("keyset.section.profile_card"),
+        contentX,
+        profileCardY + (pagedLayout ? 8 : 10),
+        LABEL_COLOR);
+    if (pagedLayout) {
+      drawAdaptiveChip(
+          context,
+          profileCardX + profileCardWidth - CARD_PADDING,
+          profileCardY + 6,
+          Math.min(132, Math.max(72, contentWidth / 2)),
+          isSelectedProfileActive()
+              ? Component.translatable("keyset.profile.state.active")
+              : Component.translatable("keyset.profile.state.stored"),
+          isSelectedProfileActive() ? CHIP_ACTIVE_FILL : CHIP_FILL,
+          isSelectedProfileActive() ? CHIP_ACTIVE_BORDER : CHIP_BORDER,
+          TITLE_COLOR);
+      return;
+    }
+
+    drawWrappedTextBlock(
+        context,
+        Component.translatable("keyset.profile.deck_body"),
+        contentX,
+        profileCardY + 24,
+        contentWidth,
+        14,
+        MUTED_COLOR);
+    drawChip(
+        context,
+        contentX,
+        profileCardY + 46,
+        contentWidth,
+        isSelectedProfileActive()
+            ? Component.translatable("keyset.profile.state.active")
+            : Component.translatable("keyset.profile.state.stored"),
+        isSelectedProfileActive());
+  }
+
+  private void drawHelpCard(GuiGraphicsExtractor context) {
+    if (pagedLayout) {
+      return;
+    }
+    int contentX = helpCardX + CARD_PADDING;
+    int contentWidth = helpCardWidth - (CARD_PADDING * 2);
+    int stepY = helpCardY + 10;
+
+    context.text(font, Component.translatable("keyset.section.help"), contentX, stepY, LABEL_COLOR);
+    stepY += 18;
+    stepY = drawHelpStep(context, contentX, contentWidth, stepY, "1", "keyset.help.step1");
+    stepY = drawHelpStep(context, contentX, contentWidth, stepY, "2", "keyset.help.step2");
+    stepY = drawHelpStep(context, contentX, contentWidth, stepY, "3", "keyset.help.step3");
+    int remainingHeight = helpCardHeight - (stepY - helpCardY) - 12;
+    if (remainingHeight >= font.lineHeight + 2) {
+      drawWrappedTextBlock(
+          context,
+          Component.translatable("keyset.help.group_headers"),
+          contentX,
+          stepY + 2,
+          contentWidth,
+          remainingHeight,
+          MUTED_COLOR);
+    }
+  }
+
+  private int drawHelpStep(
+      GuiGraphicsExtractor context,
+      int x,
+      int maxWidth,
+      int y,
+      String stepNumber,
+      String translationKey) {
+    drawSmallChip(
+        context,
+        x,
+        y,
+        18,
+        Component.literal(stepNumber),
+        CHIP_ACCENT_FILL,
+        CHIP_ACCENT_BORDER,
+        TITLE_COLOR);
+    int textX = x + 24;
+    int textWidth = Math.max(24, maxWidth - 24);
+    int lineHeight = font.lineHeight + 2;
+    int lineY = y + 1;
+    int lineCount = 0;
+    for (FormattedCharSequence line :
+        font.split(Component.translatable(translationKey), textWidth)) {
+      if (lineCount >= 2) {
+        break;
+      }
+      context.text(font, line, textX, lineY, BODY_COLOR);
+      lineY += lineHeight;
+      lineCount++;
+    }
+    return y + Math.max(24, (lineCount * lineHeight) + 4);
+  }
+
+  private void drawFilterCard(GuiGraphicsExtractor context) {
+    int contentX = filterCardX + CARD_PADDING;
+    int contentWidth = filterCardWidth - (CARD_PADDING * 2);
+
+    context.text(
+        font,
+        Component.translatable("keyset.section.navigator"),
+        contentX,
+        filterCardY + (pagedLayout ? 8 : 10),
+        LABEL_COLOR);
+    if (showNavigatorSummary) {
+      Component summaryText = buildHeaderSummaryText();
+      drawTrimmedText(
+          context,
+          summaryText,
+          contentX + 118,
+          filterCardY + (pagedLayout ? 8 : 10),
+          Math.max(40, contentWidth - 320),
+          MUTED_COLOR);
+    }
+
+    if (pagedLayout) {
+      return;
+    }
+
+    int chipRight = filterCardX + filterCardWidth - CARD_PADDING;
+    chipRight =
+        drawRightChip(
+            context,
+            chipRight,
+            filterCardY + 8,
+            Component.translatable(
+                "keyset.metric.bindings", Integer.valueOf(visibleConflictBindings)),
+            CHIP_FILL,
+            CHIP_BORDER,
+            BODY_COLOR);
+    chipRight -= 6;
+    drawRightChip(
+        context,
+        chipRight,
+        filterCardY + 8,
+        Component.translatable("keyset.metric.groups", Integer.valueOf(visibleConflictGroups)),
+        CHIP_FILL,
+        CHIP_BORDER,
+        BODY_COLOR);
+  }
+
+  private void drawSelectionCard(GuiGraphicsExtractor context) {
+    int contentX = selectionCardX + CARD_PADDING;
+    int contentWidth = selectionCardWidth - (CARD_PADDING * 2);
+    int textWidth = contentWidth;
+    int detailActionsY =
+        selectionCardY + selectionCardHeight - buttonHeight - (pagedLayout ? 6 : 10);
+    boolean compactCard = denseLayout || selectionCardWidth < 360;
+    int summaryY = pagedLayout ? selectionCardY + pagedCardHeaderHeight + 4 : selectionCardY + 25;
+    int compactSummaryHeight = detailActionsY - summaryY - 4;
+
+    drawTrimmedText(
+        context,
+        Component.translatable("keyset.section.selection"),
+        contentX,
+        selectionCardY + (pagedLayout ? 8 : 10),
+        compactCard ? contentWidth : Math.max(80, contentWidth - 136),
+        LABEL_COLOR);
+    if (!compactCard && (!pagedLayout || !microLayout)) {
+      Component stateChip;
+      if (previewPlan != null) {
+        stateChip = Component.translatable("keyset.selection.preview_chip");
+      } else if (selectedBinding == null) {
+        stateChip = Component.translatable("keyset.selection.none_chip");
+      } else if (isSelectedProfileActive()) {
+        stateChip = Component.translatable("keyset.selection.active_chip");
+      } else {
+        stateChip = Component.translatable("keyset.selection.inactive_chip");
+      }
+      drawAdaptiveChip(
+          context,
+          selectionCardX + selectionCardWidth - CARD_PADDING,
+          selectionCardY + 6,
+          128,
+          stateChip,
+          previewPlan != null ? CHIP_ACCENT_FILL : CHIP_FILL,
+          previewPlan != null ? CHIP_ACCENT_BORDER : CHIP_BORDER,
+          TITLE_COLOR);
+    }
+
+    Component titleText;
+    Component bodyText;
+    if (previewPlan != null) {
+      titleText = Component.translatable("keyset.selection.preview_title");
+      bodyText = Component.translatable("keyset.selection.preview_body");
+    } else if (selectedBinding == null) {
+      titleText = Component.translatable("keyset.selection.none_title");
+      bodyText = Component.translatable("keyset.selection.none_body");
+    } else {
+      titleText = Component.literal(selectedBinding.getDisplayName());
+      boolean activeSelection = isSelectedProfileActive();
+      bodyText =
+          activeSelection
+              ? Component.translatable(
+                  "keyset.selection.binding_body_active",
+                  selectedBinding.getCategoryName(),
+                  selectedBinding.getKeyDisplayName())
+              : Component.translatable(
+                  "keyset.selection.binding_body_inactive",
+                  config == null || selectedProfileId == null
+                      ? ""
+                      : config.getProfile(selectedProfileId).getName());
+    }
+
+    if (compactCard) {
+      Component compactSummary;
+      if (previewPlan != null) {
+        compactSummary = Component.translatable("keyset.selection.preview_body");
+      } else if (selectedBinding == null) {
+        compactSummary = Component.translatable("keyset.selection.none_body");
+      } else if (isSelectedProfileActive()) {
+        compactSummary =
+            Component.literal(
+                selectedBinding.getDisplayName()
+                    + " \u2022 "
+                    + selectedBinding.getCategoryName()
+                    + " \u2022 "
+                    + selectedBinding.getKeyDisplayName());
+      } else {
+        compactSummary = bodyText;
+      }
+      if (compactSummaryHeight >= font.lineHeight) {
+        drawTrimmedText(context, compactSummary, contentX, summaryY, textWidth, TITLE_COLOR);
+      }
+      return;
+    }
+
+    int titleY = pagedLayout ? selectionCardY + pagedCardHeaderHeight + 2 : selectionCardY + 31;
+    int bodyY = pagedLayout ? titleY + font.lineHeight + 4 : selectionCardY + 44;
+    drawTrimmedText(context, titleText, contentX, titleY, textWidth, TITLE_COLOR);
+    drawWrappedTextBlock(
+        context,
+        bodyText,
+        contentX,
+        bodyY,
+        textWidth,
+        Math.max(12, detailActionsY - bodyY - 6),
+        BODY_COLOR);
+  }
+
+  private void drawResolveCard(GuiGraphicsExtractor context) {
+    int contentX = resolveCardX + CARD_PADDING;
+    int contentWidth = resolveCardWidth - (CARD_PADDING * 2);
+    int resolveActionsY = resolveCardY + resolveCardHeight - buttonHeight - (pagedLayout ? 6 : 10);
+    boolean compactCard = denseLayout || resolveCardWidth < 300;
+    int bodyY = pagedLayout ? resolveCardY + pagedCardHeaderHeight + 4 : resolveCardY + 28;
+    int bodyHeight =
+        compactCard
+            ? font.lineHeight + 2
+            : Math.max(12, resolveActionsY - bodyY - (pagedLayout ? 4 : 26));
+    drawTrimmedText(
+        context,
+        Component.translatable("keyset.section.resolve"),
+        contentX,
+        resolveCardY + (pagedLayout ? 8 : 10),
+        contentWidth,
+        LABEL_COLOR);
+
+    Component bodyText;
+    if (previewPlan != null) {
+      bodyText = Component.translatable("keyset.resolve.card.preview_body");
+    } else if (!isSelectedProfileActive()) {
+      bodyText =
+          Component.translatable(
+              "keyset.resolve.card.inactive_body",
+              config != null && selectedProfileId != null && config.hasProfile(selectedProfileId)
+                  ? config.getProfile(selectedProfileId).getName()
+                  : "");
+    } else if (conflictReport.isEmpty()) {
+      bodyText = Component.translatable("keyset.resolve.card.empty_body");
+    } else {
+      bodyText = Component.translatable("keyset.resolve.card.ready_body");
+    }
+
+    if (resolveActionsY - bodyY >= font.lineHeight) {
+      drawWrappedTextBlock(
+          context, bodyText, contentX, bodyY, contentWidth, bodyHeight, BODY_COLOR);
+    }
+
+    int chipY = resolveActionsY - (pagedLayout ? 18 : 20);
+    if (previewPlan != null) {
+      if ((pagedLayout && microLayout) || compactCard) {
+        return;
+      }
+      int chipRight = resolveCardX + resolveCardWidth - CARD_PADDING;
+      chipRight =
+          drawRightChip(
+              context,
+              chipRight,
+              chipY,
+              112,
+              Component.translatable(
+                  "keyset.metric.unresolved", Integer.valueOf(previewPlan.getUnresolvedBindings())),
+              CHIP_FILL,
+              CHIP_BORDER,
+              BODY_COLOR);
+      chipRight -= 6;
+      drawRightChip(
+          context,
+          chipRight,
+          chipY,
+          112,
+          Component.translatable(
+              "keyset.metric.changes", Integer.valueOf(previewPlan.getChanges().size())),
+          CHIP_ACTIVE_FILL,
+          CHIP_ACTIVE_BORDER,
+          TITLE_COLOR);
+      return;
+    }
+
+    if ((pagedLayout && microLayout) || compactCard) {
+      return;
+    }
+
+    drawAdaptiveChip(
+        context,
+        resolveCardX + resolveCardWidth - CARD_PADDING,
+        chipY,
+        112,
+        Component.translatable("keyset.metric.groups", Integer.valueOf(visibleConflictGroups)),
+        CHIP_FILL,
+        CHIP_BORDER,
+        BODY_COLOR);
+  }
+
+  private void drawFooter(GuiGraphicsExtractor context) {
+    String footerMessage = statusMessage.isEmpty() ? buildDefaultFooterMessage() : statusMessage;
+    int availableWidth = width - (SCREEN_PADDING * 2) - doneButtonWidth - 8;
+    context.text(
+        font,
+        Component.literal(ellipsize(footerMessage, Math.max(40, availableWidth))),
+        SCREEN_PADDING,
+        footerY + 5,
+        statusMessage.isEmpty()
+            ? MUTED_COLOR
+            : errorStatus ? STATUS_ERROR_COLOR : STATUS_SUCCESS_COLOR);
+  }
+
+  private void drawEmptyStateIfNeeded(GuiGraphicsExtractor context) {
+    if (emptyStateTitle.getString().isEmpty() && emptyStateBody.getString().isEmpty()) {
+      return;
+    }
+
+    int centerX = listCardX + (listCardWidth / 2);
+    int y = listCardY + Math.max(28, (listCardHeight / 2) - 18);
+    context.centeredText(font, emptyStateTitle, centerX, y, TITLE_COLOR);
+    drawWrappedTextBlock(
+        context, emptyStateBody, listCardX + 24, y + 16, listCardWidth - 48, 28, MUTED_COLOR);
+  }
+
+  private Component buildHeaderSummaryText() {
+    if (previewPlan != null) {
+      return Component.translatable(
+          "keyset.resolve.summary",
+          Integer.valueOf(previewPlan.getChanges().size()),
+          Integer.valueOf(previewPlan.getUnresolvedBindings()));
+    }
+    if (config == null || selectedProfileId == null || !config.hasProfile(selectedProfileId)) {
+      return Component.translatable("keyset.summary.none");
+    }
+    if (visibleConflictBindings <= 0) {
+      return Component.translatable(
+          "keyset.summary.clean", config.getProfile(selectedProfileId).getName());
+    }
+    return Component.translatable(
+        "keyset.summary.selected",
+        config.getProfile(selectedProfileId).getName(),
+        Integer.valueOf(visibleConflictBindings));
+  }
+
+  private void drawPanel(
+      GuiGraphicsExtractor context,
+      int x,
+      int y,
+      int panelWidth,
+      int panelHeight,
+      int fillColor,
+      int borderColor) {
+    context.fill(x + 2, y + 2, x + panelWidth + 2, y + panelHeight + 2, PANEL_SHADOW);
+    context.fill(x, y, x + panelWidth, y + panelHeight, fillColor);
+    context.outline(x, y, panelWidth, panelHeight, borderColor);
+  }
+
+  private int drawRightChip(
+      GuiGraphicsExtractor context,
+      int rightX,
+      int y,
+      Component text,
+      int fillColor,
+      int borderColor,
+      int textColor) {
+    return drawRightChip(
+        context, rightX, y, Integer.MAX_VALUE, text, fillColor, borderColor, textColor);
+  }
+
+  private int drawRightChip(
+      GuiGraphicsExtractor context,
+      int rightX,
+      int y,
+      int maxWidth,
+      Component text,
+      int fillColor,
+      int borderColor,
+      int textColor) {
+    int chipWidth = Math.min(maxWidth, Math.max(34, font.width(text) + 14));
+    drawSmallChip(
+        context, rightX - chipWidth, y, chipWidth, text, fillColor, borderColor, textColor);
+    return rightX - chipWidth;
+  }
+
+  private void drawAdaptiveChip(
+      GuiGraphicsExtractor context,
+      int rightX,
+      int y,
+      Component text,
+      int fillColor,
+      int borderColor,
+      int textColor) {
+    drawAdaptiveChip(
+        context, rightX, y, Integer.MAX_VALUE, text, fillColor, borderColor, textColor);
+  }
+
+  private void drawAdaptiveChip(
+      GuiGraphicsExtractor context,
+      int rightX,
+      int y,
+      int maxWidth,
+      Component text,
+      int fillColor,
+      int borderColor,
+      int textColor) {
+    int chipWidth = Math.min(maxWidth, Math.max(34, font.width(text) + 14));
+    drawSmallChip(
+        context, rightX - chipWidth, y, chipWidth, text, fillColor, borderColor, textColor);
+  }
+
+  private void drawChip(
+      GuiGraphicsExtractor context, int x, int y, int chipWidth, Component text, boolean active) {
+    drawSmallChip(
+        context,
+        x,
+        y,
+        chipWidth,
+        Component.literal(ellipsize(text.getString(), Math.max(18, chipWidth - 10))),
+        active ? CHIP_ACTIVE_FILL : CHIP_FILL,
+        active ? CHIP_ACTIVE_BORDER : CHIP_BORDER,
+        TITLE_COLOR);
+  }
+
+  private void drawSmallChip(
+      GuiGraphicsExtractor context,
+      int x,
+      int y,
+      int chipWidth,
+      Component text,
+      int fillColor,
+      int borderColor,
+      int textColor) {
+    context.fill(x, y, x + chipWidth, y + 14, fillColor);
+    context.outline(x, y, chipWidth, 14, borderColor);
+    context.centeredText(
+        font,
+        Component.literal(ellipsize(text.getString(), Math.max(18, chipWidth - 8))),
+        x + (chipWidth / 2),
+        y + 3,
+        textColor);
+  }
+
+  private void drawTrimmedText(
+      GuiGraphicsExtractor context, Component text, int x, int y, int maxWidth, int color) {
+    context.text(font, Component.literal(ellipsize(text.getString(), maxWidth)), x, y, color);
+  }
+
+  private void drawWrappedTextBlock(
+      GuiGraphicsExtractor context,
+      Component text,
+      int x,
+      int y,
+      int maxWidth,
+      int maxHeight,
+      int color) {
+    int lineHeight = font.lineHeight + 2;
+    int maxLines = Math.max(1, maxHeight / lineHeight);
+    int lineY = y;
+    int lineCount = 0;
+    for (FormattedCharSequence line : font.split(text, maxWidth)) {
+      if (lineCount >= maxLines) {
+        break;
+      }
+      context.text(font, line, x, lineY, color);
+      lineY += lineHeight;
+      lineCount++;
+    }
+  }
+
+  private String ellipsize(String value, int maxWidth) {
+    if (value == null || font.width(value) <= maxWidth) {
+      return value == null ? "" : value;
+    }
+
+    String ellipsis = "...";
+    String candidate = value;
+    while (!candidate.isEmpty() && font.width(candidate + ellipsis) > maxWidth) {
+      candidate = candidate.substring(0, candidate.length() - 1);
+    }
+    return candidate + ellipsis;
+  }
+
+  private void toggleGroupMode() {
+    groupMode =
+        groupMode == KeysetConflictGroupMode.BY_KEY
+            ? KeysetConflictGroupMode.BY_CATEGORY
+            : KeysetConflictGroupMode.BY_KEY;
+    previewPlan = null;
+    rebuildList(selectedBindingId());
+  }
+
+  private void selectRelative(int direction) {
+    if (config == null) {
+      return;
+    }
+
+    List<String> profileIds = new ArrayList<String>(config.getProfiles().keySet());
+    if (profileIds.isEmpty()) {
+      return;
+    }
+
+    int currentIndex = profileIds.indexOf(selectedProfileId);
+    if (currentIndex < 0) {
+      currentIndex = 0;
+    }
+
+    int nextIndex = (currentIndex + direction + profileIds.size()) % profileIds.size();
+    runAction(
+        () -> {
+          selectedProfileId = profileIds.get(nextIndex);
+          profileNameField.setValue(config.getProfile(selectedProfileId).getName());
+          previewPlan = null;
+          reloadConflictReport();
+          rebuildList(null);
+          refreshButtons();
+        });
+  }
+
+  private void createProfile() {
+    runAction(
+        () -> {
+          String createdProfileId =
+              service.createProfileFromCurrent(
+                  minecraft, nonBlankOrFallback(profileNameField.getValue(), "Profile"));
+          previewPlan = null;
+          reloadState(createdProfileId, null);
+          setStatus(Component.translatable("keyset.status.profile_created").getString(), false);
+        });
+  }
+
+  private void duplicateSelected() {
+    runAction(
+        () -> {
+          String duplicateProfileId = service.duplicateProfile(minecraft, selectedProfileId);
+          previewPlan = null;
+          reloadState(duplicateProfileId, null);
+          setStatus(Component.translatable("keyset.status.profile_duplicated").getString(), false);
+        });
+  }
+
+  private void renameSelected() {
+    runAction(
+        () -> {
+          service.renameProfile(minecraft, selectedProfileId, profileNameField.getValue());
+          previewPlan = null;
+          reloadState(selectedProfileId, selectedBindingId());
+          setStatus(Component.translatable("keyset.status.profile_renamed").getString(), false);
+        });
+  }
+
+  private void deleteSelected() {
+    runAction(
+        () -> {
+          String fallbackProfileId = service.deleteProfile(minecraft, selectedProfileId);
+          previewPlan = null;
+          reloadState(fallbackProfileId, null);
+          setStatus(Component.translatable("keyset.status.profile_deleted").getString(), false);
+        });
+  }
+
+  private void applySelected() {
+    runAction(
+        () -> {
+          service.activateProfile(minecraft, selectedProfileId);
+          previewPlan = null;
+          reloadState(selectedProfileId, selectedBindingId());
+          setStatus(Component.translatable("keyset.status.profile_applied").getString(), false);
+        });
+  }
+
+  private void captureCurrent() {
+    runAction(
+        () -> {
+          service.captureCurrentToProfile(minecraft, selectedProfileId, true);
+          previewPlan = null;
+          reloadState(selectedProfileId, selectedBindingId());
+          setStatus(Component.translatable("keyset.status.profile_captured").getString(), false);
+        });
+  }
+
+  private void exportSelected() {
+    runAction(
+        () -> {
+          minecraft.keyboardHandler.setClipboard(
+              service.exportProfileJson(minecraft, selectedProfileId));
+          setStatus(Component.translatable("keyset.status.exported").getString(), false);
+        });
+  }
+
+  private void importProfiles() {
+    runAction(
+        () -> {
+          ImportResult result =
+              service.importProfiles(minecraft, minecraft.keyboardHandler.getClipboard());
+          if (result.getImportedCount() == 0) {
+            throw new IllegalArgumentException(
+                Component.translatable("keyset.error.import_empty").getString());
+          }
+          previewPlan = null;
+          reloadState(result.getLastImportedProfileId(), null);
+          setStatus(
+              Component.translatable(
+                      "keyset.status.imported", Integer.valueOf(result.getImportedCount()))
+                  .getString(),
+              false);
+        });
+  }
+
+  private void previewResolve() {
+    runAction(
+        () -> {
+          requireActiveProfileSelection();
+          previewPlan = service.previewAutoResolve(minecraft);
+          rebuildList(null);
+          if (pagedLayout) {
+            compactPage = CompactPage.NAVIGATOR;
+          }
+          if (previewPlan.isEmpty()) {
+            setStatus(Component.translatable("keyset.status.resolve_none").getString(), false);
+          } else {
+            setStatus(Component.translatable("keyset.status.resolve_preview").getString(), false);
+          }
+          refreshButtons();
+          focusCurrentPage();
+        });
+  }
+
+  private void applyPreview() {
+    runAction(
+        () -> {
+          if (previewPlan == null || previewPlan.getChanges().isEmpty()) {
+            throw new IllegalStateException(
+                Component.translatable("keyset.error.no_preview").getString());
+          }
+          undoState = service.applyAutoResolve(minecraft, previewPlan);
+          previewPlan = null;
+          reloadState(config.getActiveProfileId(), null);
+          setStatus(Component.translatable("keyset.status.resolve_applied").getString(), false);
+        });
+  }
+
+  private void jumpToBinding() {
+    try {
+      minecraft.setScreen(
+          new KeysetKeybindsScreen(
+              this, minecraft.options, service, requireSelectedBindingId(), false));
+    } catch (IllegalStateException exception) {
+      setStatus(exception.getMessage(), true);
+    }
+  }
+
+  private void clearSelectedBinding() {
+    runAction(
+        () -> {
+          String bindingId = requireSelectedBindingId();
+          service.clearActiveBinding(minecraft, bindingId);
+          previewPlan = null;
+          reloadState(config.getActiveProfileId(), bindingId);
+          setStatus(Component.translatable("keyset.status.binding_cleared").getString(), false);
+        });
+  }
+
+  private void reassignSelectedBinding() {
+    try {
+      minecraft.setScreen(
+          new KeysetKeybindsScreen(
+              this, minecraft.options, service, requireSelectedBindingId(), true));
+    } catch (IllegalStateException exception) {
+      setStatus(exception.getMessage(), true);
+    }
+  }
+
+  private void undoResolve() {
+    runAction(
+        () -> {
+          if (undoState == null) {
+            throw new IllegalStateException(
+                Component.translatable("keyset.error.no_undo").getString());
+          }
+          service.undoAutoResolve(minecraft, undoState);
+          undoState = null;
+          previewPlan = null;
+          reloadState(config.getActiveProfileId(), null);
+          setStatus(Component.translatable("keyset.status.resolve_undone").getString(), false);
+        });
+  }
+
+  private void reloadState(String preferredSelectedProfileId, String preferredBindingId)
+      throws IOException {
+    config = service.getConfig(minecraft);
+    selectedProfileId =
+        preferredSelectedProfileId != null && config.hasProfile(preferredSelectedProfileId)
+            ? preferredSelectedProfileId
+            : config.getActiveProfileId();
+    profileNameField.setValue(config.getProfile(selectedProfileId).getName());
+    reloadConflictReport();
+    rebuildList(preferredBindingId);
+  }
+
+  private void reloadConflictReport() throws IOException {
+    if (selectedProfileId != null && config != null && config.hasProfile(selectedProfileId)) {
+      conflictReport = service.buildConflictReport(minecraft, selectedProfileId);
+      return;
+    }
+    conflictReport = service.buildConflictReport(minecraft);
+  }
+
+  private void rebuildList(String preferredBindingId) {
+    if (conflictListWidget == null) {
+      return;
+    }
+
+    if (previewPlan != null) {
+      visibleConflictGroups = previewPlan.getChanges().isEmpty() ? 0 : 1;
+      visibleConflictBindings = previewPlan.getChanges().size();
+      selectedBinding = null;
+      conflictListWidget.showPreview(previewPlan);
+      if (previewPlan.getChanges().isEmpty()) {
+        emptyStateTitle = Component.translatable("keyset.empty.preview_title");
+        emptyStateBody = Component.translatable("keyset.empty.preview_body");
+      } else {
+        emptyStateTitle = Component.empty();
+        emptyStateBody = Component.empty();
+      }
+      refreshButtons();
+      return;
+    }
+
+    List<KeysetConflictGroup> groups =
+        conflictReport.query(new KeysetConflictQuery(groupMode, searchField.getValue()));
+    if (groups.isEmpty()) {
+      visibleConflictGroups = 0;
+      visibleConflictBindings = 0;
+      selectedBinding = null;
+      conflictListWidget.clearContents();
+      emptyStateTitle = Component.translatable("keyset.empty.conflicts_title");
+      emptyStateBody = Component.translatable("keyset.empty.conflicts_body");
+      refreshButtons();
+      return;
+    }
+
+    visibleConflictGroups = groups.size();
+    visibleConflictBindings = countVisibleBindings(groups);
+    emptyStateTitle = Component.empty();
+    emptyStateBody = Component.empty();
+    conflictListWidget.showConflicts(groups, groupMode, preferredBindingId);
+    refreshButtons();
+  }
+
+  private void refreshButtons() {
+    boolean activeSelection = isSelectedProfileActive();
+
+    if (config != null && selectedProfileId != null) {
+      deleteButton.active = !KeysetProfiles.DEFAULT_PROFILE_ID.equals(selectedProfileId);
+      applyButton.active = !activeSelection;
+      captureButton.active = true;
+      previewResolveButton.active = activeSelection && !conflictReport.isEmpty();
+      applyPreviewButton.active = previewPlan != null && !previewPlan.getChanges().isEmpty();
+      undoButton.active = undoState != null;
+
+      boolean bindingActionsActive =
+          selectedBinding != null && previewPlan == null && activeSelection;
+      jumpButton.active = bindingActionsActive;
+      clearBindingButton.active = bindingActionsActive;
+      reassignButton.active = bindingActionsActive;
+      updateDynamicTooltips(activeSelection, bindingActionsActive);
+    }
+
+    groupToggleButton.setMessage(
+        Component.translatable(
+            groupMode == KeysetConflictGroupMode.BY_KEY
+                ? "keyset.group.by_key"
+                : "keyset.group.by_category"));
+    refreshCompactPageButtons();
+    refreshResponsiveLabels();
+    refreshWidgetVisibility();
+  }
+
+  private void refreshCompactPageButtons() {
+    profilesTabButton.visible = pagedLayout;
+    navigatorTabButton.visible = pagedLayout;
+    fixesTabButton.visible = pagedLayout;
+    if (!pagedLayout) {
+      return;
+    }
+
+    profilesTabButton.active = compactPage != CompactPage.PROFILES;
+    navigatorTabButton.active = compactPage != CompactPage.NAVIGATOR;
+    fixesTabButton.active = compactPage != CompactPage.FIXES;
+  }
+
+  private void refreshResponsiveLabels() {
+    boolean compactButtons = pagedLayout || denseLayout;
+    previousProfileButton.setMessage(
+        Component.translatable(
+            compactButtons ? "keyset.compact.profile.prev" : "keyset.profile.prev"));
+    nextProfileButton.setMessage(
+        Component.translatable(
+            compactButtons ? "keyset.compact.profile.next" : "keyset.profile.next"));
+    applyButton.setMessage(
+        Component.translatable(
+            compactButtons ? "keyset.compact.profile.apply" : "keyset.profile.apply"));
+    captureButton.setMessage(
+        Component.translatable(
+            compactButtons ? "keyset.compact.profile.capture" : "keyset.profile.capture"));
+    renameButton.setMessage(Component.translatable("keyset.profile.rename"));
+    createButton.setMessage(
+        Component.translatable(
+            compactButtons ? "keyset.compact.profile.new" : "keyset.profile.new"));
+    duplicateButton.setMessage(Component.translatable("keyset.profile.duplicate"));
+    deleteButton.setMessage(Component.translatable("keyset.profile.delete"));
+    exportButton.setMessage(
+        Component.translatable(compactButtons ? "keyset.compact.export" : "keyset.export"));
+    importButton.setMessage(
+        Component.translatable(compactButtons ? "keyset.compact.import" : "keyset.import"));
+    jumpButton.setMessage(
+        Component.translatable(
+            compactButtons ? "keyset.compact.binding.jump" : "keyset.binding.jump"));
+    clearBindingButton.setMessage(
+        Component.translatable(
+            compactButtons ? "keyset.compact.binding.clear" : "keyset.binding.clear"));
+    reassignButton.setMessage(
+        Component.translatable(
+            compactButtons ? "keyset.compact.binding.reassign" : "keyset.binding.reassign"));
+  }
+
+  private void refreshWidgetVisibility() {
+    boolean showProfiles = !pagedLayout || compactPage == CompactPage.PROFILES;
+    boolean showNavigator = !pagedLayout || compactPage == CompactPage.NAVIGATOR;
+    boolean showFixes = !pagedLayout || compactPage == CompactPage.FIXES;
+
+    profileNameField.visible = showProfiles;
+    previousProfileButton.visible = showProfiles;
+    nextProfileButton.visible = showProfiles;
+    applyButton.visible = showProfiles;
+    captureButton.visible = showProfiles;
+    renameButton.visible = showProfiles;
+    createButton.visible = showProfiles;
+    duplicateButton.visible = showProfiles;
+    deleteButton.visible = showProfiles;
+    exportButton.visible = showProfiles;
+    importButton.visible = showProfiles;
+
+    searchField.visible = showNavigator;
+    groupToggleButton.visible = showNavigator;
+    conflictListWidget.setHidden(!showNavigator);
+
+    jumpButton.visible = showFixes;
+    clearBindingButton.visible = showFixes;
+    reassignButton.visible = showFixes;
+    previewResolveButton.visible = showFixes;
+    applyPreviewButton.visible = showFixes;
+    undoButton.visible = showFixes;
+  }
+
+  private void openCompactPage(CompactPage page) {
+    if (!pagedLayout || compactPage == page) {
+      return;
+    }
+    compactPage = page;
+    refreshButtons();
+    focusCurrentPage();
+  }
+
+  private void focusCurrentPage() {
+    if (pagedLayout) {
+      switch (compactPage) {
+        case PROFILES:
+          setInitialFocus(profileNameField);
+          return;
+        case NAVIGATOR:
+          setInitialFocus(searchField);
+          return;
+        case FIXES:
+          setFocused(null);
+          return;
+      }
+    }
+    setInitialFocus(searchField);
+  }
+
+  private void applyPendingStatusNotice() {
+    KeysetFabricService.StatusNotice notice = service.consumeStatusNotice();
+    if (notice == null) {
+      return;
+    }
+    setStatus(notice.getMessage(), notice.isError());
+  }
+
+  private void updateDynamicTooltips(boolean activeSelection, boolean bindingActionsActive) {
+    setTooltip(
+        applyButton,
+        Component.translatable(
+            activeSelection ? "keyset.tip.profile_apply_active" : "keyset.tip.profile_apply"));
+    setTooltip(
+        previewResolveButton,
+        Component.translatable(
+            !activeSelection
+                ? "keyset.tip.actions_require_active"
+                : conflictReport.isEmpty()
+                    ? "keyset.tip.resolve_preview_empty"
+                    : "keyset.tip.resolve_preview"));
+    setTooltip(
+        applyPreviewButton,
+        Component.translatable(
+            previewPlan != null && !previewPlan.getChanges().isEmpty()
+                ? "keyset.tip.resolve_apply"
+                : "keyset.tip.resolve_apply_pending"));
+    setTooltip(
+        undoButton,
+        Component.translatable(
+            undoState != null ? "keyset.tip.resolve_undo" : "keyset.tip.resolve_undo_unavailable"));
+
+    String inactiveBindingTooltipKey = inactiveBindingTooltipKey(activeSelection);
+    setTooltip(
+        jumpButton,
+        Component.translatable(
+            bindingActionsActive ? "keyset.tip.binding_jump" : inactiveBindingTooltipKey));
+    setTooltip(
+        clearBindingButton,
+        Component.translatable(
+            bindingActionsActive ? "keyset.tip.binding_clear" : inactiveBindingTooltipKey));
+    setTooltip(
+        reassignButton,
+        Component.translatable(
+            bindingActionsActive ? "keyset.tip.binding_reassign" : inactiveBindingTooltipKey));
+  }
+
+  private String inactiveBindingTooltipKey(boolean activeSelection) {
+    if (previewPlan != null) {
+      return "keyset.tip.binding_preview_mode";
+    }
+    if (selectedBinding == null) {
+      return "keyset.tip.binding_requires_selection";
+    }
+    if (!activeSelection) {
+      return "keyset.tip.actions_require_active";
+    }
+    return "keyset.tip.binding_requires_selection";
+  }
+
+  private boolean isSelectedProfileActive() {
+    return config != null
+        && selectedProfileId != null
+        && selectedProfileId.equals(config.getActiveProfileId());
+  }
+
+  private static int countVisibleBindings(List<KeysetConflictGroup> groups) {
+    int bindingCount = 0;
+    for (KeysetConflictGroup group : groups) {
+      for (KeysetConflict conflict : group.getConflicts()) {
+        bindingCount += conflict.getBindings().size();
+      }
+    }
+    return bindingCount;
+  }
+
+  private void setStatus(String message, boolean error) {
+    statusMessage = message == null ? "" : message;
+    errorStatus = error;
+  }
+
+  private String selectedBindingId() {
+    return selectedBinding == null ? null : selectedBinding.getId();
+  }
+
+  private String buildDefaultFooterMessage() {
+    if (previewPlan != null) {
+      return Component.translatable("keyset.footer.preview").getString();
+    }
+    if (config == null || selectedProfileId == null || !config.hasProfile(selectedProfileId)) {
+      return Component.translatable("keyset.footer.default").getString();
+    }
+    if (!isSelectedProfileActive()) {
+      return Component.translatable(
+              "keyset.footer.inactive", config.getProfile(selectedProfileId).getName())
+          .getString();
+    }
+    if (selectedBinding == null) {
+      return Component.translatable("keyset.footer.pick_conflict").getString();
+    }
+    return Component.translatable("keyset.footer.binding_ready", selectedBinding.getDisplayName())
+        .getString();
+  }
+
+  private void requireActiveProfileSelection() {
+    if (!isSelectedProfileActive()) {
+      throw new IllegalStateException(
+          Component.translatable("keyset.error.actions_require_active").getString());
+    }
+  }
+
+  private String requireSelectedBindingId() {
+    if (selectedBinding == null) {
+      throw new IllegalStateException(
+          Component.translatable("keyset.error.no_binding_selected").getString());
+    }
+    requireActiveProfileSelection();
+    return selectedBinding.getId();
+  }
+
+  private void runAction(Action action) {
+    try {
+      action.run();
+      applyPendingStatusNotice();
+    } catch (IllegalArgumentException | IllegalStateException | IOException exception) {
+      service.consumeStatusNotice();
+      setStatus(exception.getMessage(), true);
+    }
+  }
+
+  private static String nonBlankOrFallback(String value, String fallback) {
+    String normalized = value == null ? "" : value.trim();
+    return normalized.isEmpty() ? fallback : normalized;
+  }
+
+  private enum CompactPage {
+    PROFILES,
+    NAVIGATOR,
+    FIXES
+  }
+
+  private interface Action {
+    void run() throws IOException;
+  }
+}

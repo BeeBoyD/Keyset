@@ -12,7 +12,7 @@ shift
 case "$loader" in
   fabric)
     loader_name="Fabric"
-    support_line="1.16.5, 1.17.1, 1.18.2, 1.19.2-1.19.4, 1.20.1-1.20.6, 1.21-1.21.11, latest"
+    support_line="1.16.5, 1.17.1, 1.18.2, 1.19.2-1.19.4, 1.20.1-1.20.6, 1.21-1.21.11, 26.1, latest"
     notes=(
       "- This resolves a requested Minecraft version to the nearest supported Fabric leaf module."
       "- The active 1.1.x release line ships 1.20.1+; older Fabric leaves are maintenance-only."
@@ -25,7 +25,7 @@ case "$loader" in
     ;;
   forge)
     loader_name="Forge"
-    support_line="1.16.5, 1.17.1, 1.18.2, 1.19.2-1.19.4, 1.20.1-1.20.6, 1.21-1.21.1, latest"
+    support_line="1.16.5, 1.17.1, 1.18.2, 1.19.2-1.19.4, 1.20.1-1.20.6, 1.21-1.21.1, 26.1, latest"
     notes=(
       "- This resolves a requested Minecraft version to the nearest supported Forge leaf module."
       "- The active 1.1.x release line ships 1.20.1+ and still caps Forge at 1.21.1."
@@ -38,7 +38,7 @@ case "$loader" in
     ;;
   neoforge)
     loader_name="NeoForge"
-    support_line="1.20.1-1.20.6, 1.21-1.21.11, latest"
+    support_line="1.20.1-1.20.6, 1.21-1.21.11, 26.1, latest"
     notes=(
       "- This resolves a requested Minecraft version to the nearest supported NeoForge leaf module."
       "- NeoForge starts at 1.20.1 in this repo."
@@ -51,7 +51,7 @@ case "$loader" in
     ;;
   quilt)
     loader_name="Quilt"
-    support_line="1.16.5, 1.17.1, 1.18.2, 1.19.2-1.19.4, 1.20.1-1.20.6, 1.21-1.21.11, latest"
+    support_line="1.16.5, 1.17.1, 1.18.2, 1.19.2-1.19.4, 1.20.1-1.20.6, 1.21-1.21.11, 26.1, latest"
     notes=(
       "- Quilt uses the Fabric-compatible targets in this repo."
       "- The active 1.1.x release line ships 1.20.1+; older Quilt/Fabric leaves are maintenance-only."
@@ -122,8 +122,11 @@ resolve_module() {
     fabric:1.21.5 | fabric:1.21.6 | fabric:1.21.7 | fabric:1.21.8 | fabric:1.21.9 | quilt:1.21.5 | quilt:1.21.6 | quilt:1.21.7 | quilt:1.21.8 | quilt:1.21.9)
       printf '%s\n' 'platform-fabric-1_21_9'
       ;;
-    fabric:1.21.10 | fabric:1.21.11 | fabric:latest | quilt:1.21.10 | quilt:1.21.11 | quilt:latest)
+    fabric:1.21.10 | fabric:1.21.11 | quilt:1.21.10 | quilt:1.21.11)
       printf '%s\n' 'platform-fabric-1_21_11'
+      ;;
+    fabric:26.1 | fabric:latest | quilt:26.1 | quilt:latest)
+      printf '%s\n' 'platform-fabric-26_1'
       ;;
     forge:1.16.5)
       printf '%s\n' 'platform-forge-1_16_5'
@@ -149,8 +152,11 @@ resolve_module() {
     forge:1.20.5 | forge:1.20.6)
       printf '%s\n' 'platform-forge-1_20_6'
       ;;
-    forge:1.21 | forge:1.21.0 | forge:1.21.1 | forge:latest)
+    forge:1.21 | forge:1.21.0 | forge:1.21.1)
       printf '%s\n' 'platform-forge-1_21_1'
+      ;;
+    forge:26.1 | forge:latest)
+      printf '%s\n' 'platform-forge-26_1'
       ;;
     neoforge:1.20.1 | neoforge:1.20.2)
       printf '%s\n' 'platform-neoforge-1_20_1'
@@ -167,8 +173,11 @@ resolve_module() {
     neoforge:1.21.2 | neoforge:1.21.3 | neoforge:1.21.4)
       printf '%s\n' 'platform-neoforge-1_21_4'
       ;;
-    neoforge:1.21.5 | neoforge:1.21.6 | neoforge:1.21.7 | neoforge:1.21.8 | neoforge:1.21.9 | neoforge:1.21.10 | neoforge:1.21.11 | neoforge:latest)
+    neoforge:1.21.5 | neoforge:1.21.6 | neoforge:1.21.7 | neoforge:1.21.8 | neoforge:1.21.9 | neoforge:1.21.10 | neoforge:1.21.11)
       printf '%s\n' 'platform-neoforge-1_21_11'
+      ;;
+    neoforge:26.1 | neoforge:latest)
+      printf '%s\n' 'platform-neoforge-26_1'
       ;;
     *)
       return 1
