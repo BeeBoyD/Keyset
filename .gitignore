@@ -24,3 +24,5 @@ builtJars/*
 
 # Misc
 out/
+.claude/
+CLAUDE.md
