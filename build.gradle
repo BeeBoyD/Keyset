@@ -3,7 +3,9 @@ plugins {
     id "base"
     id "com.diffplug.spotless" version "6.25.0" apply false
     id "dev.architectury.loom" version "1.13.467" apply false
+    id "dev.architectury.loom-no-remap" version "1.14.473" apply false
     id "fabric-loom" version "1.15.4" apply false
+    id "net.fabricmc.fabric-loom" version "1.15-SNAPSHOT" apply false
 }
 
 allprojects {
@@ -95,13 +97,15 @@ def releaseProjectsByLoader = [
         ":platform-fabric-1_21_1",
         ":platform-fabric-1_21_4",
         ":platform-fabric-1_21_9",
-        ":platform-fabric-1_21_11"
+        ":platform-fabric-1_21_11",
+        ":platform-fabric-26_1"
     ],
     forge    : [
         ":platform-forge-1_20_1",
         ":platform-forge-1_20_4",
         ":platform-forge-1_20_6",
-        ":platform-forge-1_21_1"
+        ":platform-forge-1_21_1",
+        ":platform-forge-26_1"
     ],
     neoforge : [
         ":platform-neoforge-1_20_1",
@@ -109,7 +113,8 @@ def releaseProjectsByLoader = [
         ":platform-neoforge-1_20_6",
         ":platform-neoforge-1_21_1",
         ":platform-neoforge-1_21_4",
-        ":platform-neoforge-1_21_11"
+        ":platform-neoforge-1_21_11",
+        ":platform-neoforge-26_1"
     ]
 ]
 
@@ -140,7 +145,10 @@ def releaseArtifactLabels = [
     "platform-neoforge-1_20_6" : "neoforge-1.20.6",
     "platform-neoforge-1_21_1" : "neoforge-1.21.1",
     "platform-neoforge-1_21_4" : "neoforge-1.21.4",
-    "platform-neoforge-1_21_11": "neoforge-1.21-1.21.11"
+    "platform-neoforge-1_21_11": "neoforge-1.21-1.21.11",
+    "platform-fabric-26_1"    : "fabric-26.1",
+    "platform-forge-26_1"     : "forge-26.1",
+    "platform-neoforge-26_1"  : "neoforge-26.1"
 ]
 
 subprojects {
@@ -166,6 +174,9 @@ tasks.register("buildTargetJars") {
     dependsOn("collectTargetJars")
 }
 
+// platform-fabric-26_1 and platform-neoforge-26_1 use loom-no-remap which produces 'jar', not 'remapJar'.
+def noRemapProjects = [":platform-fabric-26_1", ":platform-neoforge-26_1"] as Set
+
 releaseProjectsByLoader.each { loader, projectPaths ->
     tasks.register("build${loader.capitalize()}Targets") {
         group = "verification"
@@ -176,11 +187,12 @@ releaseProjectsByLoader.each { loader, projectPaths ->
     tasks.register("collect${loader.capitalize()}Jars", Sync) {
         group = "build"
         description = "Copies the current remapped ${loader} jars into ${releaseBundleDir}/${loader}."
-        dependsOn(projectPaths.collect { "${it}:remapJar" })
         into(layout.projectDirectory.dir("${releaseBundleDir}/${loader}"))
-        from(projectPaths.collect { projectPath ->
-            project(projectPath).tasks.named("remapJar").flatMap { it.archiveFile }
-        })
+        projectPaths.each { projectPath ->
+            def jarTaskName = noRemapProjects.contains(projectPath) ? "jar" : "remapJar"
+            dependsOn("${projectPath}:${jarTaskName}")
+            from(project(projectPath).tasks.named(jarTaskName).flatMap { it.archiveFile })
+        }
     }
 }
 

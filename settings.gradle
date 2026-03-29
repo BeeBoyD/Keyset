@@ -52,7 +52,6 @@ def projectDirectories = [
     "common-v1_20_1-to-v1_20_2": "modules/common/v1_20_1-to-v1_20_2",
     "common-v1_20_3-to-v1_20_6": "modules/common/v1_20_3-to-v1_20_6",
     "common-v1_21-to-v1_21_11": "modules/common/v1_21-to-v1_21_11",
-    "platform-fabric-1_16_5"  : "platforms/fabric/1_16_5",
     "platform-fabric-1_17_1"  : "platforms/fabric/1_17_1",
     "platform-fabric-1_18_2"  : "platforms/fabric/1_18_2",
     "platform-fabric-1_19_2"  : "platforms/fabric/1_19_2",
@@ -78,7 +77,11 @@ def projectDirectories = [
     "platform-neoforge-1_20_6": "platforms/neoforge/1_20_6",
     "platform-neoforge-1_21_1": "platforms/neoforge/1_21_1",
     "platform-neoforge-1_21_4": "platforms/neoforge/1_21_4",
-    "platform-neoforge-1_21_11": "platforms/neoforge/1_21_11"
+    "platform-neoforge-1_21_11": "platforms/neoforge/1_21_11",
+    "common-v26_1"            : "modules/common/v26_1",
+    "platform-fabric-26_1"    : "platforms/fabric/26_1",
+    "platform-forge-26_1"     : "platforms/forge/26_1",
+    "platform-neoforge-26_1"  : "platforms/neoforge/26_1"
 ]
 
 projectDirectories.each { projectName, projectPath ->

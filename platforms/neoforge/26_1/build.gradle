@@ -1,0 +1,64 @@
+plugins {
+    id "dev.architectury.loom-no-remap"
+    id "com.diffplug.spotless"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+base {
+    archivesName = "keyset-neoforge-26.1"
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir(project(":core").file("src/main/java"))
+            srcDir(project(":common-v26_1").file("src/main/java"))
+            srcDir(project(":platform-neoforge-1_21_11").file("src/main/java"))
+            srcDir(project(":platform-fabric-26_1").file("src/main/java"))
+            exclude("net/beeboyd/keyset/platform/fabric/KeysetFabricClient.java")
+        }
+        resources {
+            srcDir(project(":platform-fabric-26_1").file("src/main/resources"))
+            exclude("fabric.mod.json", "pack.mcmeta")
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.property('minecraftVersion_26_1')}"
+    neoForge "net.neoforged:neoforge:${project.property('neoforgeVersion_26_1')}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+}
+
+tasks.withType(JavaExec).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+processResources {
+    def expandProps = [
+        modId           : project.property("modId"),
+        modName         : project.property("modName"),
+        modVersion      : project.version,
+        modDescription  : project.property("modDescription"),
+        minecraftVersion: project.property("supportedMinecraftRange_26_1"),
+        loaderVersion   : "[2,)"
+    ]
+    inputs.properties(expandProps)
+    filesMatching("META-INF/neoforge.mods.toml") {
+        expand(expandProps)
+    }
+}
+
+jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

@@ -65,11 +65,13 @@ Current `1.1.x` release line:
 | 1.21.1 | ✅ | ✅ | ✅ | ✅ |
 | 1.21.2-1.21.4 | ✅ | ✅ | ❌ | ✅ |
 | 1.21.5-1.21.11 | ✅ | ✅ | ❌ | ✅ |
+| 26.1 | ✅ | ✅ | ❌ | ❌ |
 
 Notes:
 
 - Quilt uses the Fabric-compatible jars.
 - Forge support is intentionally capped at `1.21.1`.
+- Forge and NeoForge 26.1 support is pending upstream loader tooling.
 - Older `1.16.5-1.19.4` builds remain on the `1.0.x` line for critical bug fixes only.
 
 ## 🔒 Privacy

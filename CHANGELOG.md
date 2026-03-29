@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## v1.1.1 - 2026-03-28
+
+### Added
+
+- Fabric support for Minecraft 26.1 — the first fully unobfuscated (MojMap) release. Keyset now runs on MC 26.1 with Fabric Loader.
+- Quilt support for MC 26.1 via the Fabric-compatible jar (no separate artifact needed).
+- The Keyset button is injected into both the `Controls` screen and the new `Key Binds` sub-screen that MC 26.1 splits controls across.
+- Missing `en_us.json` language file for MC 26.1 so all UI strings display correctly instead of raw translation keys.
+
+### Changed
+
+- Supported-versions table now includes MC 26.1 (Fabric/Quilt only; Forge and NeoForge 26.1 are pending upstream loader tooling).
+
 ## v1.1.0 - 2026-03-20
 
 Released: 2026-03-20
