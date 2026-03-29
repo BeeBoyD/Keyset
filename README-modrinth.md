@@ -25,11 +25,12 @@ Save full control layouts, swap them instantly, inspect conflicts with context, 
 - Guided Safe Fix when you want a cleaner automated pass
 - JSON export and import for backup or sharing
 
-## 🚀 1.1.0 Highlights
+## 🚀 1.1.x Highlights
 
 - Cleaner modern UI on the active `1.20.1+` line
 - More reliable Controls-screen button behavior and screen opening
 - Safer config recovery with backup restore and clearer status messages
+- Fabric, Quilt, and NeoForge support for Minecraft 26.1 (the first fully unobfuscated release)
 
 Older `1.16.5-1.19.4` builds stay available on the `1.0.x` line with the same profile format, but active development now lives on `1.20.1+`.
 
@@ -65,13 +66,13 @@ Current `1.1.x` release line:
 | 1.21.1 | ✅ | ✅ | ✅ | ✅ |
 | 1.21.2-1.21.4 | ✅ | ✅ | ❌ | ✅ |
 | 1.21.5-1.21.11 | ✅ | ✅ | ❌ | ✅ |
-| 26.1 | ✅ | ✅ | ❌ | ❌ |
+| 26.1 | ✅ | ✅ | ❌ | ✅ |
 
 Notes:
 
 - Quilt uses the Fabric-compatible jars.
 - Forge support is intentionally capped at `1.21.1`.
-- Forge and NeoForge 26.1 support is pending upstream loader tooling.
+- Forge 26.1 support is pending upstream loader tooling.
 - Older `1.16.5-1.19.4` builds remain on the `1.0.x` line for critical bug fixes only.
 
 ## 🔒 Privacy
@@ -92,4 +93,4 @@ It does not send telemetry or upload your controls anywhere.
 
 ## 📍 Status
 
-Current stable release line: `1.1.0`
+Current stable release line: `1.1.2`

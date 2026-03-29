@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v1.1.2 - 2026-03-30
+
+### Added
+
+- NeoForge support for Minecraft 26.1 — full feature parity with the Fabric/Quilt 26.1 jar. Uses `dev.architectury.loom-no-remap` 1.14.473 for the first unobfuscated (MojMap) NeoForge release.
+
+### Changed
+
+- Supported-versions table updated: 26.1 NeoForge is now ✅.
+
 ## v1.1.1 - 2026-03-28
 
 ### Added
