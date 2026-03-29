@@ -1,8 +1,9 @@
 plugins {
+    id "architectury-plugin" version "3.4.162" apply false
     id "base"
     id "com.diffplug.spotless" version "6.25.0" apply false
-    id "dev.architectury.loom-no-remap" version "1.14.473" apply false
-    id "net.fabricmc.fabric-loom" version "1.15-SNAPSHOT" apply false
+    id "dev.architectury.loom" version "1.13.467" apply false
+    id "fabric-loom" version "1.15.4" apply false
 }
 
 allprojects {
@@ -85,19 +86,31 @@ subprojects {
     }
 }
 
-// main-next ships only the 26.1 generation.
+// main-legacy ships only the legacy 1.16.5–1.19.4 generation.
 def releaseProjectsByLoader = [
-    fabric  : [
-        ":platform-fabric-26_1"
+    fabric: [
+        ":platform-fabric-1_17_1",
+        ":platform-fabric-1_18_2",
+        ":platform-fabric-1_19_2",
+        ":platform-fabric-1_19_4"
     ],
-    neoforge: [
-        ":platform-neoforge-26_1"
+    forge : [
+        ":platform-forge-1_17_1",
+        ":platform-forge-1_18_2",
+        ":platform-forge-1_19_2",
+        ":platform-forge-1_19_4"
     ]
 ]
 
 def releaseArtifactLabels = [
-    "platform-fabric-26_1"  : "fabric-26.1",
-    "platform-neoforge-26_1": "neoforge-26.1"
+    "platform-fabric-1_17_1": "fabric-1.17.1",
+    "platform-fabric-1_18_2": "fabric-1.18.2",
+    "platform-fabric-1_19_2": "fabric-1.19.2",
+    "platform-fabric-1_19_4": "fabric-1.19.4",
+    "platform-forge-1_17_1" : "forge-1.17.1",
+    "platform-forge-1_18_2" : "forge-1.18.2",
+    "platform-forge-1_19_2" : "forge-1.19.2",
+    "platform-forge-1_19_4" : "forge-1.19.4"
 ]
 
 subprojects {
@@ -111,13 +124,10 @@ subprojects {
 
 def releaseBundleDir = "builtJars/${rootProject.version}"
 
-// platform-fabric-26_1 and platform-neoforge-26_1 use loom-no-remap which produces 'jar', not 'remapJar'.
-def noRemapProjects = [":platform-fabric-26_1", ":platform-neoforge-26_1"] as Set
-
 tasks.register("buildRepresentativeTarget") {
     group = "verification"
     description = "Builds the primary fully wired Fabric target jar."
-    dependsOn(":platform-fabric-26_1:build")
+    dependsOn("${releaseProjectsByLoader.fabric.last()}:build")
 }
 
 tasks.register("buildTargetJars") {
@@ -135,22 +145,21 @@ releaseProjectsByLoader.each { loader, projectPaths ->
 
     tasks.register("collect${loader.capitalize()}Jars", Sync) {
         group = "build"
-        description = "Copies the current ${loader} jars into ${releaseBundleDir}/${loader}."
+        description = "Copies the current remapped ${loader} jars into ${releaseBundleDir}/${loader}."
         into(layout.projectDirectory.dir("${releaseBundleDir}/${loader}"))
         projectPaths.each { projectPath ->
-            def jarTaskName = noRemapProjects.contains(projectPath) ? "jar" : "remapJar"
-            dependsOn("${projectPath}:${jarTaskName}")
-            from(project(projectPath).tasks.named(jarTaskName).flatMap { it.archiveFile })
+            dependsOn("${projectPath}:remapJar")
+            from(project(projectPath).tasks.named("remapJar").flatMap { it.archiveFile })
         }
     }
 }
 
 tasks.register("collectTargetJars") {
     group = "build"
-    description = "Copies the current loader jars into builtJars/<version>/<loader>."
+    description = "Copies the current remapped loader jars into builtJars/<version>/<loader>."
     dependsOn(
         "collectFabricJars",
-        "collectNeoforgeJars"
+        "collectForgeJars"
     )
 }
 
