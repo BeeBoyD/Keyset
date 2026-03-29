@@ -52,7 +52,6 @@ def projectDirectories = [
     "common-v1_20_1-to-v1_20_2": "modules/common/v1_20_1-to-v1_20_2",
     "common-v1_20_3-to-v1_20_6": "modules/common/v1_20_3-to-v1_20_6",
     "common-v1_21-to-v1_21_11": "modules/common/v1_21-to-v1_21_11",
-    "platform-fabric-1_16_5"  : "platforms/fabric/1_16_5",
     "platform-fabric-1_17_1"  : "platforms/fabric/1_17_1",
     "platform-fabric-1_18_2"  : "platforms/fabric/1_18_2",
     "platform-fabric-1_19_2"  : "platforms/fabric/1_19_2",

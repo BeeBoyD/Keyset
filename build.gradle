@@ -3,8 +3,9 @@ plugins {
     id "base"
     id "com.diffplug.spotless" version "6.25.0" apply false
     id "dev.architectury.loom" version "1.13.467" apply false
+    id "dev.architectury.loom-no-remap" version "1.14.473" apply false
     id "fabric-loom" version "1.15.4" apply false
-    id "net.fabricmc.fabric-loom" version "1.16.0-alpha.13" apply false
+    id "net.fabricmc.fabric-loom" version "1.15-SNAPSHOT" apply false
 }
 
 allprojects {
@@ -173,8 +174,8 @@ tasks.register("buildTargetJars") {
     dependsOn("collectTargetJars")
 }
 
-// platform-fabric-26_1 uses net.fabricmc.fabric-loom (no-remap mode) which produces 'jar', not 'remapJar'.
-def noRemapProjects = [":platform-fabric-26_1"] as Set
+// platform-fabric-26_1 and platform-neoforge-26_1 use loom-no-remap which produces 'jar', not 'remapJar'.
+def noRemapProjects = [":platform-fabric-26_1", ":platform-neoforge-26_1"] as Set
 
 releaseProjectsByLoader.each { loader, projectPaths ->
     tasks.register("build${loader.capitalize()}Targets") {
