@@ -46,27 +46,11 @@ dependencyResolutionManagement {
 rootProject.name = "Keyset"
 
 def projectDirectories = [
-    "core"                    : "modules/core",
-    "common-v1_20_1-to-v1_20_2": "modules/common/v1_20_1-to-v1_20_2",
-    "common-v1_20_3-to-v1_20_6": "modules/common/v1_20_3-to-v1_20_6",
-    "common-v1_21-to-v1_21_11": "modules/common/v1_21-to-v1_21_11",
-    "platform-fabric-1_20_1"  : "platforms/fabric/1_20_1",
-    "platform-fabric-1_20_4"  : "platforms/fabric/1_20_4",
-    "platform-fabric-1_20_6"  : "platforms/fabric/1_20_6",
-    "platform-fabric-1_21_1"  : "platforms/fabric/1_21_1",
-    "platform-fabric-1_21_4"  : "platforms/fabric/1_21_4",
-    "platform-fabric-1_21_9"  : "platforms/fabric/1_21_9",
-    "platform-fabric-1_21_11" : "platforms/fabric/1_21_11",
-    "platform-forge-1_20_1"   : "platforms/forge/1_20_1",
-    "platform-forge-1_20_4"   : "platforms/forge/1_20_4",
-    "platform-forge-1_20_6"   : "platforms/forge/1_20_6",
-    "platform-forge-1_21_1"   : "platforms/forge/1_21_1",
-    "platform-neoforge-1_20_1": "platforms/neoforge/1_20_1",
-    "platform-neoforge-1_20_4": "platforms/neoforge/1_20_4",
-    "platform-neoforge-1_20_6": "platforms/neoforge/1_20_6",
-    "platform-neoforge-1_21_1": "platforms/neoforge/1_21_1",
-    "platform-neoforge-1_21_4": "platforms/neoforge/1_21_4",
-    "platform-neoforge-1_21_11": "platforms/neoforge/1_21_11"
+    "core"                 : "modules/core",
+    "common-v26_1"         : "modules/common/v26_1",
+    "platform-fabric-26_1" : "platforms/fabric/26_1",
+    "platform-forge-26_1"  : "platforms/forge/26_1",
+    "platform-neoforge-26_1": "platforms/neoforge/26_1"
 ]
 
 projectDirectories.each { projectName, projectPath ->
