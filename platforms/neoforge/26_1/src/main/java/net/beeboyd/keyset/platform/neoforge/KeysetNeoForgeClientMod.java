@@ -13,7 +13,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.options.KeybindsScreen;
+import net.minecraft.client.gui.screens.options.controls.ControlsScreen;
+import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -64,7 +65,7 @@ public final class KeysetNeoForgeClientMod {
           new KeyMapping(
               "keyset.key.open_screen",
               InputConstants.UNKNOWN.getValue(),
-              "key.categories.misc");
+              KeyMapping.Category.MISC);
       event.register(openScreenKeyMapping);
     }
 
@@ -94,26 +95,30 @@ public final class KeysetNeoForgeClientMod {
     }
 
     private void onScreenInit(ScreenEvent.Init.Post event) {
-      if (!(event.getScreen() instanceof KeybindsScreen controlsScreen)) {
+      Screen screen = event.getScreen();
+      // In MC 26.1, Options → Controls opens ControlsScreen first; KeyBindsScreen is a
+      // sub-screen reached via its "Key Binds" button. Inject into both.
+      // Exclude KeysetKeybindsScreen (extends KeyBindsScreen) — it is Keyset's own screen.
+      if (!(screen instanceof KeyBindsScreen) && !(screen instanceof ControlsScreen)) {
+        return;
+      }
+      if (screen instanceof KeysetKeybindsScreen) {
         return;
       }
 
-      removeInjectedControlsButton(event, controlsScreen);
+      removeInjectedControlsButton(event, screen);
       List<AbstractWidget> buttons =
           event.getListenersList().stream()
               .filter(AbstractWidget.class::isInstance)
               .map(AbstractWidget.class::cast)
               .toList();
-      int[] placement =
-          findControlsButtonPlacement(buttons, controlsScreen.width, controlsScreen.height);
+      int[] placement = findControlsButtonPlacement(buttons, screen.width, screen.height);
       Button keysetButton =
-          Button.builder(
-                  Component.translatable("keyset.open"),
-                  button -> requestOpenScreen(controlsScreen))
+          Button.builder(Component.translatable("keyset.open"), button -> requestOpenScreen(screen))
               .bounds(placement[0], placement[1], CONTROLS_BUTTON_WIDTH, CONTROLS_BUTTON_HEIGHT)
               .build();
       event.addListener(keysetButton);
-      injectedControlsButtons.put(controlsScreen, keysetButton);
+      injectedControlsButtons.put(screen, keysetButton);
     }
 
     private void removeInjectedControlsButton(ScreenEvent.Init.Post event, Screen screen) {
@@ -174,8 +179,7 @@ public final class KeysetNeoForgeClientMod {
       };
     }
 
-    private static boolean overlapsExisting(
-        List<? extends AbstractWidget> buttons, int x, int y) {
+    private static boolean overlapsExisting(List<? extends AbstractWidget> buttons, int x, int y) {
       for (AbstractWidget button : buttons) {
         int otherX = button.getX();
         int otherY = button.getY();
