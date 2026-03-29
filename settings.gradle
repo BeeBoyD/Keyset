@@ -63,7 +63,6 @@ def projectDirectories = [
     "platform-fabric-1_21_4"  : "platforms/fabric/1_21_4",
     "platform-fabric-1_21_9"  : "platforms/fabric/1_21_9",
     "platform-fabric-1_21_11" : "platforms/fabric/1_21_11",
-    "platform-forge-1_16_5"   : "platforms/forge/1_16_5",
     "platform-forge-1_17_1"   : "platforms/forge/1_17_1",
     "platform-forge-1_18_2"   : "platforms/forge/1_18_2",
     "platform-forge-1_19_2"   : "platforms/forge/1_19_2",
