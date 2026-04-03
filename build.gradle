@@ -5,7 +5,16 @@ plugins {
     id "dev.architectury.loom" version "1.13.467" apply false
     id "dev.architectury.loom-no-remap" version "1.14.473" apply false
     id "fabric-loom" version "1.15.4" apply false
+    id "me.modmuss50.mod-publish-plugin" version "1.1.0"
     id "net.fabricmc.fabric-loom" version "1.15-SNAPSHOT" apply false
+}
+
+def localSecrets = new Properties()
+def localSecretsFile = rootProject.file("gradle-local.properties")
+if (localSecretsFile.exists()) {
+    localSecretsFile.withInputStream { stream ->
+        localSecrets.load(stream)
+    }
 }
 
 allprojects {
@@ -174,14 +183,21 @@ tasks.register("buildTargetJars") {
     dependsOn("collectTargetJars")
 }
 
-// platform-fabric-26_1 and platform-neoforge-26_1 use loom-no-remap which produces 'jar', not 'remapJar'.
-def noRemapProjects = [":platform-fabric-26_1", ":platform-neoforge-26_1"] as Set
+// platform-neoforge-26_1 uses loom-no-remap which produces 'jar', not 'remapJar'.
+// platform-fabric-26_1 uses net.fabricmc.fabric-loom which still produces 'remapJar'.
+def noRemapProjects = [":platform-neoforge-26_1"] as Set
 
 releaseProjectsByLoader.each { loader, projectPaths ->
     tasks.register("build${loader.capitalize()}Targets") {
         group = "verification"
         description = "Builds every currently wired ${loader} target jar."
         dependsOn(projectPaths.collect { "${it}:build" })
+    }
+
+    tasks.register("build${loader.capitalize()}SmokeTarget") {
+        group = "verification"
+        description = "Builds the newest wired ${loader} target jar as a CI smoke test."
+        dependsOn("${projectPaths.last()}:build")
     }
 
     tasks.register("collect${loader.capitalize()}Jars", Sync) {
@@ -212,9 +228,172 @@ tasks.register("buildAllJars") {
     dependsOn("buildTargetJars")
 }
 
+tasks.register("buildSmokeTargets") {
+    group = "verification"
+    description = "Builds the newest wired target jar for each active loader."
+    dependsOn(
+        "buildFabricSmokeTarget",
+        "buildForgeSmokeTarget",
+        "buildNeoforgeSmokeTarget"
+    )
+}
+
 tasks.register("verifyWorkspace") {
     group = "verification"
     description = "Runs formatting and checks across all modules."
     dependsOn(subprojects.collect { "${it.path}:spotlessCheck" })
     dependsOn(subprojects.collect { "${it.path}:check" })
+}
+
+// ---------------------------------------------------------------------------
+// Publishing — mod-publish-plugin
+// ---------------------------------------------------------------------------
+
+/** Extracts the changelog section for the given version from CHANGELOG.md. */
+def extractChangelog = { String ver ->
+    def text = file("CHANGELOG.md").getText("UTF-8")
+    def header = "## v${ver}"
+    def start = text.indexOf(header)
+    if (start == -1) return "See CHANGELOG.md for ${ver} release notes."
+    def afterHeader = text.indexOf("\n", start) + 1
+    def nextHeader = text.indexOf("\n## ", afterHeader)
+    def body = nextHeader == -1 ? text.substring(afterHeader) : text.substring(afterHeader, nextHeader)
+    return body.trim()
+}
+
+// Minecraft version lists per release target (used by Modrinth and CurseForge).
+// Each jar claims only the MC versions it was compiled for; adjust if needed.
+def mcVersionsForProject = [
+    // Fabric + Quilt
+    "platform-fabric-1_20_1"   : ["1.20.1", "1.20.2"],
+    "platform-fabric-1_20_4"   : ["1.20.3", "1.20.4"],
+    "platform-fabric-1_20_6"   : ["1.20.5", "1.20.6"],
+    "platform-fabric-1_21_1"   : ["1.21", "1.21.1"],
+    "platform-fabric-1_21_4"   : ["1.21.2", "1.21.3", "1.21.4"],
+    "platform-fabric-1_21_9"   : ["1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9"],
+    "platform-fabric-1_21_11"  : ["1.21.10", "1.21.11"],
+    "platform-fabric-26_1"     : ["26.1"],
+    // Forge
+    "platform-forge-1_20_1"    : ["1.20.1", "1.20.2"],
+    "platform-forge-1_20_4"    : ["1.20.3", "1.20.4"],
+    "platform-forge-1_20_6"    : ["1.20.5", "1.20.6"],
+    "platform-forge-1_21_1"    : ["1.21", "1.21.1"],
+    "platform-forge-26_1"      : ["26.1"],
+    // NeoForge
+    "platform-neoforge-1_20_1" : ["1.20.1", "1.20.2"],
+    "platform-neoforge-1_20_4" : ["1.20.3", "1.20.4"],
+    "platform-neoforge-1_20_6" : ["1.20.5", "1.20.6"],
+    "platform-neoforge-1_21_1" : ["1.21", "1.21.1"],
+    "platform-neoforge-1_21_4" : ["1.21.2", "1.21.3", "1.21.4"],
+    "platform-neoforge-1_21_11": ["1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11"],
+    "platform-neoforge-26_1"   : ["26.1"],
+]
+
+def loaderNamesForProject = [
+    "fabric"  : ["fabric", "quilt"],
+    "forge"   : ["forge"],
+    "neoforge": ["neoforge"],
+]
+
+def releaseTargets = []
+releaseProjectsByLoader.each { loader, projectPaths ->
+    projectPaths.each { projectPath ->
+        releaseTargets << [loader: loader, projectName: projectPath.substring(1)]
+    }
+}
+
+def primaryGithubReleaseProject = [
+    loader     : "fabric",
+    projectName: releaseProjectsByLoader.fabric.last().substring(1)
+]
+
+def releaseJarFile = { String loader, String projectName ->
+    def label = releaseArtifactLabels[projectName]
+    if (label == null) {
+        throw new GradleException("Missing release artifact label for ${projectName}")
+    }
+    return layout.projectDirectory.file("${releaseBundleDir}/${loader}/${rootProject.findProperty('modId')}-${label}-${rootProject.version}.jar")
+}
+
+publishMods {
+    def ext = delegate
+
+    ext.changelog = extractChangelog(version as String)
+    // STABLE/BETA/ALPHA are enum constants exposed by the extension delegate — evaluate here.
+    def releaseTypeProp = findProperty("releaseType")?.toString()?.toUpperCase()
+    def publishDryRun = findProperty("publishDryRun")?.toString()?.toBoolean() ?: false
+    ext.type = (releaseTypeProp == "BETA" ? BETA : (releaseTypeProp == "ALPHA" ? ALPHA : STABLE))
+    ext.maxRetries = 5
+    ext.dryRun = publishDryRun
+
+    def modrinthToken = providers.environmentVariable("MODRINTH_TOKEN").orNull
+        ?: localSecrets.getProperty("modrinthToken")
+    def modrinthProjectId = findProperty("modrinthProjectId")?.toString()
+    def githubRepo = findProperty("githubRepo")?.toString()
+    def githubToken = providers.environmentVariable("GITHUB_TOKEN").orNull
+        ?: providers.environmentVariable("GH_TOKEN").orNull
+
+    if (githubToken == null) {
+        try {
+            def stdout = new ByteArrayOutputStream()
+            exec {
+                commandLine("gh", "auth", "token")
+                standardOutput = stdout
+                errorOutput = new ByteArrayOutputStream()
+                ignoreExitValue = true
+            }
+            def ghToken = stdout.toString("UTF-8").trim()
+            githubToken = ghToken ? ghToken : null
+        } catch (Exception ignored) {
+            githubToken = null
+        }
+    }
+
+    def mrOptions = (modrinthToken != null && modrinthProjectId != null) ? ext.modrinthOptions {
+        accessToken = modrinthToken
+        projectId = modrinthProjectId
+    } : null
+
+    // Create one Modrinth entry per release jar.
+    releaseTargets.each { target ->
+        def safeName = target.projectName.replace("-", "_")
+        def mcVersions = mcVersionsForProject[target.projectName]
+        def loaders = loaderNamesForProject[target.loader]
+        def builtJar = releaseJarFile(target.loader, target.projectName)
+
+        if (mrOptions != null) {
+            ext.modrinth("mr_${safeName}") {
+                from mrOptions
+                file = builtJar
+                modLoaders.addAll(loaders)
+                if (mcVersions) minecraftVersions.addAll(mcVersions)
+                if (target.loader == "fabric") {
+                    requires {
+                        slug = "fabric-api"
+                    }
+                }
+            }
+        }
+    }
+
+    if (githubToken != null && githubRepo != null) {
+        def primaryJar = releaseJarFile(primaryGithubReleaseProject.loader, primaryGithubReleaseProject.projectName)
+        def extraReleaseJars = releaseTargets
+            .findAll { it.projectName != primaryGithubReleaseProject.projectName || it.loader != primaryGithubReleaseProject.loader }
+            .collect { releaseJarFile(it.loader, it.projectName) }
+
+        // GitHub release — attach every collected jar and use the newest Fabric target as the primary asset.
+        ext.github {
+            accessToken = githubToken
+            repository = githubRepo
+            commitish = "main"
+            tagName = "v${version}"
+            file = primaryJar
+            additionalFiles.from(extraReleaseJars)
+        }
+    }
+}
+
+tasks.named("publishMods").configure {
+    dependsOn("buildTargetJars")
 }

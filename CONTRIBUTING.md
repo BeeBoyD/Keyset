@@ -14,12 +14,18 @@
 - `release/*`: release prep, metadata, changelog, and README polish.
 
 ## Build Commands
-- Use JDK 17 for the current Fabric 1.20.1 target line.
+- Use Gradle toolchains instead of pinning your shell JDK to one Minecraft line.
+- CI uses JDK 25 and lets Gradle provision lower toolchains for older targets when needed.
 - `./gradlew build`
 - `./gradlew buildRepresentativeTarget`
+- `./gradlew buildSmokeTargets`
+- `./gradlew buildFabricSmokeTarget`
+- `./gradlew buildForgeSmokeTarget`
+- `./gradlew buildNeoforgeSmokeTarget`
 - `./gradlew buildTargetJars`
 - `./gradlew collectTargetJars`
 - `./gradlew verifyWorkspace`
+- `./gradlew publishMods -PpublishDryRun=true`
 
 Release jars are collected into `builtJars/<version>/<loader>`.
 
