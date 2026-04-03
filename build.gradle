@@ -200,9 +200,13 @@ releaseProjectsByLoader.each { loader, projectPaths ->
         description = "Copies the current remapped ${loader} jars into ${releaseBundleDir}/${loader}."
         into(layout.projectDirectory.dir("${releaseBundleDir}/${loader}"))
         projectPaths.each { projectPath ->
+            def projectName = projectPath.substring(1)
             def jarTaskName = jarTaskOverrides.get(projectPath, "remapJar")
+            def releaseLabel = releaseArtifactLabels[projectName]
             dependsOn("${projectPath}:${jarTaskName}")
-            from(project(projectPath).tasks.named(jarTaskName).flatMap { it.archiveFile })
+            from(project(projectPath).tasks.named(jarTaskName).flatMap { it.archiveFile }) {
+                rename { "${rootProject.findProperty('modId')}-${releaseLabel}-${rootProject.version}.jar" }
+            }
         }
     }
 }
