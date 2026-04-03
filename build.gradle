@@ -168,9 +168,12 @@ tasks.register("buildTargetJars") {
     )
 }
 
-// platform-neoforge-26_1 uses loom-no-remap which produces 'jar', not 'remapJar'.
-// platform-fabric-26_1 uses net.fabricmc.fabric-loom which still produces 'remapJar'.
-def noRemapProjects = [":platform-neoforge-26_1"] as Set
+// Most active leaves publish remapped jars, but the 26.1 Fabric and NeoForge lines
+// currently expose only the plain `jar` task in CI.
+def jarTaskOverrides = [
+    ":platform-fabric-26_1"  : "jar",
+    ":platform-neoforge-26_1": "jar"
+]
 
 releaseProjectsByLoader.each { loader, projectPaths ->
     tasks.register("build${loader.capitalize()}Targets") {
@@ -190,7 +193,7 @@ releaseProjectsByLoader.each { loader, projectPaths ->
         description = "Copies the current remapped ${loader} jars into ${releaseBundleDir}/${loader}."
         into(layout.projectDirectory.dir("${releaseBundleDir}/${loader}"))
         projectPaths.each { projectPath ->
-            def jarTaskName = noRemapProjects.contains(projectPath) ? "jar" : "remapJar"
+            def jarTaskName = jarTaskOverrides.get(projectPath, "remapJar")
             dependsOn("${projectPath}:${jarTaskName}")
             from(project(projectPath).tasks.named(jarTaskName).flatMap { it.archiveFile })
         }
