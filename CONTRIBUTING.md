@@ -18,6 +18,7 @@
 - Use Java 25 to run Gradle on this branch. The active release line includes Minecraft 26.1 targets, and Gradle toolchains handle the lower target versions from there.
 - CI also runs on JDK 25.
 - By default, the Gradle workspace includes the active `1.20.1+` release line only. Include legacy maintenance targets with `-PincludeLegacyTargets=true` when you need them.
+- PR CI uses `-PworkspaceProfile=ci`, which keeps the verification job on `core`, all active common shims, and one representative platform per active loader.
 - `./gradlew build`
 - `./gradlew buildRepresentativeTarget`
 - `./gradlew buildSmokeTargets`
@@ -26,6 +27,7 @@
 - `./gradlew buildNeoforgeSmokeTarget`
 - `./gradlew buildTargetJars`
 - `./gradlew collectTargetJars`
+- `./gradlew -PworkspaceProfile=ci verifyCiWorkspace`
 - `./gradlew verifyActiveWorkspace`
 - `./gradlew verifyReleaseBundle`
 - `./gradlew verifyWorkspace`

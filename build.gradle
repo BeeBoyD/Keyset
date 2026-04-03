@@ -236,6 +236,12 @@ tasks.register("verifyActiveWorkspace") {
     dependsOn("verifyWorkspace")
 }
 
+tasks.register("verifyCiWorkspace") {
+    group = "verification"
+    description = "Alias for verifyWorkspace on the reduced CI workspace profile."
+    dependsOn("verifyWorkspace")
+}
+
 // ---------------------------------------------------------------------------
 // Publishing — mod-publish-plugin
 // ---------------------------------------------------------------------------
