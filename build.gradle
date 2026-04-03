@@ -160,8 +160,9 @@ tasks.register("buildRepresentativeTarget") {
 
 tasks.register("buildTargetJars") {
     group = "build"
-    description = "Builds and collects the current release jars into builtJars/<version>/<loader>."
+    description = "Rebuilds the current release bundle into builtJars/<version>/<loader>."
     dependsOn(
+        "cleanReleaseBundle",
         "collectTargetJars",
         "stageReleaseMetadata"
     )
@@ -224,9 +225,15 @@ tasks.register("buildSmokeTargets") {
 
 tasks.register("verifyWorkspace") {
     group = "verification"
-    description = "Runs formatting and checks across all modules."
+    description = "Runs formatting and checks across the currently included workspace."
     dependsOn(subprojects.collect { "${it.path}:spotlessCheck" })
     dependsOn(subprojects.collect { "${it.path}:check" })
+}
+
+tasks.register("verifyActiveWorkspace") {
+    group = "verification"
+    description = "Alias for verifyWorkspace on the active release-line workspace."
+    dependsOn("verifyWorkspace")
 }
 
 // ---------------------------------------------------------------------------
@@ -276,6 +283,12 @@ def releaseJarFile = { Map target ->
     return layout.projectDirectory.file("${releaseBundleDir}/${target.loader}/${rootProject.findProperty('modId')}-${label}-${rootProject.version}.jar")
 }
 
+tasks.register("cleanReleaseBundle", Delete) {
+    group = "build"
+    description = "Deletes the current builtJars/<version> bundle before rebuilding it."
+    delete(layout.projectDirectory.dir(releaseBundleDir))
+}
+
 tasks.register("stageReleaseMetadata") {
     group = "build"
     description = "Writes release metadata files into builtJars/<version>."
@@ -285,6 +298,7 @@ tasks.register("stageReleaseMetadata") {
     def buildInfo = layout.projectDirectory.file("${releaseBundleDir}/BUILD_INFO.md")
 
     outputs.files(githubChangelog, modrinthChangelog, buildInfo)
+    mustRunAfter("cleanReleaseBundle")
 
     doLast {
         def releaseDir = githubChangelog.asFile.parentFile
@@ -333,6 +347,10 @@ tasks.register("verifyReleaseBundle") {
             throw new GradleException("Release bundle is incomplete. Missing:\n - " + missing.join("\n - "))
         }
     }
+}
+
+tasks.named("collectTargetJars") {
+    mustRunAfter("cleanReleaseBundle")
 }
 
 publishMods {

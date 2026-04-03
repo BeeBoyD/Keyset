@@ -106,6 +106,7 @@ Current `1.1.x` release line:
 | 1.21.1 | ✅ | ✅ | ✅ | ✅ |
 | 1.21.2-1.21.4 | ✅ | ✅ | ❌ | ✅ |
 | 1.21.5-1.21.11 | ✅ | ✅ | ❌ | ✅ |
+| 26.1 | ✅ | ✅ | ❌ | ✅ |
 
 Legacy maintenance line:
 
@@ -132,4 +133,4 @@ config/keybindprofiles.json
 
 ## 📍 Status
 
-Current stable release line: `1.1.0`
+Current stable release line on this branch: `1.1.2`

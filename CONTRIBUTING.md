@@ -17,6 +17,7 @@
 ## Build Commands
 - Use Java 25 to run Gradle on this branch. The active release line includes Minecraft 26.1 targets, and Gradle toolchains handle the lower target versions from there.
 - CI also runs on JDK 25.
+- By default, the Gradle workspace includes the active `1.20.1+` release line only. Include legacy maintenance targets with `-PincludeLegacyTargets=true` when you need them.
 - `./gradlew build`
 - `./gradlew buildRepresentativeTarget`
 - `./gradlew buildSmokeTargets`
@@ -25,12 +26,16 @@
 - `./gradlew buildNeoforgeSmokeTarget`
 - `./gradlew buildTargetJars`
 - `./gradlew collectTargetJars`
+- `./gradlew verifyActiveWorkspace`
 - `./gradlew verifyReleaseBundle`
 - `./gradlew verifyWorkspace`
+- `./gradlew -PincludeLegacyTargets=true verifyWorkspace`
 - `./gradlew publishMods -PpublishDryRun=true`
 
 Release jars are collected into `builtJars/<version>/<loader>`.
-GitHub Actions now builds and uploads the canonical `builtJars/` bundle on CI runs.
+Each `buildTargetJars` run replaces the current `builtJars/<version>/` bundle so stale metadata and renamed targets do not linger between releases.
+GitHub Actions now verifies the active workspace on PRs/pushes and builds/uploads the canonical `builtJars/` bundle on CI runs.
+Legacy maintenance verification is available through the manual `Full Workspace Verification` workflow or by passing `-PincludeLegacyTargets=true` locally.
 The bundle also includes generated `GITHUB_CHANGELOG.md`, `MODRINTH_CHANGELOG.md`, and `BUILD_INFO.md` metadata files.
 
 ## Module Layout
