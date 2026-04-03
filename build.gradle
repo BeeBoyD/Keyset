@@ -173,8 +173,11 @@ tasks.register("buildTargetJars") {
 // - Fabric 26.1 and NeoForge 26.1 only expose `jar` in CI
 // - Forge 1.20.6 currently fails remapJar with unfixable Yarn/Forge mapping conflicts
 //   and Architectury does not publish a 1.20.6 forge patch layer
+// - Forge 1.21.1 currently fails remapJar with the same class of conflicts, and there is
+//   no published 1.21.x forge patch layer either
 def jarTaskOverrides = [
     ":platform-forge-1_20_6" : "jar",
+    ":platform-forge-1_21_1" : "jar",
     ":platform-fabric-26_1"  : "jar",
     ":platform-neoforge-26_1": "jar"
 ]
