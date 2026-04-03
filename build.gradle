@@ -17,6 +17,13 @@ if (localSecretsFile.exists()) {
     }
 }
 
+if (!JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_25)) {
+    throw new GradleException(
+        "Keyset's active release line includes Minecraft 26.1 targets, so Gradle itself must run on Java 25 or newer. " +
+            "Use a Java 25 runtime for this branch and let Gradle toolchains handle the lower target versions."
+    )
+}
+
 allprojects {
     group = project.findProperty("projectGroup")
     version = project.findProperty("projectVersion")
@@ -98,67 +105,41 @@ subprojects {
 }
 // The 1.1.x release line ships only the modern 1.20.1+ targets.
 // Legacy leaves stay in the repo for critical-fix maintenance when needed.
-def releaseProjectsByLoader = [
+def releaseTargetSpecsByLoader = [
     fabric   : [
-        ":platform-fabric-1_20_1",
-        ":platform-fabric-1_20_4",
-        ":platform-fabric-1_20_6",
-        ":platform-fabric-1_21_1",
-        ":platform-fabric-1_21_4",
-        ":platform-fabric-1_21_9",
-        ":platform-fabric-1_21_11",
-        ":platform-fabric-26_1"
+        [path: ":platform-fabric-1_20_1", label: "fabric-1.20.1-1.20.2", minecraftVersions: ["1.20.1", "1.20.2"]],
+        [path: ":platform-fabric-1_20_4", label: "fabric-1.20.4", minecraftVersions: ["1.20.3", "1.20.4"]],
+        [path: ":platform-fabric-1_20_6", label: "fabric-1.20.3-1.20.6", minecraftVersions: ["1.20.5", "1.20.6"]],
+        [path: ":platform-fabric-1_21_1", label: "fabric-1.21.1", minecraftVersions: ["1.21", "1.21.1"]],
+        [path: ":platform-fabric-1_21_4", label: "fabric-1.21.4", minecraftVersions: ["1.21.2", "1.21.3", "1.21.4"]],
+        [path: ":platform-fabric-1_21_9", label: "fabric-1.21.9", minecraftVersions: ["1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9"]],
+        [path: ":platform-fabric-1_21_11", label: "fabric-1.21-1.21.11", minecraftVersions: ["1.21.10", "1.21.11"]],
+        [path: ":platform-fabric-26_1", label: "fabric-26.1", minecraftVersions: ["26.1"]]
     ],
     forge    : [
-        ":platform-forge-1_20_1",
-        ":platform-forge-1_20_4",
-        ":platform-forge-1_20_6",
-        ":platform-forge-1_21_1",
-        ":platform-forge-26_1"
+        [path: ":platform-forge-1_20_1", label: "forge-1.20.1-1.20.2", minecraftVersions: ["1.20.1", "1.20.2"]],
+        [path: ":platform-forge-1_20_4", label: "forge-1.20.4", minecraftVersions: ["1.20.3", "1.20.4"]],
+        [path: ":platform-forge-1_20_6", label: "forge-1.20.3-1.20.6", minecraftVersions: ["1.20.5", "1.20.6"]],
+        [path: ":platform-forge-1_21_1", label: "forge-1.21.1", minecraftVersions: ["1.21", "1.21.1"]]
     ],
     neoforge : [
-        ":platform-neoforge-1_20_1",
-        ":platform-neoforge-1_20_4",
-        ":platform-neoforge-1_20_6",
-        ":platform-neoforge-1_21_1",
-        ":platform-neoforge-1_21_4",
-        ":platform-neoforge-1_21_11",
-        ":platform-neoforge-26_1"
+        [path: ":platform-neoforge-1_20_1", label: "neoforge-1.20.1-1.20.2", minecraftVersions: ["1.20.1", "1.20.2"]],
+        [path: ":platform-neoforge-1_20_4", label: "neoforge-1.20.4", minecraftVersions: ["1.20.3", "1.20.4"]],
+        [path: ":platform-neoforge-1_20_6", label: "neoforge-1.20.6", minecraftVersions: ["1.20.5", "1.20.6"]],
+        [path: ":platform-neoforge-1_21_1", label: "neoforge-1.21.1", minecraftVersions: ["1.21", "1.21.1"]],
+        [path: ":platform-neoforge-1_21_4", label: "neoforge-1.21.4", minecraftVersions: ["1.21.2", "1.21.3", "1.21.4"]],
+        [path: ":platform-neoforge-1_21_11", label: "neoforge-1.21-1.21.11", minecraftVersions: ["1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11"]],
+        [path: ":platform-neoforge-26_1", label: "neoforge-26.1", minecraftVersions: ["26.1"]]
     ]
 ]
 
-def releaseArtifactLabels = [
-    "platform-fabric-1_16_5"   : "fabric-1.16.5",
-    "platform-fabric-1_17_1"   : "fabric-1.17.1",
-    "platform-fabric-1_18_2"   : "fabric-1.18.2",
-    "platform-fabric-1_19_2"   : "fabric-1.19.2",
-    "platform-fabric-1_19_4"   : "fabric-1.19.4",
-    "platform-fabric-1_20_1"   : "fabric-1.20.1-1.20.2",
-    "platform-fabric-1_20_4"   : "fabric-1.20.4",
-    "platform-fabric-1_20_6"   : "fabric-1.20.3-1.20.6",
-    "platform-fabric-1_21_1"   : "fabric-1.21.1",
-    "platform-fabric-1_21_4"   : "fabric-1.21.4",
-    "platform-fabric-1_21_9"   : "fabric-1.21.9",
-    "platform-fabric-1_21_11"  : "fabric-1.21-1.21.11",
-    "platform-forge-1_16_5"    : "forge-1.16.5",
-    "platform-forge-1_17_1"    : "forge-1.17.1",
-    "platform-forge-1_18_2"    : "forge-1.18.2",
-    "platform-forge-1_19_2"    : "forge-1.19.2",
-    "platform-forge-1_19_4"    : "forge-1.19.4",
-    "platform-forge-1_20_1"    : "forge-1.20.1-1.20.2",
-    "platform-forge-1_20_4"    : "forge-1.20.4",
-    "platform-forge-1_20_6"    : "forge-1.20.3-1.20.6",
-    "platform-forge-1_21_1"    : "forge-1.21.1",
-    "platform-neoforge-1_20_1" : "neoforge-1.20.1-1.20.2",
-    "platform-neoforge-1_20_4" : "neoforge-1.20.4",
-    "platform-neoforge-1_20_6" : "neoforge-1.20.6",
-    "platform-neoforge-1_21_1" : "neoforge-1.21.1",
-    "platform-neoforge-1_21_4" : "neoforge-1.21.4",
-    "platform-neoforge-1_21_11": "neoforge-1.21-1.21.11",
-    "platform-fabric-26_1"    : "fabric-26.1",
-    "platform-forge-26_1"     : "forge-26.1",
-    "platform-neoforge-26_1"  : "neoforge-26.1"
-]
+def releaseProjectsByLoader = releaseTargetSpecsByLoader.collectEntries { loader, specs ->
+    [loader, specs.collect { it.path }]
+}
+
+def releaseArtifactLabels = releaseTargetSpecsByLoader.values()
+    .flatten()
+    .collectEntries { spec -> [(spec.path.substring(1)): spec.label] }
 
 subprojects {
     tasks.withType(AbstractArchiveTask).configureEach {
@@ -180,7 +161,10 @@ tasks.register("buildRepresentativeTarget") {
 tasks.register("buildTargetJars") {
     group = "build"
     description = "Builds and collects the current release jars into builtJars/<version>/<loader>."
-    dependsOn("collectTargetJars")
+    dependsOn(
+        "collectTargetJars",
+        "stageReleaseMetadata"
+    )
 }
 
 // platform-neoforge-26_1 uses loom-no-remap which produces 'jar', not 'remapJar'.
@@ -261,58 +245,94 @@ def extractChangelog = { String ver ->
     return body.trim()
 }
 
-// Minecraft version lists per release target (used by Modrinth and CurseForge).
-// Each jar claims only the MC versions it was compiled for; adjust if needed.
-def mcVersionsForProject = [
-    // Fabric + Quilt
-    "platform-fabric-1_20_1"   : ["1.20.1", "1.20.2"],
-    "platform-fabric-1_20_4"   : ["1.20.3", "1.20.4"],
-    "platform-fabric-1_20_6"   : ["1.20.5", "1.20.6"],
-    "platform-fabric-1_21_1"   : ["1.21", "1.21.1"],
-    "platform-fabric-1_21_4"   : ["1.21.2", "1.21.3", "1.21.4"],
-    "platform-fabric-1_21_9"   : ["1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9"],
-    "platform-fabric-1_21_11"  : ["1.21.10", "1.21.11"],
-    "platform-fabric-26_1"     : ["26.1"],
-    // Forge
-    "platform-forge-1_20_1"    : ["1.20.1", "1.20.2"],
-    "platform-forge-1_20_4"    : ["1.20.3", "1.20.4"],
-    "platform-forge-1_20_6"    : ["1.20.5", "1.20.6"],
-    "platform-forge-1_21_1"    : ["1.21", "1.21.1"],
-    "platform-forge-26_1"      : ["26.1"],
-    // NeoForge
-    "platform-neoforge-1_20_1" : ["1.20.1", "1.20.2"],
-    "platform-neoforge-1_20_4" : ["1.20.3", "1.20.4"],
-    "platform-neoforge-1_20_6" : ["1.20.5", "1.20.6"],
-    "platform-neoforge-1_21_1" : ["1.21", "1.21.1"],
-    "platform-neoforge-1_21_4" : ["1.21.2", "1.21.3", "1.21.4"],
-    "platform-neoforge-1_21_11": ["1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11"],
-    "platform-neoforge-26_1"   : ["26.1"],
-]
-
 def loaderNamesForProject = [
     "fabric"  : ["fabric", "quilt"],
     "forge"   : ["forge"],
     "neoforge": ["neoforge"],
 ]
 
-def releaseTargets = []
-releaseProjectsByLoader.each { loader, projectPaths ->
-    projectPaths.each { projectPath ->
-        releaseTargets << [loader: loader, projectName: projectPath.substring(1)]
+def releaseTargets = releaseTargetSpecsByLoader.collectMany { loader, specs ->
+    specs.collect { spec ->
+        [
+            loader           : loader,
+            path             : spec.path,
+            projectName      : spec.path.substring(1),
+            label            : spec.label,
+            minecraftVersions: spec.minecraftVersions
+        ]
     }
 }
 
 def primaryGithubReleaseProject = [
     loader     : "fabric",
-    projectName: releaseProjectsByLoader.fabric.last().substring(1)
+    projectName: releaseTargetSpecsByLoader.fabric.last().path.substring(1)
 ]
 
-def releaseJarFile = { String loader, String projectName ->
-    def label = releaseArtifactLabels[projectName]
+def releaseJarFile = { Map target ->
+    def label = target.label ?: releaseArtifactLabels[target.projectName]
     if (label == null) {
-        throw new GradleException("Missing release artifact label for ${projectName}")
+        throw new GradleException("Missing release artifact label for ${target.projectName}")
     }
-    return layout.projectDirectory.file("${releaseBundleDir}/${loader}/${rootProject.findProperty('modId')}-${label}-${rootProject.version}.jar")
+    return layout.projectDirectory.file("${releaseBundleDir}/${target.loader}/${rootProject.findProperty('modId')}-${label}-${rootProject.version}.jar")
+}
+
+tasks.register("stageReleaseMetadata") {
+    group = "build"
+    description = "Writes release metadata files into builtJars/<version>."
+
+    def githubChangelog = layout.projectDirectory.file("${releaseBundleDir}/GITHUB_CHANGELOG.md")
+    def modrinthChangelog = layout.projectDirectory.file("${releaseBundleDir}/MODRINTH_CHANGELOG.md")
+    def buildInfo = layout.projectDirectory.file("${releaseBundleDir}/BUILD_INFO.md")
+
+    outputs.files(githubChangelog, modrinthChangelog, buildInfo)
+
+    doLast {
+        def releaseDir = githubChangelog.asFile.parentFile
+        releaseDir.mkdirs()
+
+        def changelogBody = extractChangelog(version as String) + "\n"
+        githubChangelog.asFile.text = changelogBody
+        modrinthChangelog.asFile.text = changelogBody
+
+        def lines = [
+            "# Keyset ${version} Build Bundle",
+            "",
+            "Generated by `./gradlew buildTargetJars`.",
+            "",
+            "## Included Targets"
+        ]
+        releaseTargets.each { target ->
+            lines << "- `${rootProject.findProperty('modId')}-${target.label}-${version}.jar`"
+        }
+        buildInfo.asFile.text = lines.join("\n") + "\n"
+    }
+}
+
+tasks.register("verifyReleaseBundle") {
+    group = "verification"
+    description = "Verifies that buildTargetJars produced the expected builtJars bundle."
+    dependsOn("buildTargetJars")
+
+    doLast {
+        def missing = releaseTargets.collect { target ->
+            def jarFile = releaseJarFile(target).asFile
+            jarFile.exists() ? null : jarFile.path
+        }.findAll { it != null }
+
+        [
+            layout.projectDirectory.file("${releaseBundleDir}/GITHUB_CHANGELOG.md").asFile,
+            layout.projectDirectory.file("${releaseBundleDir}/MODRINTH_CHANGELOG.md").asFile,
+            layout.projectDirectory.file("${releaseBundleDir}/BUILD_INFO.md").asFile
+        ].each { metadataFile ->
+            if (!metadataFile.exists()) {
+                missing << metadataFile.path
+            }
+        }
+
+        if (!missing.isEmpty()) {
+            throw new GradleException("Release bundle is incomplete. Missing:\n - " + missing.join("\n - "))
+        }
+    }
 }
 
 publishMods {
@@ -357,16 +377,15 @@ publishMods {
     // Create one Modrinth entry per release jar.
     releaseTargets.each { target ->
         def safeName = target.projectName.replace("-", "_")
-        def mcVersions = mcVersionsForProject[target.projectName]
         def loaders = loaderNamesForProject[target.loader]
-        def builtJar = releaseJarFile(target.loader, target.projectName)
+        def builtJar = releaseJarFile(target)
 
         if (mrOptions != null) {
             ext.modrinth("mr_${safeName}") {
                 from mrOptions
                 file = builtJar
                 modLoaders.addAll(loaders)
-                if (mcVersions) minecraftVersions.addAll(mcVersions)
+                if (target.minecraftVersions) minecraftVersions.addAll(target.minecraftVersions)
                 if (target.loader == "fabric") {
                     requires {
                         slug = "fabric-api"
@@ -377,10 +396,13 @@ publishMods {
     }
 
     if (githubToken != null && githubRepo != null) {
-        def primaryJar = releaseJarFile(primaryGithubReleaseProject.loader, primaryGithubReleaseProject.projectName)
+        def primaryTarget = releaseTargets.find {
+            it.loader == primaryGithubReleaseProject.loader && it.projectName == primaryGithubReleaseProject.projectName
+        }
+        def primaryJar = releaseJarFile(primaryTarget)
         def extraReleaseJars = releaseTargets
             .findAll { it.projectName != primaryGithubReleaseProject.projectName || it.loader != primaryGithubReleaseProject.loader }
-            .collect { releaseJarFile(it.loader, it.projectName) }
+            .collect { releaseJarFile(it) }
 
         // GitHub release — attach every collected jar and use the newest Fabric target as the primary asset.
         ext.github {

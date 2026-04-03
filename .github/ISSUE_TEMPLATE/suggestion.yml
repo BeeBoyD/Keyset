@@ -1,0 +1,27 @@
+name: Suggestion
+description: Suggest a feature, workflow, or UX improvement for Keyset.
+labels: ["request"]
+title: "[Suggestion] "
+body:
+  - type: textarea
+    attributes:
+      label: Description
+      description: >
+        Describe the suggestion, why it would help, and any constraints or examples that should be considered.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Use case
+      description: Explain the problem this would solve for you or for other modpack players.
+    validations:
+      required: true
+  - type: checkboxes
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched open and closed issues and did not find the same suggestion already requested.
+          required: true
+  - type: markdown
+    attributes:
+      value: "Thanks for the suggestion. We will review it as time allows."

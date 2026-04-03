@@ -5,6 +5,7 @@
 - Use `develop` as the integration branch for ongoing work.
 - Keep Minecraft version-range work isolated from feature work.
 - Update `README.md` and `CHANGELOG.md` after each coherent chunk.
+- Use the GitHub issue forms for bug reports and suggestions so loader/version/log details stay consistent.
 
 ## Branch Roles
 - `feature/*`: generic features and UI work.
@@ -14,8 +15,8 @@
 - `release/*`: release prep, metadata, changelog, and README polish.
 
 ## Build Commands
-- Use Gradle toolchains instead of pinning your shell JDK to one Minecraft line.
-- CI uses JDK 25 and lets Gradle provision lower toolchains for older targets when needed.
+- Use Java 25 to run Gradle on this branch. The active release line includes Minecraft 26.1 targets, and Gradle toolchains handle the lower target versions from there.
+- CI also runs on JDK 25.
 - `./gradlew build`
 - `./gradlew buildRepresentativeTarget`
 - `./gradlew buildSmokeTargets`
@@ -24,10 +25,13 @@
 - `./gradlew buildNeoforgeSmokeTarget`
 - `./gradlew buildTargetJars`
 - `./gradlew collectTargetJars`
+- `./gradlew verifyReleaseBundle`
 - `./gradlew verifyWorkspace`
 - `./gradlew publishMods -PpublishDryRun=true`
 
 Release jars are collected into `builtJars/<version>/<loader>`.
+GitHub Actions now builds and uploads the canonical `builtJars/` bundle on CI runs.
+The bundle also includes generated `GITHUB_CHANGELOG.md`, `MODRINTH_CHANGELOG.md`, and `BUILD_INFO.md` metadata files.
 
 ## Module Layout
 - `core`: loader-agnostic logic, data models, serialization, conflict engine, auto-resolve engine, and UI contracts.
@@ -39,3 +43,4 @@ Release jars are collected into `builtJars/<version>/<loader>`.
 - Keep version shims small and explicit.
 - Do not add polling-heavy runtime behavior.
 - Document public APIs and unusual compatibility decisions.
+- Pull requests should summarize affected loaders/version ranges and include verification notes.

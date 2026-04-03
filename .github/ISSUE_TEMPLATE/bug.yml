@@ -1,0 +1,77 @@
+name: Bug Report
+description: Report a bug in Keyset.
+labels: ["bug"]
+title: "[Bug] "
+body:
+  - type: textarea
+    attributes:
+      label: Description
+      description: >
+        Describe the issue clearly. Explain what happened, what you expected to happen,
+        and include screenshots or short videos if they help.
+    validations:
+      required: true
+  - type: checkboxes
+    attributes:
+      label: Before submitting
+      options:
+        - label: I tested this on the latest available Keyset build for my loader and Minecraft version.
+          required: true
+        - label: I searched open and closed issues and did not find a matching report.
+          required: true
+  - type: dropdown
+    id: loader
+    attributes:
+      label: Loader
+      description: Select the loader where the bug happens.
+      options:
+        - Fabric
+        - Forge
+        - NeoForge
+    validations:
+      required: true
+  - type: dropdown
+    id: minecraft-range
+    attributes:
+      label: Minecraft version range
+      description: Select the closest matching supported range.
+      options:
+        - 1.20.1-1.20.2
+        - 1.20.3-1.20.4
+        - 1.20.5-1.20.6
+        - 1.21-1.21.1
+        - 1.21.2-1.21.4
+        - 1.21.5-1.21.11
+        - 26.1
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Keyset version
+      description: Enter the exact Keyset version, for example `1.1.2`.
+      placeholder: 1.1.2
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+      description: List the smallest set of steps needed to reproduce the issue.
+      placeholder: |
+        1. Open Controls
+        2. Click Keyset
+        3. Switch to profile X
+        4. Observe the incorrect behavior
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Game log
+      description: >
+        Upload `logs/latest.log` or the relevant crash log to https://mclo.gs/ and paste the link here.
+        Please do not paste the raw log contents into the issue.
+      placeholder: https://mclo.gs/...
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: "Thanks for taking the time to report this and help improve Keyset."

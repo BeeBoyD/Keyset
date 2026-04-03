@@ -17,6 +17,7 @@ build/
 run/
 logs/
 builtJars/*
+builtJars/.DS_Store
 !builtJars/1.0.0/
 !builtJars/1.0.0/**
 !builtJars/1.1.0/
@@ -25,6 +26,7 @@ builtJars/*
 !builtJars/1.1.1/**
 !builtJars/1.1.2/
 !builtJars/1.1.2/**
+builtJars/**/.DS_Store
 
 # Misc
 out/
