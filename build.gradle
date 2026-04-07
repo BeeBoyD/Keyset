@@ -5,7 +5,7 @@ plugins {
     id "dev.architectury.loom" version "1.13.467" apply false
     id "dev.architectury.loom-no-remap" version "1.14.473" apply false
     id "fabric-loom" version "1.15.4" apply false
-    id "me.modmuss50.mod-publish-plugin" version "1.1.0"
+    id "me.modmuss50.mod-publish-plugin" version "1.1.0" apply false
     id "net.fabricmc.fabric-loom" version "1.15-SNAPSHOT" apply false
 }
 
@@ -489,94 +489,156 @@ tasks.named("collectTargetJars") {
     mustRunAfter("cleanReleaseBundle")
 }
 
-publishMods {
-    def ext = delegate
+// ---------------------------------------------------------------------------
+// Modrinth publishing — direct REST API, no plugin required
+// ---------------------------------------------------------------------------
 
-    ext.changelog = extractChangelog(version as String)
-    // STABLE/BETA/ALPHA are enum constants exposed by the extension delegate — evaluate here.
-    def releaseTypeProp = findProperty("releaseType")?.toString()?.toUpperCase()
-    def publishDryRun = findProperty("publishDryRun")?.toString()?.toBoolean() ?: false
-    ext.type = (releaseTypeProp == "BETA" ? BETA : (releaseTypeProp == "ALPHA" ? ALPHA : STABLE))
-    ext.maxRetries = 5
-    ext.dryRun = publishDryRun
-
-    def modrinthToken = System.getenv("MODRINTH_TOKEN")
-        ?: localSecrets.getProperty("modrinthToken")
-    def modrinthProjectId = findProperty("modrinthProjectId")?.toString()
-    def githubRepo = findProperty("githubRepo")?.toString()
-    def githubToken = providers.environmentVariable("GITHUB_TOKEN").orNull
-        ?: providers.environmentVariable("GH_TOKEN").orNull
-
-    if (githubToken == null) {
-        try {
-            def stdout = new ByteArrayOutputStream()
-            exec {
-                commandLine("gh", "auth", "token")
-                standardOutput = stdout
-                errorOutput = new ByteArrayOutputStream()
-                ignoreExitValue = true
-            }
-            def ghToken = stdout.toString("UTF-8").trim()
-            githubToken = ghToken ? ghToken : null
-        } catch (Exception ignored) {
-            githubToken = null
-        }
-    }
-
-    def mrOptions = (modrinthToken != null && modrinthProjectId != null) ? ext.modrinthOptions {
-        accessToken = modrinthToken
-        projectId = modrinthProjectId
-    } : null
-
-    // Create one Modrinth entry per release jar.
-    activeReleaseTargets.each { target ->
-        def safeName = target.projectName.replace("-", "_")
-        def loaders = loaderNamesForProject[target.loader]
-        def builtJar = releaseJarFile(target)
-
-        if (mrOptions != null) {
-            ext.modrinth("mr_${safeName}") {
-                from mrOptions
-                file = builtJar
-                modLoaders.addAll(loaders)
-                if (target.minecraftVersions) minecraftVersions.addAll(target.minecraftVersions)
-                if (target.loader == "fabric") {
-                    requires {
-                        slug = "fabric-api"
-                    }
-                }
-            }
-        }
-    }
-
-    def skipGitHub = findProperty("noGitHub")?.toString()?.toBoolean() ?: false
-    if (!skipGitHub && githubToken != null && githubRepo != null) {
-        def primaryTarget = releaseTargets.find {
-            it.loader == primaryGithubReleaseProject.loader && it.projectName == primaryGithubReleaseProject.projectName
-        }
-        def primaryJar = releaseJarFile(primaryTarget)
-        def extraReleaseJars = releaseTargets
-            .findAll { it.projectName != primaryGithubReleaseProject.projectName || it.loader != primaryGithubReleaseProject.loader }
-            .collect { releaseJarFile(it) }
-
-        // GitHub release — attach every collected jar and use the newest Fabric target as the primary asset.
-        ext.github {
-            accessToken = githubToken
-            repository = githubRepo
-            commitish = "main"
-            tagName = "v${version}"
-            file = primaryJar
-            additionalFiles.from(extraReleaseJars)
-        }
-    }
-}
-
-tasks.named("publishMods").configure {
+tasks.register("publishToModrinth") {
+    group = "publishing"
+    description = "Uploads built jars to Modrinth via the REST API."
     dependsOn("buildSelectedTargets")
+    outputs.upToDateWhen { false }
+    doNotTrackState("Network publish — must always run")
+
+    doLast {
+        def token = System.getenv("MODRINTH_TOKEN") ?: localSecrets.getProperty("modrinthToken")
+        if (!token) {
+            throw new GradleException(
+                "MODRINTH_TOKEN is not set. " +
+                "Add it as a repository secret (CI) or in gradle-local.properties (local)."
+            )
+        }
+
+        def projectId     = findProperty("modrinthProjectId")?.toString()
+        def versionStr    = version as String
+        def releaseType   = findProperty("releaseType")?.toString()?.toLowerCase() ?: "stable"
+        def versionType   = (releaseType == "stable") ? "release" : releaseType
+        def dryRun        = findProperty("publishDryRun")?.toString()?.toBoolean() ?: false
+        def changelog     = extractChangelog(versionStr)
+        def CRLF          = "\r\n"
+
+        activeReleaseTargets.each { target ->
+            def jarFile = releaseJarFile(target).asFile
+            if (!jarFile.exists()) {
+                throw new GradleException("Jar not found: ${jarFile}. Run buildSelectedTargets first.")
+            }
+
+            def loaders = loaderNamesForProject[target.loader]
+            def deps    = (target.loader == "fabric")
+                ? [[project_id: "P7dR8mSH", dependency_type: "required"]]   // Fabric API
+                : []
+
+            def meta = [
+                name          : "${rootProject.findProperty('modName')} ${versionStr}",
+                version_number: "${versionStr}+${target.label}",
+                changelog     : changelog,
+                dependencies  : deps,
+                game_versions : target.minecraftVersions,
+                version_type  : versionType,
+                loaders       : loaders,
+                featured      : false,
+                project_id    : projectId,
+                file_parts    : ["file"]
+            ]
+
+            if (dryRun) {
+                logger.lifecycle("[DRY RUN] ${jarFile.name} → Modrinth ${meta.version_number} (${versionType}, loaders=${loaders}, mc=${target.minecraftVersions})")
+                return
+            }
+
+            def boundary = "KeysetBoundary${UUID.randomUUID().toString().replace('-', '')}"
+            def metaJson = groovy.json.JsonOutput.toJson(meta)
+            def body     = new ByteArrayOutputStream()
+            def w        = { String s -> body.write(s.getBytes("UTF-8")) }
+
+            w("--${boundary}${CRLF}")
+            w("Content-Disposition: form-data; name=\"data\"${CRLF}")
+            w("Content-Type: application/json${CRLF}${CRLF}")
+            w(metaJson)
+            w("${CRLF}--${boundary}${CRLF}")
+            w("Content-Disposition: form-data; name=\"file\"; filename=\"${jarFile.name}\"${CRLF}")
+            w("Content-Type: application/java-archive${CRLF}${CRLF}")
+            body.write(jarFile.bytes)
+            w("${CRLF}--${boundary}--${CRLF}")
+
+            def url  = new URL("https://api.modrinth.com/v2/version")
+            def conn = (HttpURLConnection) url.openConnection()
+            conn.requestMethod = "POST"
+            conn.doOutput      = true
+            conn.connectTimeout = 30_000
+            conn.readTimeout    = 60_000
+            conn.setRequestProperty("Authorization", token)
+            conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=${boundary}")
+            conn.setRequestProperty("User-Agent", "BeeBoyD/Keyset/${versionStr} (gradle-direct)")
+
+            def bodyBytes = body.toByteArray()
+            conn.setRequestProperty("Content-Length", String.valueOf(bodyBytes.length))
+            conn.outputStream.write(bodyBytes)
+            conn.outputStream.close()
+
+            def code     = conn.responseCode
+            def response = (code < 300 ? conn.inputStream : conn.errorStream)?.getText("UTF-8") ?: ""
+            if (code in 200..299) {
+                logger.lifecycle("Modrinth: published ${jarFile.name} (HTTP ${code})")
+            } else {
+                throw new GradleException("Modrinth upload failed for ${jarFile.name} (HTTP ${code}):\n${response}")
+            }
+        }
+    }
 }
 
-// Publish tasks hit the network — they must never be skipped as up-to-date or restored from cache.
-tasks.matching { it.name.startsWith("publish") }.configureEach {
+// ---------------------------------------------------------------------------
+// GitHub release publishing — gh CLI
+// ---------------------------------------------------------------------------
+
+tasks.register("publishToGitHub") {
+    group = "publishing"
+    description = "Creates or updates a GitHub release and attaches all built jars."
+    dependsOn("buildSelectedTargets")
     outputs.upToDateWhen { false }
-    doNotTrackState("Network publish task — must always execute")
+    doNotTrackState("Network publish — must always run")
+
+    doLast {
+        def skipGitHub = findProperty("noGitHub")?.toString()?.toBoolean() ?: false
+        if (skipGitHub) { logger.lifecycle("GitHub publish skipped (-PnoGitHub=true)"); return }
+
+        def githubRepo = findProperty("githubRepo")?.toString()
+        if (!githubRepo) { logger.warn("githubRepo not set — skipping GitHub release"); return }
+
+        def versionStr = version as String
+        def tagName    = "v${versionStr}"
+        def releaseType = findProperty("releaseType")?.toString()?.toLowerCase() ?: "stable"
+        def dryRun     = findProperty("publishDryRun")?.toString()?.toBoolean() ?: false
+        def changelogFile = layout.projectDirectory.file("${releaseBundleDir}/GITHUB_CHANGELOG.md").asFile
+        def changelogText = changelogFile.exists() ? changelogFile.text : extractChangelog(versionStr)
+
+        def jarFiles = activeReleaseTargets.collect { releaseJarFile(it).asFile }.findAll { it.exists() }
+
+        if (dryRun) {
+            logger.lifecycle("[DRY RUN] Would create GitHub release ${tagName} with ${jarFiles.size()} jar(s)")
+            return
+        }
+
+        def cmd = ["gh", "release", "create", tagName,
+                   "--repo", githubRepo,
+                   "--title", "Keyset ${versionStr}",
+                   "--notes", changelogText]
+        if (releaseType != "stable") cmd += ["--prerelease"]
+        cmd += jarFiles.collect { it.absolutePath }
+
+        exec {
+            commandLine(cmd)
+            environment("GH_TOKEN", System.getenv("GITHUB_TOKEN") ?: System.getenv("GH_TOKEN") ?: "")
+        }
+        logger.lifecycle("GitHub: created release ${tagName} with ${jarFiles.size()} jar(s)")
+    }
+}
+
+// Convenience aggregate matching old publishMods name used in release.yml
+tasks.register("publishMods") {
+    group = "publishing"
+    description = "Publishes to Modrinth and optionally GitHub."
+    dependsOn("publishToModrinth")
+    def skipGitHub = findProperty("noGitHub")?.toString()?.toBoolean() ?: false
+    if (!skipGitHub) dependsOn("publishToGitHub")
 }

@@ -96,7 +96,7 @@ jobs:
 
       - name: Publish to Modrinth (beta)
         if: steps.targets.outputs.should_build == 'true'
-        run: ./gradlew publishMods -PbuildTargets=${{ steps.targets.outputs.targets }} -PreleaseType=beta -PnoGitHub=true --no-build-cache
+        run: ./gradlew publishToModrinth -PbuildTargets=${{ steps.targets.outputs.targets }} -PreleaseType=beta
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
 
