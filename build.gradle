@@ -500,7 +500,7 @@ publishMods {
     ext.maxRetries = 5
     ext.dryRun = publishDryRun
 
-    def modrinthToken = providers.environmentVariable("MODRINTH_TOKEN").orNull
+    def modrinthToken = System.getenv("MODRINTH_TOKEN")
         ?: localSecrets.getProperty("modrinthToken")
     def modrinthProjectId = findProperty("modrinthProjectId")?.toString()
     def githubRepo = findProperty("githubRepo")?.toString()
