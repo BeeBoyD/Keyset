@@ -10,7 +10,7 @@ on:
         options: [stable, beta, alpha]
         default: stable
       dry-run:
-        description: Publish as dry run only
+        description: Dry run (generate outputs without publishing)
         required: true
         type: boolean
         default: false

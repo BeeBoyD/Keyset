@@ -51,6 +51,8 @@ jobs:
     name: Build and Publish Beta
     runs-on: ubuntu-latest
     needs: verify-workspace
+    # Skip for pull requests — secrets are not available and we never publish from PRs
+    if: github.event_name != 'pull_request'
 
     steps:
       - uses: actions/checkout@v4
@@ -93,7 +95,7 @@ jobs:
         run: ./gradlew buildSelectedTargets -PbuildTargets=${{ steps.targets.outputs.targets }}
 
       - name: Publish to Modrinth (beta)
-        if: steps.targets.outputs.should_build == 'true' && env.MODRINTH_TOKEN != ''
+        if: steps.targets.outputs.should_build == 'true' && secrets.MODRINTH_TOKEN != ''
         run: ./gradlew publishMods -PbuildTargets=${{ steps.targets.outputs.targets }} -PreleaseType=beta -PnoGitHub=true
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
