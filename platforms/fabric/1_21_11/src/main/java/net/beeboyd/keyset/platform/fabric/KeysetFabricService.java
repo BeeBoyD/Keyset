@@ -5,8 +5,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -411,7 +411,9 @@ public final class KeysetFabricService {
     save(client);
   }
 
-  /** @deprecated Use {@link #undoAutoResolve(MinecraftClient)} instead. */
+  /**
+   * @deprecated Use {@link #undoAutoResolve(MinecraftClient)} instead.
+   */
   @Deprecated
   public void undoAutoResolve(MinecraftClient client, UndoState undoState) throws IOException {
     undoAutoResolve(client);
@@ -623,16 +625,13 @@ public final class KeysetFabricService {
       throws IOException {
     // Try .bak, then .bak1, then .bak2.
     Path[] backupPaths = {
-      backupConfigPath(client),
-      backupConfigPath1(client),
-      backupConfigPath2(client)
+      backupConfigPath(client), backupConfigPath1(client), backupConfigPath2(client)
     };
 
     for (Path backupPath : backupPaths) {
       if (Files.exists(backupPath)) {
         try {
-          KeysetProfilesConfig recoveredConfig =
-              KeysetProfiles.normalize(codec.read(backupPath));
+          KeysetProfilesConfig recoveredConfig = KeysetProfiles.normalize(codec.read(backupPath));
           recoveredConfig = seedStarterProfiles(client.options, recoveredConfig);
           config = recoveredConfig;
           save(client);

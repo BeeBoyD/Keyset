@@ -1602,12 +1602,10 @@ public final class KeysetScreen extends Screen {
         () -> {
           String nameText = profileNameField.getText().trim();
           if (nameText.isEmpty()) {
-            setStatus(
-                Text.translatable("keyset.error.profile_name_blank").getString(), true);
+            setStatus(Text.translatable("keyset.error.profile_name_blank").getString(), true);
             return;
           }
-          String createdProfileId =
-              service.createProfileFromCurrent(client, nameText);
+          String createdProfileId = service.createProfileFromCurrent(client, nameText);
           previewPlan = null;
           reloadState(createdProfileId, null);
           setStatus(Text.translatable("keyset.status.profile_created").getString(), false);
@@ -1629,8 +1627,7 @@ public final class KeysetScreen extends Screen {
         () -> {
           String nameText = profileNameField.getText().trim();
           if (nameText.isEmpty()) {
-            setStatus(
-                Text.translatable("keyset.error.profile_name_blank").getString(), true);
+            setStatus(Text.translatable("keyset.error.profile_name_blank").getString(), true);
             return;
           }
           service.renameProfile(client, selectedProfileId, nameText);
@@ -1654,8 +1651,7 @@ public final class KeysetScreen extends Screen {
               if (confirmed) {
                 runAction(
                     () -> {
-                      String fallbackProfileId =
-                          service.deleteProfile(client, selectedProfileId);
+                      String fallbackProfileId = service.deleteProfile(client, selectedProfileId);
                       previewPlan = null;
                       reloadState(fallbackProfileId, null);
                       setStatus(
