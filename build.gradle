@@ -623,19 +623,23 @@ tasks.register("publishToGitHub") {
         }
 
         def ghToken = System.getenv("GITHUB_TOKEN") ?: System.getenv("GH_TOKEN") ?: ""
+        def runGh = { List<String> command ->
+            def output = providers.exec {
+                commandLine(command)
+                environment("GH_TOKEN", ghToken)
+                ignoreExitValue = true
+            }
+            def result = output.result.get()
+            return [
+                exitValue: result.exitValue,
+                stdout   : output.standardOutput.asText.get(),
+                stderr   : output.standardError.asText.get()
+            ]
+        }
 
         def releaseExists = false
-        try {
-            exec {
-                commandLine(["gh", "release", "view", tagName, "--repo", githubRepo])
-                environment("GH_TOKEN", ghToken)
-                standardOutput = new ByteArrayOutputStream()
-                errorOutput = new ByteArrayOutputStream()
-            }
-            releaseExists = true
-        } catch (Exception ignored) {
-            releaseExists = false
-        }
+        def viewResult = runGh(["gh", "release", "view", tagName, "--repo", githubRepo])
+        releaseExists = (viewResult.exitValue == 0)
 
         if (!releaseExists) {
             def cmd = ["gh", "release", "create", tagName,
@@ -644,17 +648,23 @@ tasks.register("publishToGitHub") {
                        "--notes", changelogText]
             if (releaseType != "stable") cmd += ["--prerelease"]
             cmd += jarFiles.collect { it.absolutePath }
-            exec {
-                commandLine(cmd)
-                environment("GH_TOKEN", ghToken)
+            def createResult = runGh(cmd)
+            if (createResult.exitValue != 0) {
+                throw new GradleException(
+                    "GitHub release creation failed for ${tagName} (exit ${createResult.exitValue}):\n" +
+                        "${createResult.stderr ?: createResult.stdout}"
+                )
             }
             logger.lifecycle("GitHub: created release ${tagName} with ${jarFiles.size()} jar(s)")
         } else {
             def uploadCmd = ["gh", "release", "upload", tagName, "--repo", githubRepo, "--clobber"]
             uploadCmd += jarFiles.collect { it.absolutePath }
-            exec {
-                commandLine(uploadCmd)
-                environment("GH_TOKEN", ghToken)
+            def uploadResult = runGh(uploadCmd)
+            if (uploadResult.exitValue != 0) {
+                throw new GradleException(
+                    "GitHub release upload failed for ${tagName} (exit ${uploadResult.exitValue}):\n" +
+                        "${uploadResult.stderr ?: uploadResult.stdout}"
+                )
             }
             logger.lifecycle("GitHub: uploaded ${jarFiles.size()} jar(s) to existing release ${tagName}")
         }
