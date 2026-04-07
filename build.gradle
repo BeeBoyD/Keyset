@@ -380,8 +380,11 @@ tasks.register("verifyActiveWorkspace") {
 
 tasks.register("verifyCiWorkspace") {
     group = "verification"
-    description = "Alias for verifyWorkspace on the reduced CI workspace profile."
-    dependsOn("verifyWorkspace")
+    description = "CI-optimised verification: spotless on all modules, compile+test only on core and common."
+    dependsOn("verifyFabricModRanges")
+    dependsOn(subprojects.collect { "${it.path}:spotlessCheck" })
+    def coreAndCommon = subprojects.findAll { it.name == "core" || it.name.startsWith("common-") }
+    dependsOn(coreAndCommon.collect { "${it.path}:check" })
 }
 
 // ---------------------------------------------------------------------------

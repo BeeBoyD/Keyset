@@ -44,7 +44,6 @@ jobs:
           name: test-results
           path: |
             modules/**/build/reports/tests/
-            platforms/**/build/reports/tests/
           if-no-files-found: ignore
 
   build-and-publish:
@@ -107,4 +106,4 @@ jobs:
           name: builtJars-${{ github.run_number }}
           path: builtJars/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 14
