@@ -141,6 +141,35 @@ def releaseArtifactLabels = releaseTargetSpecsByLoader.values()
     .flatten()
     .collectEntries { spec -> [(spec.path.substring(1)): spec.label] }
 
+def releaseTargets = releaseTargetSpecsByLoader.collectMany { loader, specs ->
+    specs.collect { spec ->
+        [
+            loader           : loader,
+            path             : spec.path,
+            projectName      : spec.path.substring(1),
+            label            : spec.label,
+            minecraftVersions: spec.minecraftVersions
+        ]
+    }
+}
+
+// When -PbuildTargets=label1,label2 is passed, only those release targets are
+// built, collected, verified, and published. Pass "all" or omit to include everything.
+def resolveActiveTargets = { ->
+    def prop = findProperty("buildTargets")?.toString()?.trim()
+    if (prop == null || prop.isEmpty() || prop == "all") return releaseTargets
+    def labels = prop.split(",")*.trim() as Set
+    def active = releaseTargets.findAll { labels.contains(it.label) }
+    if (active.isEmpty()) {
+        throw new GradleException(
+            "No release targets matched -PbuildTargets='${prop}'. " +
+            "Known labels: ${releaseTargets.collect { it.label }.join(', ')}"
+        )
+    }
+    return active
+}
+def activeReleaseTargets = resolveActiveTargets()
+
 subprojects {
     tasks.withType(AbstractArchiveTask).configureEach {
         def releaseLabel = releaseArtifactLabels.get(project.name)
@@ -376,35 +405,6 @@ def loaderNamesForProject = [
     "forge"   : ["forge"],
     "neoforge": ["neoforge"],
 ]
-
-def releaseTargets = releaseTargetSpecsByLoader.collectMany { loader, specs ->
-    specs.collect { spec ->
-        [
-            loader           : loader,
-            path             : spec.path,
-            projectName      : spec.path.substring(1),
-            label            : spec.label,
-            minecraftVersions: spec.minecraftVersions
-        ]
-    }
-}
-
-// When -PbuildTargets=label1,label2 is passed, only those release targets are
-// built, collected, verified, and published. Pass "all" or omit to include everything.
-def resolveActiveTargets = { ->
-    def prop = findProperty("buildTargets")?.toString()?.trim()
-    if (prop == null || prop.isEmpty() || prop == "all") return releaseTargets
-    def labels = prop.split(",")*.trim() as Set
-    def active = releaseTargets.findAll { labels.contains(it.label) }
-    if (active.isEmpty()) {
-        throw new GradleException(
-            "No release targets matched -PbuildTargets='${prop}'. " +
-            "Known labels: ${releaseTargets.collect { it.label }.join(', ')}"
-        )
-    }
-    return active
-}
-def activeReleaseTargets = resolveActiveTargets()
 
 def primaryGithubReleaseProject = [
     loader     : "fabric",
