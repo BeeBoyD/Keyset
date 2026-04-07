@@ -573,4 +573,5 @@ publishMods {
 
 tasks.named("publishMods").configure {
     dependsOn("buildSelectedTargets")
+    outputs.upToDateWhen { false }
 }
