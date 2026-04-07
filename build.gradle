@@ -573,5 +573,10 @@ publishMods {
 
 tasks.named("publishMods").configure {
     dependsOn("buildSelectedTargets")
+}
+
+// Publish tasks hit the network — they must never be skipped as up-to-date or restored from cache.
+tasks.matching { it.name.startsWith("publish") }.configureEach {
     outputs.upToDateWhen { false }
+    doNotTrackState("Network publish task — must always execute")
 }
