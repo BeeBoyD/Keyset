@@ -218,9 +218,7 @@ public final class KeysetProfiles {
         rebuildProfiles(entries));
   }
 
-  /**
-   * Removes all given binding ids from the specified profile in one operation.
-   */
+  /** Removes all given binding ids from the specified profile in one operation. */
   public static KeysetProfilesConfig removeBindings(
       KeysetProfilesConfig config, String profileId, Collection<String> bindingIds) {
     String normalizedProfileId = requireProfileId(profileId);
