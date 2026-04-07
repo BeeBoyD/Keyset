@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v1.1.3 - 2026-04-07
+
+### Fixed
+
+- Fabric `fabric.mod.json` MC version ranges were incorrect across the entire 1.20.x–1.21.x ladder, causing launchers and modpack tools to load the wrong jar for a given MC version. Most critically, the `1.21.10–1.21.11` jar (compiled against MC 1.21.11, which uses `KeyBinding$Category`/`class_11900`) was accepted by Fabric Loader on MC 1.21.1 where that class does not exist, causing an immediate `NoClassDefFoundError` crash on startup.
+- Added `verifyFabricModRanges` build task (wired into `verifyWorkspace`) to catch MC range overlaps and gaps at build time, preventing regressions.
+
 ## v1.1.2 - 2026-03-30
 
 ### Added
