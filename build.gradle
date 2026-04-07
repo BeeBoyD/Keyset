@@ -237,9 +237,93 @@ tasks.register("buildSmokeTargets") {
     )
 }
 
+/**
+ * Parses a Fabric mod semver range string composed of one or two space-separated
+ * clauses, each of the form {@code >=X.Y.Z}, {@code <=X.Y.Z}, or {@code <X.Y.Z}.
+ * Returns a closure that accepts a version string and returns true when it satisfies
+ * the range.
+ */
+def parseFabricRange = { String rangeStr ->
+    def clauses = rangeStr.trim().tokenize(" ")
+    def parseTuple = { String v ->
+        def parts = v.tokenize(".")
+        [
+            (parts.size() > 0 ? parts[0].toInteger() : 0),
+            (parts.size() > 1 ? parts[1].toInteger() : 0),
+            (parts.size() > 2 ? parts[2].toInteger() : 0)
+        ]
+    }
+    def compareTuples = { List a, List b ->
+        for (int i = 0; i < 3; i++) {
+            if (a[i] != b[i]) return a[i] <=> b[i]
+        }
+        return 0
+    }
+    return { String version ->
+        def vt = parseTuple(version)
+        clauses.every { clause ->
+            if (clause.startsWith(">=")) {
+                compareTuples(vt, parseTuple(clause.substring(2))) >= 0
+            } else if (clause.startsWith("<=")) {
+                compareTuples(vt, parseTuple(clause.substring(2))) <= 0
+            } else if (clause.startsWith("<")) {
+                compareTuples(vt, parseTuple(clause.substring(1))) < 0
+            } else {
+                version == clause
+            }
+        }
+    }
+}
+
+tasks.register("verifyFabricModRanges") {
+    group = "verification"
+    description = "Verifies that each Fabric supportedMinecraftRange_* exactly covers its own minecraftVersions and does not overlap any other spec's versions."
+
+    doLast {
+        def fabricSpecs = releaseTargetSpecsByLoader.fabric
+        def allVersionsBySpec = fabricSpecs.collectEntries { spec ->
+            def key = spec.path
+                .substring(1)                     // strip leading ':'
+                .replaceFirst("platform-fabric-", "") // strip prefix
+                .replace("-", "_")                // hyphens to underscores
+            def propKey = "supportedMinecraftRange_${key}"
+            [(spec): project.findProperty(propKey)]
+        }.findAll { spec, rangeVal -> rangeVal != null }
+
+        def errors = []
+
+        allVersionsBySpec.each { spec, rangeStr ->
+            def rangeFn = parseFabricRange(rangeStr)
+
+            // Every version in this spec must satisfy the range.
+            spec.minecraftVersions.each { v ->
+                if (!rangeFn(v)) {
+                    errors << "${spec.path}: version ${v} does not satisfy its own range '${rangeStr}'"
+                }
+            }
+
+            // No version from any OTHER spec may satisfy this range.
+            fabricSpecs.findAll { it.path != spec.path }.each { otherSpec ->
+                otherSpec.minecraftVersions.each { v ->
+                    if (rangeFn(v)) {
+                        errors << "${spec.path}: range '${rangeStr}' incorrectly accepts ${v} (belongs to ${otherSpec.path})"
+                    }
+                }
+            }
+        }
+
+        if (!errors.isEmpty()) {
+            throw new GradleException(
+                "Fabric mod range verification failed:\n - " + errors.join("\n - ")
+            )
+        }
+    }
+}
+
 tasks.register("verifyWorkspace") {
     group = "verification"
     description = "Runs formatting and checks across the currently included workspace."
+    dependsOn("verifyFabricModRanges")
     dependsOn(subprojects.collect { "${it.path}:spotlessCheck" })
     dependsOn(subprojects.collect { "${it.path}:check" })
 }
