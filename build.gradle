@@ -195,11 +195,16 @@ releaseProjectsByLoader.each { loader, projectPaths ->
         dependsOn("${projectPaths.last()}:build")
     }
 
+    // Filter to only active targets for this loader
+    def activeProjectPaths = activeReleaseTargets
+        .findAll { it.loader == loader }
+        .collect { it.path }
+
     tasks.register("collect${loader.capitalize()}Jars", Sync) {
         group = "build"
         description = "Copies the current remapped ${loader} jars into ${releaseBundleDir}/${loader}."
         into(layout.projectDirectory.dir("${releaseBundleDir}/${loader}"))
-        projectPaths.each { projectPath ->
+        activeProjectPaths.each { projectPath ->
             def projectName = projectPath.substring(1)
             def jarTaskName = jarTaskOverrides.get(projectPath, "remapJar")
             def releaseLabel = releaseArtifactLabels[projectName]
@@ -225,6 +230,16 @@ tasks.register("buildAllJars") {
     group = "build"
     description = "Alias for buildTargetJars."
     dependsOn("buildTargetJars")
+}
+
+tasks.register("buildSelectedTargets") {
+    group = "build"
+    description = "Builds and collects only the jars specified by -PbuildTargets. Defaults to all targets."
+    dependsOn("collectTargetJars", "stageReleaseMetadata")
+    activeReleaseTargets.each { target ->
+        def jarTaskName = jarTaskOverrides.get(target.path, "remapJar")
+        dependsOn("${target.path}:${jarTaskName}")
+    }
 }
 
 tasks.register("buildSmokeTargets") {
@@ -374,6 +389,23 @@ def releaseTargets = releaseTargetSpecsByLoader.collectMany { loader, specs ->
     }
 }
 
+// When -PbuildTargets=label1,label2 is passed, only those release targets are
+// built, collected, verified, and published. Pass "all" or omit to include everything.
+def resolveActiveTargets = { ->
+    def prop = findProperty("buildTargets")?.toString()?.trim()
+    if (prop == null || prop.isEmpty() || prop == "all") return releaseTargets
+    def labels = prop.split(",")*.trim() as Set
+    def active = releaseTargets.findAll { labels.contains(it.label) }
+    if (active.isEmpty()) {
+        throw new GradleException(
+            "No release targets matched -PbuildTargets='${prop}'. " +
+            "Known labels: ${releaseTargets.collect { it.label }.join(', ')}"
+        )
+    }
+    return active
+}
+def activeReleaseTargets = resolveActiveTargets()
+
 def primaryGithubReleaseProject = [
     loader     : "fabric",
     projectName: releaseTargetSpecsByLoader.fabric.last().path.substring(1)
@@ -419,7 +451,7 @@ tasks.register("stageReleaseMetadata") {
             "",
             "## Included Targets"
         ]
-        releaseTargets.each { target ->
+        activeReleaseTargets.each { target ->
             lines << "- `${rootProject.findProperty('modId')}-${target.label}-${version}.jar`"
         }
         buildInfo.asFile.text = lines.join("\n") + "\n"
@@ -432,7 +464,7 @@ tasks.register("verifyReleaseBundle") {
     dependsOn("buildTargetJars")
 
     doLast {
-        def missing = releaseTargets.collect { target ->
+        def missing = activeReleaseTargets.collect { target ->
             def jarFile = releaseJarFile(target).asFile
             jarFile.exists() ? null : jarFile.path
         }.findAll { it != null }
@@ -497,7 +529,7 @@ publishMods {
     } : null
 
     // Create one Modrinth entry per release jar.
-    releaseTargets.each { target ->
+    activeReleaseTargets.each { target ->
         def safeName = target.projectName.replace("-", "_")
         def loaders = loaderNamesForProject[target.loader]
         def builtJar = releaseJarFile(target)
@@ -517,7 +549,8 @@ publishMods {
         }
     }
 
-    if (githubToken != null && githubRepo != null) {
+    def skipGitHub = findProperty("noGitHub")?.toString()?.toBoolean() ?: false
+    if (!skipGitHub && githubToken != null && githubRepo != null) {
         def primaryTarget = releaseTargets.find {
             it.loader == primaryGithubReleaseProject.loader && it.projectName == primaryGithubReleaseProject.projectName
         }
@@ -539,5 +572,5 @@ publishMods {
 }
 
 tasks.named("publishMods").configure {
-    dependsOn("buildTargetJars")
+    dependsOn("buildSelectedTargets")
 }
