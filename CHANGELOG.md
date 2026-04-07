@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+## v1.2.0 - 2026-04-07
+
+### Added
+
+- **Profile cycling keybinds** — bind keys to cycle forward/backward through profiles and apply them instantly without opening the UI.
+- **Undo/redo stack** — multi-level undo and redo for Safe Fix operations (up to 20 steps each direction).
+- **Confirm dialogs** — delete profile and activate profile now require confirmation before taking effect.
+- **Bulk binding clear** — "Clear All" button in the conflict selection panel clears every binding in the current conflict at once.
+- **Profile move up/down** — reorder profiles in the list via up/down buttons; insertion order is now preserved in saves.
+- **Jump to active profile** — one-click button to scroll the profile list to the currently active profile.
+- **Search persistence** — the conflict search query is preserved when switching between profiles.
+- **Search debounce** — the conflict list no longer rebuilds on every keystroke; it waits ~200ms for you to finish typing.
+- **Conflict report caching** — conflict analysis result is cached and only recomputed when bindings actually change.
+- **Rotating backups** — config is backed up in three rotating files (`.bak`, `.bak1`, `.bak2`); recovery tries each in order.
+- **Write-back verification** — after saving config, Keyset reads it back and logs a warning if the file fails to parse.
+- **GitHub pre-release publishing** — beta builds are now automatically published as GitHub pre-releases alongside Modrinth.
+
+### Fixed
+
+- Config load exceptions are now logged with full details instead of being silently swallowed.
+- Config recovery logs which fallback layer (backup/defaults) was used.
+- Status notice queue no longer drops messages when multiple notices fire in quick succession.
+- The Keyset button injected into the Controls screen no longer uses a WeakHashMap, preventing rare GC-related disappearance.
+- Profile name blank-check now happens in the UI before submitting, not only in the service layer.
+
+### Notes
+
+- This release ships full 1.2.0 features on **Fabric/Quilt 1.21.10–1.21.11** (and 1.21.9 via the same jar). Other loader/version targets carry forward 1.1.3 behaviour and will receive the full feature set in a follow-up patch.
+
 ## v1.1.3 - 2026-04-07
 
 ### Fixed
