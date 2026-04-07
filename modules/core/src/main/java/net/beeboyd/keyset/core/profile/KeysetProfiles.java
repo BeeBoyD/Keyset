@@ -1,7 +1,10 @@
 package net.beeboyd.keyset.core.profile;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
@@ -156,6 +159,99 @@ public final class KeysetProfiles {
     updatedProfiles.put(normalizedProfileId, profile.withoutBinding(normalizedBindingId));
     return new KeysetProfilesConfig(
         KeysetCoreMetadata.CONFIG_SCHEMA, normalized.getActiveProfileId(), updatedProfiles);
+  }
+
+  /**
+   * Moves the given profile one position earlier in the profile list. If the profile is already
+   * first, returns the config unchanged. The Default profile cannot be moved.
+   */
+  public static KeysetProfilesConfig moveProfileUp(KeysetProfilesConfig config, String profileId) {
+    String normalizedProfileId = requireProfileId(profileId);
+    if (DEFAULT_PROFILE_ID.equals(normalizedProfileId)) {
+      throw new IllegalArgumentException("The Default profile cannot be moved");
+    }
+
+    KeysetProfilesConfig normalized = normalize(config);
+    requireProfile(normalized, normalizedProfileId);
+
+    List<Map.Entry<String, KeysetProfile>> entries =
+        new ArrayList<Map.Entry<String, KeysetProfile>>(normalized.getProfiles().entrySet());
+    int index = indexOfProfileId(entries, normalizedProfileId);
+
+    if (index <= 0) {
+      return normalized;
+    }
+
+    Collections.swap(entries, index, index - 1);
+    return new KeysetProfilesConfig(
+        KeysetCoreMetadata.CONFIG_SCHEMA,
+        normalized.getActiveProfileId(),
+        rebuildProfiles(entries));
+  }
+
+  /**
+   * Moves the given profile one position later in the profile list. If the profile is already last,
+   * returns the config unchanged. The Default profile cannot be moved.
+   */
+  public static KeysetProfilesConfig moveProfileDown(
+      KeysetProfilesConfig config, String profileId) {
+    String normalizedProfileId = requireProfileId(profileId);
+    if (DEFAULT_PROFILE_ID.equals(normalizedProfileId)) {
+      throw new IllegalArgumentException("The Default profile cannot be moved");
+    }
+
+    KeysetProfilesConfig normalized = normalize(config);
+    requireProfile(normalized, normalizedProfileId);
+
+    List<Map.Entry<String, KeysetProfile>> entries =
+        new ArrayList<Map.Entry<String, KeysetProfile>>(normalized.getProfiles().entrySet());
+    int index = indexOfProfileId(entries, normalizedProfileId);
+
+    if (index < 0 || index >= entries.size() - 1) {
+      return normalized;
+    }
+
+    Collections.swap(entries, index, index + 1);
+    return new KeysetProfilesConfig(
+        KeysetCoreMetadata.CONFIG_SCHEMA,
+        normalized.getActiveProfileId(),
+        rebuildProfiles(entries));
+  }
+
+  /**
+   * Removes all given binding ids from the specified profile in one operation.
+   */
+  public static KeysetProfilesConfig removeBindings(
+      KeysetProfilesConfig config, String profileId, Collection<String> bindingIds) {
+    String normalizedProfileId = requireProfileId(profileId);
+    KeysetProfilesConfig normalized = normalize(config);
+    requireProfile(normalized, normalizedProfileId);
+
+    KeysetProfilesConfig result = normalized;
+    for (String bindingId : bindingIds) {
+      result = removeBinding(result, normalizedProfileId, bindingId);
+    }
+    return result;
+  }
+
+  private static int indexOfProfileId(
+      List<Map.Entry<String, KeysetProfile>> entries, String profileId) {
+    for (int i = 0; i < entries.size(); i++) {
+      if (entries.get(i).getKey().equals(profileId)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private static Map<String, KeysetProfile> rebuildProfiles(
+      List<Map.Entry<String, KeysetProfile>> entries) {
+    LinkedHashMap<String, KeysetProfile> result =
+        new LinkedHashMap<String, KeysetProfile>(entries.size());
+    for (Map.Entry<String, KeysetProfile> entry : entries) {
+      result.put(entry.getKey(), entry.getValue());
+    }
+    return result;
   }
 
   private static KeysetProfile builtInProfile(String id, String name) {

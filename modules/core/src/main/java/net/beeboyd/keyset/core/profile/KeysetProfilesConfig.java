@@ -4,7 +4,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.TreeMap;
 
 /** Immutable top-level config document stored in {@code config/keybindprofiles.json}. */
 public final class KeysetProfilesConfig {
@@ -48,7 +47,7 @@ public final class KeysetProfilesConfig {
       return Collections.emptyMap();
     }
 
-    TreeMap<String, KeysetProfile> sortedProfiles = new TreeMap<String, KeysetProfile>();
+    LinkedHashMap<String, KeysetProfile> result = new LinkedHashMap<String, KeysetProfile>();
     for (Map.Entry<String, KeysetProfile> entry : profiles.entrySet()) {
       KeysetProfile profile = entry.getValue();
       if (profile == null) {
@@ -65,10 +64,10 @@ public final class KeysetProfilesConfig {
             "profile map key '" + key + "' does not match profile id '" + profile.getId() + "'");
       }
 
-      sortedProfiles.put(key, profile);
+      result.put(key, profile);
     }
 
-    return new LinkedHashMap<String, KeysetProfile>(sortedProfiles);
+    return result;
   }
 
   private static String normalizeNullableText(String value) {
