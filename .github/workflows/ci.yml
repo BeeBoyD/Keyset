@@ -21,9 +21,6 @@ on:
       - '.github/workflows/**'
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -32,6 +29,8 @@ jobs:
   verify-workspace:
     name: Verify Workspace
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -68,6 +67,8 @@ jobs:
     needs: verify-workspace
     # Skip for pull requests — secrets are not available and we never publish from PRs
     if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -114,6 +115,12 @@ jobs:
         run: ./gradlew publishToModrinth -PbuildTargets=${{ steps.targets.outputs.targets }} -PreleaseType=beta
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+
+      - name: Create or update GitHub pre-release
+        if: steps.targets.outputs.should_build == 'true'
+        run: ./gradlew publishToGitHub -PbuildTargets=${{ steps.targets.outputs.targets }} -PreleaseType=beta
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload built jars
         if: steps.targets.outputs.should_build == 'true'
