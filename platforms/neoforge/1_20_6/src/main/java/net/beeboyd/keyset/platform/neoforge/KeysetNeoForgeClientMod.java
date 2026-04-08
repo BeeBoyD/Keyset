@@ -3,8 +3,6 @@ package net.beeboyd.keyset.platform.neoforge;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
-import java.util.Map;
-import java.util.WeakHashMap;
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService;
 import net.beeboyd.keyset.platform.fabric.screen.KeysetKeybindsScreen;
@@ -32,6 +30,8 @@ import org.slf4j.LoggerFactory;
 public final class KeysetNeoForgeClientMod {
   private static final Logger LOGGER = LoggerFactory.getLogger(KeysetCoreMetadata.MOD_ID);
   private static final String OPEN_SCREEN_KEY_ID = "keyset.key.open_screen";
+  private static final String CYCLE_NEXT_KEY_ID = "keyset.key.cycle_profile_next";
+  private static final String CYCLE_PREV_KEY_ID = "keyset.key.cycle_profile_prev";
   private static final String MISC_CATEGORY_KEY = "key.categories.misc";
   private static final String LEGACY_MISC_CATEGORY_FIELD = "MISC_CATEGORY";
   private static final String MODERN_MISC_CATEGORY_FIELD = "MISC";
@@ -51,11 +51,13 @@ public final class KeysetNeoForgeClientMod {
     private static final KeysetFabricService SERVICE = new KeysetFabricService();
 
     private KeyBinding openScreenKeyBinding;
+    private KeyBinding cycleNextKeyBinding;
+    private KeyBinding cyclePrevKeyBinding;
     private Screen pendingParentScreen;
     private boolean openScreenRequested;
     private boolean started;
-    private final Map<Screen, ClickableWidget> injectedControlsButtons =
-        new WeakHashMap<Screen, ClickableWidget>();
+    private Screen lastInjectedScreen;
+    private ClickableWidget lastInjectedButton;
 
     private ClientOnly(IEventBus modBus) {
       LOGGER.info("Keyset NeoForge client bootstrap loaded");
@@ -67,7 +69,11 @@ public final class KeysetNeoForgeClientMod {
     private void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
       LOGGER.info("Registering Keyset NeoForge key mapping");
       openScreenKeyBinding = createOpenScreenKeyBinding();
+      cycleNextKeyBinding = createKeyBinding(CYCLE_NEXT_KEY_ID);
+      cyclePrevKeyBinding = createKeyBinding(CYCLE_PREV_KEY_ID);
       event.register(openScreenKeyBinding);
+      event.register(cycleNextKeyBinding);
+      event.register(cyclePrevKeyBinding);
     }
 
     private void onClientTick(ClientTickEvent.Post event) {
@@ -92,6 +98,30 @@ public final class KeysetNeoForgeClientMod {
         }
       }
 
+      if (cycleNextKeyBinding != null) {
+        while (cycleNextKeyBinding.wasPressed()) {
+          try {
+            String name = SERVICE.cycleToNextProfile(client);
+            SERVICE.reportStatusNotice(
+                Text.translatable("keyset.status.profile_cycled", name).getString(), false);
+          } catch (Exception exception) {
+            LOGGER.warn("Failed to cycle to next profile", exception);
+          }
+        }
+      }
+
+      if (cyclePrevKeyBinding != null) {
+        while (cyclePrevKeyBinding.wasPressed()) {
+          try {
+            String name = SERVICE.cycleToPreviousProfile(client);
+            SERVICE.reportStatusNotice(
+                Text.translatable("keyset.status.profile_cycled", name).getString(), false);
+          } catch (Exception exception) {
+            LOGGER.warn("Failed to cycle to previous profile", exception);
+          }
+        }
+      }
+
       flushPendingOpen(client);
     }
 
@@ -100,7 +130,12 @@ public final class KeysetNeoForgeClientMod {
         return;
       }
 
-      removeInjectedControlsButton(event, controlsScreen);
+      if (lastInjectedScreen == controlsScreen && lastInjectedButton != null) {
+        event.removeListener(lastInjectedButton);
+      } else if (lastInjectedScreen != null && lastInjectedButton != null) {
+        lastInjectedScreen = null;
+        lastInjectedButton = null;
+      }
       List<ClickableWidget> buttons =
           event.getListenersList().stream()
               .filter(ClickableWidget.class::isInstance)
@@ -114,14 +149,8 @@ public final class KeysetNeoForgeClientMod {
               .dimensions(placement[0], placement[1], CONTROLS_BUTTON_WIDTH, CONTROLS_BUTTON_HEIGHT)
               .build();
       event.addListener(keysetButton);
-      injectedControlsButtons.put(controlsScreen, keysetButton);
-    }
-
-    private void removeInjectedControlsButton(ScreenEvent.Init.Post event, Screen screen) {
-      ClickableWidget existingButton = injectedControlsButtons.remove(screen);
-      if (existingButton != null) {
-        event.removeListener(existingButton);
-      }
+      lastInjectedScreen = controlsScreen;
+      lastInjectedButton = keysetButton;
     }
 
     private void requestOpenScreen(Screen parent) {
@@ -225,6 +254,11 @@ public final class KeysetNeoForgeClientMod {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static KeyBinding createOpenScreenKeyBinding() {
+      return createKeyBinding(OPEN_SCREEN_KEY_ID);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static KeyBinding createKeyBinding(String keyId) {
       for (var constructor : KeyBinding.class.getConstructors()) {
         Class<?>[] parameterTypes = constructor.getParameterTypes();
         if (parameterTypes.length != 3
@@ -240,8 +274,7 @@ public final class KeysetNeoForgeClientMod {
           }
 
           return (KeyBinding)
-              constructor.newInstance(
-                  OPEN_SCREEN_KEY_ID, InputUtil.UNKNOWN_KEY.getCode(), categoryArgument);
+              constructor.newInstance(keyId, InputUtil.UNKNOWN_KEY.getCode(), categoryArgument);
         } catch (InstantiationException
             | IllegalAccessException
             | InvocationTargetException

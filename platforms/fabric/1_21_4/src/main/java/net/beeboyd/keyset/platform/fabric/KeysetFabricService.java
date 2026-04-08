@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -31,9 +32,13 @@ import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Fabric-side bridge between live Minecraft keybindings and the shared Keyset core. */
 public final class KeysetFabricService {
+  private static final Logger LOGGER = LoggerFactory.getLogger(KeysetCoreMetadata.MOD_ID);
+
   private static final Comparator<KeyBindingDescriptorWithFlags> RESOLVE_ORDER =
       new Comparator<KeyBindingDescriptorWithFlags>() {
         @Override
@@ -101,10 +106,16 @@ public final class KeysetFabricService {
               "key.keyboard.kp.8",
               "key.keyboard.kp.9"));
 
+  private static final int MAX_NOTICE_QUEUE = 5;
+  private static final int MAX_UNDO_STACK = 20;
+
   private final KeysetProfilesJson codec = new KeysetProfilesJson();
   private KeysetProfilesConfig config;
   private boolean loaded;
-  private StatusNotice pendingStatusNotice;
+  private final ArrayDeque<StatusNotice> pendingNotices = new ArrayDeque<StatusNotice>();
+  private final ArrayDeque<UndoState> undoStack = new ArrayDeque<UndoState>();
+  private final ArrayDeque<UndoState> redoStack = new ArrayDeque<UndoState>();
+  private KeysetConflictReport cachedConflictReport;
 
   public void onClientStarted(MinecraftClient client) throws IOException {
     ensureLoaded(client);
@@ -116,9 +127,7 @@ public final class KeysetFabricService {
   }
 
   public StatusNotice consumeStatusNotice() {
-    StatusNotice notice = pendingStatusNotice;
-    pendingStatusNotice = null;
-    return notice;
+    return pendingNotices.pollFirst();
   }
 
   public void reportStatusNotice(String message, boolean error) {
@@ -132,7 +141,11 @@ public final class KeysetFabricService {
 
   public KeysetConflictReport buildConflictReport(MinecraftClient client) throws IOException {
     ensureLoaded(client);
-    return KeysetConflicts.analyze(describeBindings(client.options));
+    if (cachedConflictReport != null) {
+      return cachedConflictReport;
+    }
+    cachedConflictReport = KeysetConflicts.analyze(describeBindings(client.options));
+    return cachedConflictReport;
   }
 
   public KeysetConflictReport buildConflictReport(MinecraftClient client, String profileId)
@@ -178,6 +191,7 @@ public final class KeysetFabricService {
     if (!previousActiveProfileId.equals(config.getActiveProfileId())) {
       applyProfile(client.options, requireProfile(config, config.getActiveProfileId()));
     }
+    cachedConflictReport = null;
     save(client);
     return config.getActiveProfileId();
   }
@@ -186,6 +200,7 @@ public final class KeysetFabricService {
     ensureLoaded(client);
     config = KeysetProfiles.setActiveProfile(config, profileId);
     applyProfile(client.options, requireProfile(config, profileId));
+    cachedConflictReport = null;
     save(client);
   }
 
@@ -195,6 +210,7 @@ public final class KeysetFabricService {
     config =
         replaceProfileBindings(
             config, profileId, captureSnapshots(client.options, stickySnapshots), null);
+    cachedConflictReport = null;
     save(client);
   }
 
@@ -219,6 +235,36 @@ public final class KeysetFabricService {
             config.getActiveProfileId(),
             Collections.singleton(bindingId),
             Collections.<String>emptySet());
+    cachedConflictReport = null;
+    save(client);
+  }
+
+  public void clearBindings(MinecraftClient client, java.util.List<String> bindingIds)
+      throws IOException {
+    ensureLoaded(client);
+    if (bindingIds == null || bindingIds.isEmpty()) {
+      return;
+    }
+
+    Map<String, KeysetKeyStroke> strokes =
+        new LinkedHashMap<String, KeysetKeyStroke>(bindingIds.size());
+    for (String bindingId : bindingIds) {
+      boolean exists = false;
+      for (KeyBinding binding : client.options.allKeys) {
+        if (binding.getTranslationKey().equals(bindingId)) {
+          exists = true;
+          break;
+        }
+      }
+      if (exists) {
+        strokes.put(bindingId, KeysetKeyStroke.unbound());
+      }
+    }
+    applyStrokes(client.options, strokes);
+    config =
+        KeysetProfiles.removeBindings(
+            config, config.getActiveProfileId(), new ArrayList<String>(strokes.keySet()));
+    cachedConflictReport = null;
     save(client);
   }
 
@@ -241,6 +287,7 @@ public final class KeysetFabricService {
     }
 
     if (importedCount > 0) {
+      cachedConflictReport = null;
       save(client);
     }
 
@@ -308,6 +355,13 @@ public final class KeysetFabricService {
             activeProfileId,
             new LinkedHashMap<String, KeysetBindingSnapshot>(activeProfile.getBindings()));
 
+    // Push current state to undo stack and clear redo stack.
+    while (undoStack.size() >= MAX_UNDO_STACK) {
+      undoStack.pollLast();
+    }
+    undoStack.addFirst(undoState);
+    redoStack.clear();
+
     applyStrokes(client.options, plan.toStrokeMap());
     config =
         syncProfileFromCurrent(
@@ -315,8 +369,83 @@ public final class KeysetFabricService {
             activeProfileId,
             Collections.<String>emptySet(),
             plan.changedBindingIds());
+    cachedConflictReport = null;
     save(client);
     return undoState;
+  }
+
+  public boolean canUndo() {
+    return !undoStack.isEmpty();
+  }
+
+  public boolean canRedo() {
+    return !redoStack.isEmpty();
+  }
+
+  public void undoAutoResolve(MinecraftClient client) throws IOException {
+    ensureLoaded(client);
+    UndoState undoState = undoStack.pollFirst();
+    if (undoState == null) {
+      return;
+    }
+    if (!config.hasProfile(undoState.profileId)) {
+      throw new IllegalStateException("Cannot undo because the original profile no longer exists");
+    }
+
+    // Save current state to redo stack before applying the undo.
+    KeysetProfile activeProfile = requireProfile(config, undoState.profileId);
+    UndoState redoState =
+        new UndoState(
+            undoState.profileId,
+            new LinkedHashMap<String, KeysetBindingSnapshot>(activeProfile.getBindings()));
+    while (redoStack.size() >= MAX_UNDO_STACK) {
+      redoStack.pollLast();
+    }
+    redoStack.addFirst(redoState);
+
+    config = replaceProfileBindings(config, undoState.profileId, undoState.previousBindings, null);
+    if (undoState.profileId.equals(config.getActiveProfileId())) {
+      applyProfile(client.options, requireProfile(config, undoState.profileId));
+    }
+    cachedConflictReport = null;
+    save(client);
+  }
+
+  /**
+   * @deprecated Use {@link #undoAutoResolve(MinecraftClient)} instead.
+   */
+  @Deprecated
+  public void undoAutoResolve(MinecraftClient client, UndoState undoState) throws IOException {
+    undoAutoResolve(client);
+  }
+
+  public void redoAutoResolve(MinecraftClient client) throws IOException {
+    ensureLoaded(client);
+    UndoState redoState = redoStack.pollFirst();
+    if (redoState == null) {
+      return;
+    }
+    if (!config.hasProfile(redoState.profileId)) {
+      throw new IllegalStateException("Cannot redo because the original profile no longer exists");
+    }
+
+    // Save current state back to undo stack before applying the redo.
+    KeysetProfile activeProfile = requireProfile(config, redoState.profileId);
+    UndoState newUndoState =
+        new UndoState(
+            redoState.profileId,
+            new LinkedHashMap<String, KeysetBindingSnapshot>(activeProfile.getBindings()));
+    while (undoStack.size() >= MAX_UNDO_STACK) {
+      undoStack.pollLast();
+    }
+    undoStack.addFirst(newUndoState);
+
+    config = replaceProfileBindings(config, redoState.profileId, redoState.previousBindings, null);
+    if (redoState.profileId.equals(config.getActiveProfileId())) {
+      applyProfile(client.options, requireProfile(config, redoState.profileId));
+    }
+    cachedConflictReport = null;
+    save(client);
   }
 
   public boolean syncActiveProfileFromCurrentManual(MinecraftClient client) throws IOException {
@@ -349,19 +478,51 @@ public final class KeysetFabricService {
     return true;
   }
 
-  public void undoAutoResolve(MinecraftClient client, UndoState undoState) throws IOException {
+  public String cycleToNextProfile(MinecraftClient client) throws IOException {
     ensureLoaded(client);
-    if (undoState == null) {
-      return;
-    }
-    if (!config.hasProfile(undoState.profileId)) {
-      throw new IllegalStateException("Cannot undo because the original profile no longer exists");
+    List<KeysetProfile> profiles = new ArrayList<KeysetProfile>(config.getProfiles().values());
+    if (profiles.size() <= 1) {
+      return config.getActiveProfileId();
     }
 
-    config = replaceProfileBindings(config, undoState.profileId, undoState.previousBindings, null);
-    if (undoState.profileId.equals(config.getActiveProfileId())) {
-      applyProfile(client.options, requireProfile(config, undoState.profileId));
+    List<String> profileIds = new ArrayList<String>(config.getProfiles().keySet());
+    int currentIndex = profileIds.indexOf(config.getActiveProfileId());
+    if (currentIndex < 0) {
+      currentIndex = 0;
     }
+    int nextIndex = (currentIndex + 1) % profileIds.size();
+    String nextProfileId = profileIds.get(nextIndex);
+    activateProfile(client, nextProfileId);
+    return config.getProfile(nextProfileId).getName();
+  }
+
+  public String cycleToPreviousProfile(MinecraftClient client) throws IOException {
+    ensureLoaded(client);
+    List<KeysetProfile> profiles = new ArrayList<KeysetProfile>(config.getProfiles().values());
+    if (profiles.size() <= 1) {
+      return config.getActiveProfileId();
+    }
+
+    List<String> profileIds = new ArrayList<String>(config.getProfiles().keySet());
+    int currentIndex = profileIds.indexOf(config.getActiveProfileId());
+    if (currentIndex < 0) {
+      currentIndex = 0;
+    }
+    int prevIndex = (currentIndex - 1 + profileIds.size()) % profileIds.size();
+    String prevProfileId = profileIds.get(prevIndex);
+    activateProfile(client, prevProfileId);
+    return config.getProfile(prevProfileId).getName();
+  }
+
+  public void moveProfileUp(MinecraftClient client, String profileId) throws IOException {
+    ensureLoaded(client);
+    config = KeysetProfiles.moveProfileUp(config, profileId);
+    save(client);
+  }
+
+  public void moveProfileDown(MinecraftClient client, String profileId) throws IOException {
+    ensureLoaded(client);
+    config = KeysetProfiles.moveProfileDown(config, profileId);
     save(client);
   }
 
@@ -375,6 +536,7 @@ public final class KeysetFabricService {
     try {
       config = KeysetProfiles.normalize(codec.read(path));
     } catch (JsonParseException | IllegalArgumentException exception) {
+      LOGGER.warn("Keyset: failed to load config, recovering", exception);
       if (fileExists) {
         archiveConfigCopy(path, "broken");
       }
@@ -461,18 +623,25 @@ public final class KeysetFabricService {
 
   private KeysetProfilesConfig recoverConfigAfterLoadFailure(MinecraftClient client)
       throws IOException {
-    Path backupPath = backupConfigPath(client);
-    if (Files.exists(backupPath)) {
-      try {
-        KeysetProfilesConfig recoveredConfig = KeysetProfiles.normalize(codec.read(backupPath));
-        recoveredConfig = seedStarterProfiles(client.options, recoveredConfig);
-        config = recoveredConfig;
-        save(client);
-        queueStatusNotice(
-            Text.translatable("keyset.status.config_recovered_backup").getString(), false);
-        return recoveredConfig;
-      } catch (JsonParseException | IllegalArgumentException exception) {
-        archiveConfigCopy(backupPath, "backup-broken");
+    // Try .bak, then .bak1, then .bak2.
+    Path[] backupPaths = {
+      backupConfigPath(client), backupConfigPath1(client), backupConfigPath2(client)
+    };
+
+    for (Path backupPath : backupPaths) {
+      if (Files.exists(backupPath)) {
+        try {
+          KeysetProfilesConfig recoveredConfig = KeysetProfiles.normalize(codec.read(backupPath));
+          recoveredConfig = seedStarterProfiles(client.options, recoveredConfig);
+          config = recoveredConfig;
+          save(client);
+          LOGGER.info("Keyset: recovered from backup config");
+          queueStatusNotice(
+              Text.translatable("keyset.status.config_recovered_backup").getString(), false);
+          return recoveredConfig;
+        } catch (JsonParseException | IllegalArgumentException exception) {
+          archiveConfigCopy(backupPath, "backup-broken");
+        }
       }
     }
 
@@ -480,6 +649,7 @@ public final class KeysetFabricService {
         seedStarterProfiles(client.options, KeysetProfiles.createDefaultConfig());
     config = recoveredConfig;
     save(client);
+    LOGGER.warn("Keyset: reset to default config after backup failure");
     queueStatusNotice(
         Text.translatable("keyset.status.config_recovered_default").getString(), true);
     return recoveredConfig;
@@ -488,7 +658,15 @@ public final class KeysetFabricService {
   private void save(MinecraftClient client) throws IOException {
     Path path = configPath(client);
     codec.write(path, config);
-    refreshBackup(path, backupConfigPath(client));
+
+    // Write-back verification.
+    try {
+      codec.read(path);
+    } catch (JsonParseException | IllegalArgumentException exception) {
+      LOGGER.warn("Keyset: write-back verification failed — saved file may be corrupt", exception);
+    }
+
+    refreshBackup(path, client);
   }
 
   private Path configPath(MinecraftClient client) {
@@ -507,13 +685,41 @@ public final class KeysetFabricService {
         .resolve(KeysetCoreMetadata.CONFIG_FILE_NAME + ".bak");
   }
 
-  private void refreshBackup(Path path, Path backupPath) {
+  private Path backupConfigPath1(MinecraftClient client) {
+    return client
+        .runDirectory
+        .toPath()
+        .resolve("config")
+        .resolve(KeysetCoreMetadata.CONFIG_FILE_NAME + ".bak1");
+  }
+
+  private Path backupConfigPath2(MinecraftClient client) {
+    return client
+        .runDirectory
+        .toPath()
+        .resolve("config")
+        .resolve(KeysetCoreMetadata.CONFIG_FILE_NAME + ".bak2");
+  }
+
+  private void refreshBackup(Path path, MinecraftClient client) {
     try {
-      Path parent = backupPath.getParent();
+      Path bak = backupConfigPath(client);
+      Path bak1 = backupConfigPath1(client);
+      Path bak2 = backupConfigPath2(client);
+
+      Path parent = bak.getParent();
       if (parent != null) {
         Files.createDirectories(parent);
       }
-      Files.copy(path, backupPath, StandardCopyOption.REPLACE_EXISTING);
+
+      // Rotate: bak2 = old bak1, bak1 = old bak, bak = new.
+      if (Files.exists(bak1)) {
+        Files.copy(bak1, bak2, StandardCopyOption.REPLACE_EXISTING);
+      }
+      if (Files.exists(bak)) {
+        Files.copy(bak, bak1, StandardCopyOption.REPLACE_EXISTING);
+      }
+      Files.copy(path, bak, StandardCopyOption.REPLACE_EXISTING);
     } catch (IOException exception) {
       queueStatusNotice(Text.translatable("keyset.status.config_backup_warning").getString(), true);
     }
@@ -544,10 +750,17 @@ public final class KeysetFabricService {
     if (normalized.isEmpty()) {
       return;
     }
-    if (pendingStatusNotice != null && pendingStatusNotice.isError() && !error) {
+
+    // Non-errors are suppressed if there is already an error at the front of the queue.
+    StatusNotice front = pendingNotices.peekFirst();
+    if (front != null && front.isError() && !error) {
       return;
     }
-    pendingStatusNotice = new StatusNotice(normalized, error);
+
+    pendingNotices.addLast(new StatusNotice(normalized, error));
+    while (pendingNotices.size() > MAX_NOTICE_QUEUE) {
+      pendingNotices.pollLast();
+    }
   }
 
   private static KeysetProfile requireProfile(KeysetProfilesConfig config, String profileId) {

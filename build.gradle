@@ -513,12 +513,51 @@ tasks.register("publishToModrinth") {
         }
 
         def projectId     = findProperty("modrinthProjectId")?.toString()
+        if (!projectId) {
+            throw new GradleException("modrinthProjectId is not set.")
+        }
         def versionStr    = version as String
         def releaseType   = findProperty("releaseType")?.toString()?.toLowerCase() ?: "stable"
         def versionType   = (releaseType == "stable") ? "release" : releaseType
         def dryRun        = findProperty("publishDryRun")?.toString()?.toBoolean() ?: false
         def changelog     = extractChangelog(versionStr)
         def CRLF          = "\r\n"
+        def buildNumber = null
+        if (releaseType == "beta") {
+            buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.trim()
+            if (!buildNumber) {
+                def gitRunNumber = new ByteArrayOutputStream()
+                exec {
+                    commandLine("git", "rev-list", "--count", "HEAD")
+                    standardOutput = gitRunNumber
+                    errorOutput = new ByteArrayOutputStream()
+                    ignoreExitValue = true
+                }
+                buildNumber = gitRunNumber.toString("UTF-8").trim()
+            }
+            if (!buildNumber) {
+                throw new GradleException("Unable to resolve a beta build number for Modrinth publishing.")
+            }
+        }
+
+        def modrinthVersions = null
+        if (!dryRun) {
+            def url = new URL("https://api.modrinth.com/v2/project/${projectId}/version")
+            def conn = (HttpURLConnection) url.openConnection()
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 30_000
+            conn.readTimeout = 30_000
+            conn.setRequestProperty("Authorization", token)
+            conn.setRequestProperty("User-Agent", "BeeBoyD/Keyset/${versionStr} (gradle-direct)")
+
+            def code = conn.responseCode
+            def response = (code < 300 ? conn.inputStream : conn.errorStream)?.getText("UTF-8") ?: ""
+            if (code in 200..299) {
+                modrinthVersions = new groovy.json.JsonSlurper().parseText(response)
+            } else {
+                throw new GradleException("Modrinth version lookup failed for project ${projectId} (HTTP ${code}):\n${response}")
+            }
+        }
 
         activeReleaseTargets.each { target ->
             def jarFile = releaseJarFile(target).asFile
@@ -530,10 +569,15 @@ tasks.register("publishToModrinth") {
             def deps    = (target.loader == "fabric")
                 ? [[project_id: "P7dR8mSH", dependency_type: "required"]]   // Fabric API
                 : []
+            def versionNumber = (releaseType == "beta")
+                ? "${versionStr}-beta.${buildNumber}+${target.label}"
+                : "${versionStr}+${target.label}"
 
             def meta = [
-                name          : "${rootProject.findProperty('modName')} ${versionStr}",
-                version_number: "${versionStr}+${target.label}",
+                name          : (releaseType == "beta")
+                    ? "${rootProject.findProperty('modName')} ${versionStr} commit ${buildNumber}"
+                    : "${rootProject.findProperty('modName')} ${versionStr}",
+                version_number: versionNumber,
                 changelog     : changelog,
                 dependencies  : deps,
                 game_versions : target.minecraftVersions,
@@ -546,6 +590,14 @@ tasks.register("publishToModrinth") {
 
             if (dryRun) {
                 logger.lifecycle("[DRY RUN] ${jarFile.name} → Modrinth ${meta.version_number} (${versionType}, loaders=${loaders}, mc=${target.minecraftVersions})")
+                return
+            }
+
+            def alreadyPublished = (modrinthVersions ?: []).any { version ->
+                version?.version_number?.toString() == versionNumber
+            }
+            if (alreadyPublished) {
+                logger.lifecycle("Modrinth: skipping ${jarFile.name}; version ${versionNumber} already exists")
                 return
             }
 

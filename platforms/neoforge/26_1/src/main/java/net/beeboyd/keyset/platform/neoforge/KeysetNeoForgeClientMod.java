@@ -2,8 +2,6 @@ package net.beeboyd.keyset.platform.neoforge;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import java.util.List;
-import java.util.Map;
-import java.util.WeakHashMap;
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService;
 import net.beeboyd.keyset.platform.fabric.screen.KeysetKeybindsScreen;
@@ -46,11 +44,13 @@ public final class KeysetNeoForgeClientMod {
     private static final KeysetFabricService SERVICE = new KeysetFabricService();
 
     private KeyMapping openScreenKeyMapping;
+    private KeyMapping cycleNextKeyMapping;
+    private KeyMapping cyclePrevKeyMapping;
     private Screen pendingParentScreen;
     private boolean openScreenRequested;
     private boolean started;
-    private final Map<Screen, AbstractWidget> injectedControlsButtons =
-        new WeakHashMap<Screen, AbstractWidget>();
+    private Screen lastInjectedScreen;
+    private AbstractWidget lastInjectedButton;
 
     private ClientOnly(IEventBus modBus) {
       LOGGER.info("Keyset NeoForge client bootstrap loaded");
@@ -66,7 +66,19 @@ public final class KeysetNeoForgeClientMod {
               "keyset.key.open_screen",
               InputConstants.UNKNOWN.getValue(),
               KeyMapping.Category.MISC);
+      cycleNextKeyMapping =
+          new KeyMapping(
+              "keyset.key.cycle_profile_next",
+              InputConstants.UNKNOWN.getValue(),
+              KeyMapping.Category.MISC);
+      cyclePrevKeyMapping =
+          new KeyMapping(
+              "keyset.key.cycle_profile_prev",
+              InputConstants.UNKNOWN.getValue(),
+              KeyMapping.Category.MISC);
       event.register(openScreenKeyMapping);
+      event.register(cycleNextKeyMapping);
+      event.register(cyclePrevKeyMapping);
     }
 
     private void onClientTick(ClientTickEvent.Post event) {
@@ -91,6 +103,30 @@ public final class KeysetNeoForgeClientMod {
         }
       }
 
+      if (cycleNextKeyMapping != null) {
+        while (cycleNextKeyMapping.consumeClick()) {
+          try {
+            String name = SERVICE.cycleToNextProfile(client);
+            SERVICE.reportStatusNotice(
+                Component.translatable("keyset.status.profile_cycled", name).getString(), false);
+          } catch (Exception exception) {
+            LOGGER.warn("Failed to cycle to next profile", exception);
+          }
+        }
+      }
+
+      if (cyclePrevKeyMapping != null) {
+        while (cyclePrevKeyMapping.consumeClick()) {
+          try {
+            String name = SERVICE.cycleToPreviousProfile(client);
+            SERVICE.reportStatusNotice(
+                Component.translatable("keyset.status.profile_cycled", name).getString(), false);
+          } catch (Exception exception) {
+            LOGGER.warn("Failed to cycle to previous profile", exception);
+          }
+        }
+      }
+
       flushPendingOpen(client);
     }
 
@@ -106,7 +142,12 @@ public final class KeysetNeoForgeClientMod {
         return;
       }
 
-      removeInjectedControlsButton(event, screen);
+      if (lastInjectedScreen == screen && lastInjectedButton != null) {
+        event.removeListener(lastInjectedButton);
+      } else if (lastInjectedScreen != null && lastInjectedButton != null) {
+        lastInjectedScreen = null;
+        lastInjectedButton = null;
+      }
       List<AbstractWidget> buttons =
           event.getListenersList().stream()
               .filter(AbstractWidget.class::isInstance)
@@ -118,14 +159,8 @@ public final class KeysetNeoForgeClientMod {
               .bounds(placement[0], placement[1], CONTROLS_BUTTON_WIDTH, CONTROLS_BUTTON_HEIGHT)
               .build();
       event.addListener(keysetButton);
-      injectedControlsButtons.put(screen, keysetButton);
-    }
-
-    private void removeInjectedControlsButton(ScreenEvent.Init.Post event, Screen screen) {
-      AbstractWidget existingButton = injectedControlsButtons.remove(screen);
-      if (existingButton != null) {
-        event.removeListener(existingButton);
-      }
+      lastInjectedScreen = screen;
+      lastInjectedButton = keysetButton;
     }
 
     private void requestOpenScreen(Screen parent) {

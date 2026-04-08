@@ -14,8 +14,8 @@ import net.beeboyd.keyset.core.profile.KeysetProfilesConfig;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService.AutoResolvePlan;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService.ImportResult;
-import net.beeboyd.keyset.platform.fabric.KeysetFabricService.UndoState;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -130,12 +130,17 @@ public final class KeysetScreen extends Screen {
   private Button deleteButton;
   private Button exportButton;
   private Button importButton;
+  private Button moveUpButton;
+  private Button moveDownButton;
+  private Button jumpToActiveButton;
   private Button previewResolveButton;
   private Button applyPreviewButton;
   private Button jumpButton;
   private Button clearBindingButton;
+  private Button clearAllBindingsButton;
   private Button reassignButton;
   private Button undoButton;
+  private Button redoButton;
   private Button doneButton;
 
   private KeysetProfilesConfig config;
@@ -144,13 +149,13 @@ public final class KeysetScreen extends Screen {
   private String selectedProfileId;
   private KeysetBindingDescriptor selectedBinding;
   private AutoResolvePlan previewPlan;
-  private UndoState undoState;
   private String statusMessage = "";
   private boolean errorStatus;
   private Component emptyStateTitle = Component.empty();
   private Component emptyStateBody = Component.empty();
   private int visibleConflictGroups;
   private int visibleConflictBindings;
+  private int searchDebounceTimer = 0;
 
   public KeysetScreen(Screen parent, KeysetFabricService service) {
     super(Component.translatable("keyset.title"));
@@ -209,7 +214,8 @@ public final class KeysetScreen extends Screen {
     int resolveInnerX = resolveCardX + CARD_PADDING;
     int resolveInnerWidth = resolveCardWidth - (CARD_PADDING * 2);
     int resolveActionsY = resolveCardY + resolveCardHeight - buttonHeight - (pagedLayout ? 6 : 10);
-    int resolveButtonWidth = (resolveInnerWidth - (ROW_GAP * 2)) / 3;
+    // Four buttons in the resolve row: preview, apply, undo, redo.
+    int resolveButtonWidth = (resolveInnerWidth - (ROW_GAP * 3)) / 4;
     int compactTabButtonWidth = Math.max(60, (compactTabsWidth - (CARD_GAP * 2)) / 3);
 
     profilesTabButton =
@@ -254,7 +260,7 @@ public final class KeysetScreen extends Screen {
     searchField.setResponder(
         value -> {
           previewPlan = null;
-          rebuildList(selectedBindingId());
+          searchDebounceTimer = 4;
         });
     setTooltip(searchField, "keyset.tip.search");
 
@@ -397,6 +403,46 @@ public final class KeysetScreen extends Screen {
                 button -> importProfiles(),
                 "keyset.tip.import"));
 
+    // Move up/down buttons — placed after import row.
+    int moveRowY =
+        useThreeColumnProfileGrid
+            ? profileRowY + (profileActionStep * 4)
+            : profileRowY + (profileActionStep * 5);
+    moveUpButton =
+        addRenderableWidget(
+            button(
+                "keyset.profile.move_up",
+                profileInnerX,
+                moveRowY,
+                profileTwoColumnWidth,
+                button -> moveSelectedUp(),
+                "keyset.tip.profile_move_up"));
+    moveDownButton =
+        addRenderableWidget(
+            button(
+                "keyset.profile.move_down",
+                profileInnerX + profileTwoColumnWidth + profileButtonGap,
+                moveRowY,
+                profileTwoColumnWidth,
+                button -> moveSelectedDown(),
+                "keyset.tip.profile_move_down"));
+
+    // Jump-to-active button — placed near prev/next.
+    jumpToActiveButton =
+        addRenderableWidget(
+            button(
+                "keyset.profile.jump_active",
+                profileInnerX
+                    + (useThreeColumnProfileGrid
+                        ? (profileThreeColumnWidth + profileButtonGap) * 2
+                        : profileTwoColumnWidth + profileButtonGap),
+                useThreeColumnProfileGrid
+                    ? profileRowY
+                    : profileRowY + (profileActionStep * 5) + profileActionStep,
+                useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
+                button -> jumpToActiveProfile(),
+                "keyset.tip.jump_active"));
+
     jumpButton =
         addRenderableWidget(
             button(
@@ -425,6 +471,17 @@ public final class KeysetScreen extends Screen {
                 button -> reassignSelectedBinding(),
                 "keyset.tip.binding_reassign"));
 
+    // Clear All button placed after the standard three buttons (below or at extra row).
+    clearAllBindingsButton =
+        addRenderableWidget(
+            button(
+                "keyset.binding.clear_all",
+                selectionInnerX,
+                detailActionsY - buttonHeight - ROW_GAP,
+                selectionInnerWidth,
+                button -> clearAllConflictBindings(),
+                "keyset.tip.binding_clear"));
+
     previewResolveButton =
         addRenderableWidget(
             button(
@@ -452,6 +509,15 @@ public final class KeysetScreen extends Screen {
                 resolveButtonWidth,
                 button -> undoResolve(),
                 "keyset.tip.resolve_undo"));
+    redoButton =
+        addRenderableWidget(
+            button(
+                "keyset.resolve.redo",
+                resolveInnerX + (resolveButtonWidth + ROW_GAP) * 3,
+                resolveActionsY,
+                resolveButtonWidth,
+                button -> redoResolve(),
+                "keyset.tip.resolve_redo"));
 
     doneButton =
         addRenderableWidget(
@@ -486,6 +552,17 @@ public final class KeysetScreen extends Screen {
 
     refreshButtons();
     focusCurrentPage();
+  }
+
+  @Override
+  public void tick() {
+    super.tick();
+    if (searchDebounceTimer > 0) {
+      searchDebounceTimer--;
+      if (searchDebounceTimer == 0) {
+        rebuildList(selectedBindingId());
+      }
+    }
   }
 
   @Override
@@ -1492,21 +1569,57 @@ public final class KeysetScreen extends Screen {
     int nextIndex = (currentIndex + direction + profileIds.size()) % profileIds.size();
     runAction(
         () -> {
+          String savedSearch = searchField.getValue();
           selectedProfileId = profileIds.get(nextIndex);
           profileNameField.setValue(config.getProfile(selectedProfileId).getName());
           previewPlan = null;
           reloadConflictReport();
           rebuildList(null);
+          searchField.setValue(savedSearch);
+          if (!savedSearch.isEmpty()) {
+            rebuildList(null);
+          }
           refreshButtons();
         });
+  }
+
+  private void selectProfileById(String profileId) {
+    if (config == null || profileId == null || !config.hasProfile(profileId)) {
+      return;
+    }
+    String savedSearch = searchField.getValue();
+    selectedProfileId = profileId;
+    profileNameField.setValue(config.getProfile(selectedProfileId).getName());
+    previewPlan = null;
+    try {
+      reloadConflictReport();
+    } catch (IOException exception) {
+      setStatus(exception.getMessage(), true);
+    }
+    rebuildList(null);
+    searchField.setValue(savedSearch);
+    if (!savedSearch.isEmpty()) {
+      rebuildList(null);
+    }
+    refreshButtons();
+  }
+
+  private void jumpToActiveProfile() {
+    if (config == null) {
+      return;
+    }
+    selectProfileById(config.getActiveProfileId());
   }
 
   private void createProfile() {
     runAction(
         () -> {
-          String createdProfileId =
-              service.createProfileFromCurrent(
-                  minecraft, nonBlankOrFallback(profileNameField.getValue(), "Profile"));
+          String nameText = profileNameField.getValue().trim();
+          if (nameText.isEmpty()) {
+            setStatus(Component.translatable("keyset.error.profile_name_blank").getString(), true);
+            return;
+          }
+          String createdProfileId = service.createProfileFromCurrent(minecraft, nameText);
           previewPlan = null;
           reloadState(createdProfileId, null);
           setStatus(Component.translatable("keyset.status.profile_created").getString(), false);
@@ -1526,7 +1639,12 @@ public final class KeysetScreen extends Screen {
   private void renameSelected() {
     runAction(
         () -> {
-          service.renameProfile(minecraft, selectedProfileId, profileNameField.getValue());
+          String nameText = profileNameField.getValue().trim();
+          if (nameText.isEmpty()) {
+            setStatus(Component.translatable("keyset.error.profile_name_blank").getString(), true);
+            return;
+          }
+          service.renameProfile(minecraft, selectedProfileId, nameText);
           previewPlan = null;
           reloadState(selectedProfileId, selectedBindingId());
           setStatus(Component.translatable("keyset.status.profile_renamed").getString(), false);
@@ -1534,23 +1652,68 @@ public final class KeysetScreen extends Screen {
   }
 
   private void deleteSelected() {
-    runAction(
-        () -> {
-          String fallbackProfileId = service.deleteProfile(minecraft, selectedProfileId);
-          previewPlan = null;
-          reloadState(fallbackProfileId, null);
-          setStatus(Component.translatable("keyset.status.profile_deleted").getString(), false);
-        });
+    if (selectedProfileId == null) {
+      return;
+    }
+    String profileName =
+        config != null && config.hasProfile(selectedProfileId)
+            ? config.getProfile(selectedProfileId).getName()
+            : selectedProfileId;
+    minecraft.setScreen(
+        new ConfirmScreen(
+            confirmed -> {
+              if (confirmed) {
+                runAction(
+                    () -> {
+                      String fallbackProfileId = service.deleteProfile(minecraft, selectedProfileId);
+                      previewPlan = null;
+                      reloadState(fallbackProfileId, null);
+                      setStatus(
+                          Component.translatable("keyset.status.profile_deleted").getString(),
+                          false);
+                    });
+              }
+              minecraft.setScreen(this);
+            },
+            Component.translatable("keyset.confirm.delete_profile"),
+            Component.translatable("keyset.confirm.delete_body", profileName)));
   }
 
   private void applySelected() {
-    runAction(
-        () -> {
-          service.activateProfile(minecraft, selectedProfileId);
-          previewPlan = null;
-          reloadState(selectedProfileId, selectedBindingId());
-          setStatus(Component.translatable("keyset.status.profile_applied").getString(), false);
-        });
+    if (isSelectedProfileActive()) {
+      // Already active — no confirmation needed, just re-apply.
+      runAction(
+          () -> {
+            service.activateProfile(minecraft, selectedProfileId);
+            previewPlan = null;
+            reloadState(selectedProfileId, selectedBindingId());
+            setStatus(Component.translatable("keyset.status.profile_applied").getString(), false);
+          });
+      return;
+    }
+
+    String profileName =
+        config != null && config.hasProfile(selectedProfileId)
+            ? config.getProfile(selectedProfileId).getName()
+            : selectedProfileId;
+    minecraft.setScreen(
+        new ConfirmScreen(
+            confirmed -> {
+              if (confirmed) {
+                runAction(
+                    () -> {
+                      service.activateProfile(minecraft, selectedProfileId);
+                      previewPlan = null;
+                      reloadState(selectedProfileId, selectedBindingId());
+                      setStatus(
+                          Component.translatable("keyset.status.profile_applied").getString(),
+                          false);
+                    });
+              }
+              minecraft.setScreen(this);
+            },
+            Component.translatable("keyset.confirm.apply_profile"),
+            Component.translatable("keyset.confirm.apply_body", profileName)));
   }
 
   private void captureCurrent() {
@@ -1591,6 +1754,28 @@ public final class KeysetScreen extends Screen {
         });
   }
 
+  private void moveSelectedUp() {
+    if (selectedProfileId == null) {
+      return;
+    }
+    runAction(
+        () -> {
+          service.moveProfileUp(minecraft, selectedProfileId);
+          reloadState(selectedProfileId, selectedBindingId());
+        });
+  }
+
+  private void moveSelectedDown() {
+    if (selectedProfileId == null) {
+      return;
+    }
+    runAction(
+        () -> {
+          service.moveProfileDown(minecraft, selectedProfileId);
+          reloadState(selectedProfileId, selectedBindingId());
+        });
+  }
+
   private void previewResolve() {
     runAction(
         () -> {
@@ -1617,7 +1802,7 @@ public final class KeysetScreen extends Screen {
             throw new IllegalStateException(
                 Component.translatable("keyset.error.no_preview").getString());
           }
-          undoState = service.applyAutoResolve(minecraft, previewPlan);
+          service.applyAutoResolve(minecraft, previewPlan);
           previewPlan = null;
           reloadState(config.getActiveProfileId(), null);
           setStatus(Component.translatable("keyset.status.resolve_applied").getString(), false);
@@ -1645,6 +1830,47 @@ public final class KeysetScreen extends Screen {
         });
   }
 
+  private void clearAllConflictBindings() {
+    runAction(
+        () -> {
+          requireActiveProfileSelection();
+          if (selectedBinding == null) {
+            throw new IllegalStateException(
+                Component.translatable("keyset.error.no_binding_selected").getString());
+          }
+
+          // Collect all binding IDs in the conflict that contains the selected binding.
+          List<String> bindingIds = new ArrayList<String>();
+          for (KeysetConflict conflict : conflictReport.getConflicts()) {
+            boolean inConflict = false;
+            for (KeysetBindingDescriptor bd : conflict.getBindings()) {
+              if (bd.getId().equals(selectedBinding.getId())) {
+                inConflict = true;
+                break;
+              }
+            }
+            if (inConflict) {
+              for (KeysetBindingDescriptor bd : conflict.getBindings()) {
+                bindingIds.add(bd.getId());
+              }
+            }
+          }
+
+          if (bindingIds.isEmpty()) {
+            return;
+          }
+
+          service.clearBindings(minecraft, bindingIds);
+          previewPlan = null;
+          reloadState(config.getActiveProfileId(), null);
+          setStatus(
+              Component.translatable(
+                      "keyset.status.bindings_cleared", Integer.valueOf(bindingIds.size()))
+                  .getString(),
+              false);
+        });
+  }
+
   private void reassignSelectedBinding() {
     try {
       minecraft.setScreen(
@@ -1658,15 +1884,28 @@ public final class KeysetScreen extends Screen {
   private void undoResolve() {
     runAction(
         () -> {
-          if (undoState == null) {
+          if (!service.canUndo()) {
             throw new IllegalStateException(
                 Component.translatable("keyset.error.no_undo").getString());
           }
-          service.undoAutoResolve(minecraft, undoState);
-          undoState = null;
+          service.undoAutoResolve(minecraft);
           previewPlan = null;
           reloadState(config.getActiveProfileId(), null);
           setStatus(Component.translatable("keyset.status.resolve_undone").getString(), false);
+        });
+  }
+
+  private void redoResolve() {
+    runAction(
+        () -> {
+          if (!service.canRedo()) {
+            throw new IllegalStateException(
+                Component.translatable("keyset.error.redo_unavailable").getString());
+          }
+          service.redoAutoResolve(minecraft);
+          previewPlan = null;
+          reloadState(config.getActiveProfileId(), null);
+          setStatus(Component.translatable("keyset.status.resolve_applied").getString(), false);
         });
   }
 
@@ -1737,17 +1976,25 @@ public final class KeysetScreen extends Screen {
 
     if (config != null && selectedProfileId != null) {
       deleteButton.active = !KeysetProfiles.DEFAULT_PROFILE_ID.equals(selectedProfileId);
-      applyButton.active = !activeSelection;
+      applyButton.active = true;
       captureButton.active = true;
       previewResolveButton.active = activeSelection && !conflictReport.isEmpty();
       applyPreviewButton.active = previewPlan != null && !previewPlan.getChanges().isEmpty();
-      undoButton.active = undoState != null;
+      undoButton.active = service.canUndo();
+      redoButton.active = service.canRedo();
 
       boolean bindingActionsActive =
           selectedBinding != null && previewPlan == null && activeSelection;
       jumpButton.active = bindingActionsActive;
       clearBindingButton.active = bindingActionsActive;
+      clearAllBindingsButton.active = bindingActionsActive;
       reassignButton.active = bindingActionsActive;
+
+      boolean hasMultipleProfiles = config.getProfiles().size() > 1;
+      moveUpButton.active = hasMultipleProfiles;
+      moveDownButton.active = hasMultipleProfiles;
+      jumpToActiveButton.active = !isSelectedProfileActive();
+
       updateDynamicTooltips(activeSelection, bindingActionsActive);
     }
 
@@ -1798,15 +2045,22 @@ public final class KeysetScreen extends Screen {
         Component.translatable(compactButtons ? "keyset.compact.export" : "keyset.export"));
     importButton.setMessage(
         Component.translatable(compactButtons ? "keyset.compact.import" : "keyset.import"));
+    moveUpButton.setMessage(Component.translatable("keyset.profile.move_up"));
+    moveDownButton.setMessage(Component.translatable("keyset.profile.move_down"));
+    jumpToActiveButton.setMessage(Component.translatable("keyset.profile.jump_active"));
     jumpButton.setMessage(
         Component.translatable(
             compactButtons ? "keyset.compact.binding.jump" : "keyset.binding.jump"));
     clearBindingButton.setMessage(
         Component.translatable(
             compactButtons ? "keyset.compact.binding.clear" : "keyset.binding.clear"));
+    clearAllBindingsButton.setMessage(Component.translatable("keyset.binding.clear_all"));
     reassignButton.setMessage(
         Component.translatable(
             compactButtons ? "keyset.compact.binding.reassign" : "keyset.binding.reassign"));
+    if (redoButton != null) {
+      redoButton.setMessage(Component.translatable("keyset.resolve.redo"));
+    }
   }
 
   private void refreshWidgetVisibility() {
@@ -1825,6 +2079,9 @@ public final class KeysetScreen extends Screen {
     deleteButton.visible = showProfiles;
     exportButton.visible = showProfiles;
     importButton.visible = showProfiles;
+    moveUpButton.visible = showProfiles;
+    moveDownButton.visible = showProfiles;
+    jumpToActiveButton.visible = showProfiles;
 
     searchField.visible = showNavigator;
     groupToggleButton.visible = showNavigator;
@@ -1832,10 +2089,12 @@ public final class KeysetScreen extends Screen {
 
     jumpButton.visible = showFixes;
     clearBindingButton.visible = showFixes;
+    clearAllBindingsButton.visible = showFixes;
     reassignButton.visible = showFixes;
     previewResolveButton.visible = showFixes;
     applyPreviewButton.visible = showFixes;
     undoButton.visible = showFixes;
+    redoButton.visible = showFixes;
   }
 
   private void openCompactPage(CompactPage page) {
@@ -1894,7 +2153,11 @@ public final class KeysetScreen extends Screen {
     setTooltip(
         undoButton,
         Component.translatable(
-            undoState != null ? "keyset.tip.resolve_undo" : "keyset.tip.resolve_undo_unavailable"));
+            service.canUndo() ? "keyset.tip.resolve_undo" : "keyset.tip.resolve_undo_unavailable"));
+    setTooltip(
+        redoButton,
+        Component.translatable(
+            service.canRedo() ? "keyset.tip.resolve_redo" : "keyset.error.redo_unavailable"));
 
     String inactiveBindingTooltipKey = inactiveBindingTooltipKey(activeSelection);
     setTooltip(
@@ -1903,6 +2166,10 @@ public final class KeysetScreen extends Screen {
             bindingActionsActive ? "keyset.tip.binding_jump" : inactiveBindingTooltipKey));
     setTooltip(
         clearBindingButton,
+        Component.translatable(
+            bindingActionsActive ? "keyset.tip.binding_clear" : inactiveBindingTooltipKey));
+    setTooltip(
+        clearAllBindingsButton,
         Component.translatable(
             bindingActionsActive ? "keyset.tip.binding_clear" : inactiveBindingTooltipKey));
     setTooltip(
@@ -1992,11 +2259,6 @@ public final class KeysetScreen extends Screen {
       service.consumeStatusNotice();
       setStatus(exception.getMessage(), true);
     }
-  }
-
-  private static String nonBlankOrFallback(String value, String fallback) {
-    String normalized = value == null ? "" : value.trim();
-    return normalized.isEmpty() ? fallback : normalized;
   }
 
   private enum CompactPage {

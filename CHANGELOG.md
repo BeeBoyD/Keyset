@@ -6,18 +6,21 @@
 
 ### Added
 
+- **Full 1.2.0 target rollout** — the 1.2.0 UI and profile-management feature set now ships across the remaining active Fabric leaves (`1.20.1`, `1.20.4`, `1.20.6`, `1.21.1`, `1.21.4`, and `26.1`) instead of stopping at the primary `1.21.10-1.21.11` jar.
 - **Profile cycling keybinds** — bind keys to cycle forward/backward through profiles and apply them instantly without opening the UI.
 - **Undo/redo stack** — multi-level undo and redo for Safe Fix operations (up to 20 steps each direction).
 - **Confirm dialogs** — delete profile and activate profile now require confirmation before taking effect.
-- **Bulk binding clear** — "Clear All" button in the conflict selection panel clears every binding in the current conflict at once.
-- **Profile move up/down** — reorder profiles in the list via up/down buttons; insertion order is now preserved in saves.
-- **Jump to active profile** — one-click button to scroll the profile list to the currently active profile.
-- **Search persistence** — the conflict search query is preserved when switching between profiles.
-- **Search debounce** — the conflict list no longer rebuilds on every keystroke; it waits ~200ms for you to finish typing.
-- **Conflict report caching** — conflict analysis result is cached and only recomputed when bindings actually change.
-- **Rotating backups** — config is backed up in three rotating files (`.bak`, `.bak1`, `.bak2`); recovery tries each in order.
-- **Write-back verification** — after saving config, Keyset reads it back and logs a warning if the file fails to parse.
-- **GitHub pre-release publishing** — beta builds are now automatically published as GitHub pre-releases alongside Modrinth.
+- **Bulk binding clear** — "Clear All" in the conflict selection panel clears every binding in the current conflict at once.
+- **Profile move up/down** — reorder profiles in the list via dedicated up/down controls while preserving insertion order in saves.
+- **Jump to active profile** — one-click control to scroll the profile list back to the currently active profile.
+- **Search persistence and debounce** — the conflict search query is preserved when switching profiles and no longer rebuilds the list on every keystroke.
+- **Rotating backups and write-back verification** — config saves now keep `.bak` / `.bak1` / `.bak2` history and verify the written file can be parsed back in.
+
+### Changed
+
+- Forge `1.20.1` and NeoForge `1.20.1`, `1.20.4`, `1.20.6`, and `26.1` now pick up the same profile-cycle hotkeys and single-slot Controls-screen injection flow as the finalized Fabric client path.
+- Beta Modrinth releases now include the CI build number in both the displayed version name and the published `version_number`, making repeated beta drops easier to distinguish.
+- GitHub and Modrinth release notes continue to be generated directly from this changelog entry so both storefronts stay in sync.
 
 ### Fixed
 
@@ -26,10 +29,13 @@
 - Status notice queue no longer drops messages when multiple notices fire in quick succession.
 - The Keyset button injected into the Controls screen no longer uses a WeakHashMap, preventing rare GC-related disappearance.
 - Profile name blank-check now happens in the UI before submitting, not only in the service layer.
+- Modrinth publishing now checks the target project for an existing matching `version_number` before upload and skips already-published builds instead of attempting a duplicate release.
+- The `1.21.1` Fabric port uses the correct legacy keybinding setter path, keeping the final 1.2.0 rollout aligned with the older Yarn API split.
 
 ### Notes
 
-- This release ships full 1.2.0 features on **Fabric/Quilt 1.21.10–1.21.11** (and 1.21.9 via the same jar). Other loader/version targets carry forward 1.1.3 behaviour and will receive the full feature set in a follow-up patch.
+- v1.2.0 now covers the full active release line: **Fabric/Quilt 1.20.1-1.21.11 plus 26.1**, **Forge 1.20.1-1.21.1**, and **NeoForge 1.20.1-1.21.11 plus 26.1**.
+- Recent beta-publish commits (`ci: trigger beta publish ...`) were release-ops retries and are not user-facing features on their own; the functional publishing change in this pass is the duplicate-check plus beta build-number naming above.
 
 ## v1.1.3 - 2026-04-07
 
