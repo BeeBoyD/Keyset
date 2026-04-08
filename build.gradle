@@ -589,8 +589,8 @@ tasks.register("publishToModrinth") {
 
             def meta = [
                 name          : (releaseType == "beta")
-                    ? "${rootProject.findProperty('modName')} ${versionStr} commit ${buildNumber}"
-                    : "${rootProject.findProperty('modName')} ${versionStr}",
+                    ? "${versionStr}+${target.label}-${buildNumber}"
+                    : "${versionStr}+${target.label}",
                 version_number: versionNumber,
                 changelog     : changelog,
                 dependencies  : deps,
