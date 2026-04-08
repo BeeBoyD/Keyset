@@ -49,7 +49,10 @@ jobs:
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
 
-      - name: Format check and unit tests
+      - name: Apply Spotless formatting
+        run: ./gradlew -PworkspaceProfile=ci spotlessApply
+
+      - name: Verify workspace and unit tests
         run: ./gradlew -PworkspaceProfile=ci verifyCiWorkspace
 
       - name: Upload test results
