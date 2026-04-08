@@ -540,6 +540,14 @@ tasks.register("publishToModrinth") {
             }
         }
 
+        def compactTargetToken = { Map target ->
+            def loaderCode = (target.loader == "fabric") ? "f" : ((target.loader == "forge") ? "g" : "n")
+            def firstMc = target.minecraftVersions.first().toString().replace(".", "")
+            def lastMc = target.minecraftVersions.last().toString().replace(".", "")
+            def mcCode = (firstMc == lastMc) ? firstMc : "${firstMc}-${lastMc}"
+            return "${loaderCode}${mcCode}"
+        }
+
         def modrinthVersions = null
         if (!dryRun) {
             def url = new URL("https://api.modrinth.com/v2/project/${projectId}/version")
@@ -569,9 +577,15 @@ tasks.register("publishToModrinth") {
             def deps    = (target.loader == "fabric")
                 ? [[project_id: "P7dR8mSH", dependency_type: "required"]]   // Fabric API
                 : []
+            def targetToken = compactTargetToken(target)
             def versionNumber = (releaseType == "beta")
-                ? "${versionStr}-beta.${buildNumber}+${target.label}"
+                ? "${versionStr}-b${buildNumber}-${targetToken}"
                 : "${versionStr}+${target.label}"
+            if (versionNumber.length() > 32) {
+                throw new GradleException(
+                    "Generated Modrinth version_number exceeds 32 chars: '${versionNumber}' for target ${target.label}"
+                )
+            }
 
             def meta = [
                 name          : (releaseType == "beta")
