@@ -567,15 +567,11 @@ public final class KeysetScreen extends Screen {
   @Override
   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
     applyPendingStatusNotice();
-    super.render(context, mouseX, mouseY, delta);
-    drawForeground(context);
-  }
-
-  @Override
-  public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
     drawBackdrop(context);
     drawHeaderPanel(context);
     drawContentPanels(context);
+    super.render(context, mouseX, mouseY, delta);
+    drawForeground(context);
   }
 
   private void computeLayout() {
@@ -1405,7 +1401,7 @@ public final class KeysetScreen extends Screen {
       int borderColor) {
     context.fill(x + 2, y + 2, x + panelWidth + 2, y + panelHeight + 2, PANEL_SHADOW);
     context.fill(x, y, x + panelWidth, y + panelHeight, fillColor);
-    context.drawStrokedRectangle(x, y, panelWidth, panelHeight, borderColor);
+    context.drawBorder(x, y, panelWidth, panelHeight, borderColor);
   }
 
   private int drawRightChip(
@@ -1484,7 +1480,7 @@ public final class KeysetScreen extends Screen {
       int borderColor,
       int textColor) {
     context.fill(x, y, x + chipWidth, y + 14, fillColor);
-    context.drawStrokedRectangle(x, y, chipWidth, 14, borderColor);
+    context.drawBorder(x, y, chipWidth, 14, borderColor);
     context.drawCenteredTextWithShadow(
         textRenderer,
         Text.literal(ellipsize(text.getString(), Math.max(18, chipWidth - 8))),
