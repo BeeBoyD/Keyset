@@ -2,8 +2,6 @@ package net.beeboyd.keyset.platform.fabric;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import java.util.List;
-import java.util.Map;
-import java.util.WeakHashMap;
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
 import net.beeboyd.keyset.platform.fabric.screen.KeysetKeybindsScreen;
 import net.beeboyd.keyset.platform.fabric.screen.KeysetScreen;
@@ -34,10 +32,14 @@ public final class KeysetFabricClient implements ClientModInitializer {
   private static final KeysetFabricService SERVICE = new KeysetFabricService();
 
   private KeyMapping openScreenKeyMapping;
+  private KeyMapping cycleNextKeyMapping;
+  private KeyMapping cyclePrevKeyMapping;
   private Screen pendingParentScreen;
   private boolean openScreenRequested;
-  private final Map<Screen, AbstractWidget> injectedControlsButtons =
-      new WeakHashMap<Screen, AbstractWidget>();
+
+  // Single-slot injection tracking — only one controls screen open at a time.
+  private Screen lastInjectedScreen;
+  private AbstractWidget lastInjectedButton;
 
   public static KeysetFabricService getService() {
     return SERVICE;
@@ -49,6 +51,20 @@ public final class KeysetFabricClient implements ClientModInitializer {
         KeyMappingHelper.registerKeyMapping(
             new KeyMapping(
                 "keyset.key.open_screen",
+                InputConstants.UNKNOWN.getValue(),
+                KeyMapping.Category.MISC));
+
+    cycleNextKeyMapping =
+        KeyMappingHelper.registerKeyMapping(
+            new KeyMapping(
+                "keyset.key.cycle_profile_next",
+                InputConstants.UNKNOWN.getValue(),
+                KeyMapping.Category.MISC));
+
+    cyclePrevKeyMapping =
+        KeyMappingHelper.registerKeyMapping(
+            new KeyMapping(
+                "keyset.key.cycle_profile_prev",
                 InputConstants.UNKNOWN.getValue(),
                 KeyMapping.Category.MISC));
 
@@ -71,6 +87,26 @@ public final class KeysetFabricClient implements ClientModInitializer {
             requestOpenScreen(client.screen);
           }
 
+          while (cycleNextKeyMapping.consumeClick()) {
+            try {
+              String name = SERVICE.cycleToNextProfile(client);
+              SERVICE.reportStatusNotice(
+                  Component.translatable("keyset.status.profile_cycled", name).getString(), false);
+            } catch (Exception exception) {
+              LOGGER.warn("Failed to cycle to next profile", exception);
+            }
+          }
+
+          while (cyclePrevKeyMapping.consumeClick()) {
+            try {
+              String name = SERVICE.cycleToPreviousProfile(client);
+              SERVICE.reportStatusNotice(
+                  Component.translatable("keyset.status.profile_cycled", name).getString(), false);
+            } catch (Exception exception) {
+              LOGGER.warn("Failed to cycle to previous profile", exception);
+            }
+          }
+
           flushPendingOpen(client);
         });
 
@@ -80,6 +116,9 @@ public final class KeysetFabricClient implements ClientModInitializer {
           // sub-screen reached via its "Key Binds" button. Inject into both.
           // Exclude KeysetKeybindsScreen (extends KeyBindsScreen) — it is Keyset's own screen.
           if (!(screen instanceof KeyBindsScreen) && !(screen instanceof ControlsScreen)) {
+            // If we're navigating to a non-Controls screen, clear the injection slot.
+            lastInjectedScreen = null;
+            lastInjectedButton = null;
             return;
           }
           if (screen instanceof KeysetKeybindsScreen) {
@@ -87,7 +126,12 @@ public final class KeysetFabricClient implements ClientModInitializer {
           }
 
           List<AbstractWidget> buttons = Screens.getWidgets(screen);
-          removeInjectedControlsButton(screen, buttons);
+
+          // Remove stale button from previous screen (same object reused after resize, etc.).
+          if (lastInjectedScreen == screen && lastInjectedButton != null) {
+            buttons.remove(lastInjectedButton);
+          }
+
           int[] placement = findControlsButtonPlacement(buttons, scaledWidth, scaledHeight);
           Button keysetButton =
               Button.builder(
@@ -96,15 +140,10 @@ public final class KeysetFabricClient implements ClientModInitializer {
                   .build();
           keysetButton.setTooltip(Tooltip.create(Component.translatable("keyset.subtitle")));
           buttons.add(keysetButton);
-          injectedControlsButtons.put(screen, keysetButton);
-        });
-  }
 
-  private void removeInjectedControlsButton(Screen screen, List<AbstractWidget> buttons) {
-    AbstractWidget existingButton = injectedControlsButtons.remove(screen);
-    if (existingButton != null) {
-      buttons.remove(existingButton);
-    }
+          lastInjectedScreen = screen;
+          lastInjectedButton = keysetButton;
+        });
   }
 
   private void requestOpenScreen(Screen parent) {
