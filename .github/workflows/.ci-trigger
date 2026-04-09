@@ -1,2 +1,2 @@
 This tracked marker exists so a direct push can satisfy ci.yml push.paths when CI needs to be triggered by commit message.
-Latest manual trigger: 2026-04-07T19:52:42Z
+Latest manual trigger: 2026-04-09T17:12:08Z
