@@ -104,9 +104,7 @@ public final class KeysetForgeClientMod {
       if (cycleNextKeyBinding != null) {
         while (cycleNextKeyBinding.wasPressed()) {
           try {
-            String name = SERVICE.cycleToNextProfile(client);
-            SERVICE.reportStatusNotice(
-                Text.translatable("keyset.status.profile_cycled", name).getString(), false);
+            queueCycleStatus(SERVICE.cycleToNextProfile(client));
           } catch (Exception exception) {
             LOGGER.warn("Failed to cycle to next profile", exception);
           }
@@ -116,9 +114,7 @@ public final class KeysetForgeClientMod {
       if (cyclePrevKeyBinding != null) {
         while (cyclePrevKeyBinding.wasPressed()) {
           try {
-            String name = SERVICE.cycleToPreviousProfile(client);
-            SERVICE.reportStatusNotice(
-                Text.translatable("keyset.status.profile_cycled", name).getString(), false);
+            queueCycleStatus(SERVICE.cycleToPreviousProfile(client));
           } catch (Exception exception) {
             LOGGER.warn("Failed to cycle to previous profile", exception);
           }
@@ -180,6 +176,23 @@ public final class KeysetForgeClientMod {
 
     private static boolean isKeysetScreen(Screen screen) {
       return screen instanceof KeysetScreen || screen instanceof KeysetKeybindsScreen;
+    }
+
+    private static void queueCycleStatus(KeysetFabricService.ActivationResult activationResult) {
+      String message =
+          Text.translatable("keyset.status.profile_cycled", activationResult.getProfileName())
+              .getString();
+      if (activationResult.hasConflicts()) {
+        message +=
+            " "
+                + Text.translatable(
+                        "keyset.status.profile_conflicts",
+                        Integer.valueOf(activationResult.getConflictCount()),
+                        Integer.valueOf(activationResult.getAffectedBindingCount()))
+                    .getString();
+      }
+
+      SERVICE.reportStatusNotice(message, activationResult.hasConflicts());
     }
 
     private static int[] findControlsButtonPlacement(

@@ -13,8 +13,8 @@ public final class KeysetProfilesConfig {
 
   public KeysetProfilesConfig(
       int schemaVersion, String activeProfileId, Map<String, KeysetProfile> profiles) {
-    if (schemaVersion <= 0) {
-      throw new IllegalArgumentException("schemaVersion must be positive");
+    if (schemaVersion < 0) {
+      throw new IllegalArgumentException("schemaVersion must not be negative");
     }
 
     this.schemaVersion = schemaVersion;

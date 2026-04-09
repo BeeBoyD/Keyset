@@ -153,17 +153,37 @@ def releaseTargets = releaseTargetSpecsByLoader.collectMany { loader, specs ->
     }
 }
 
+def releaseTargetLabels = releaseTargets.collect { it.label } as Set
+def allowedReleaseTypes = ["stable", "beta", "alpha"] as Set
+
 // When -PbuildTargets=label1,label2 is passed, only those release targets are
 // built, collected, verified, and published. Pass "all" or omit to include everything.
 def resolveActiveTargets = { ->
     def prop = findProperty("buildTargets")?.toString()?.trim()
     if (prop == null || prop.isEmpty() || prop == "all") return releaseTargets
-    def labels = prop.split(",")*.trim() as Set
+
+    def labels = prop.split(",")*.trim()
+    def emptyLabels = labels.findAll { it.isEmpty() }
+    if (!emptyLabels.isEmpty()) {
+        throw new GradleException(
+            "Invalid -PbuildTargets='${prop}': empty target labels are not allowed. " +
+                "Valid labels: ${releaseTargets.collect { it.label }.join(', ')}"
+        )
+    }
+
+    def unknownLabels = labels.findAll { !releaseTargetLabels.contains(it) }.unique()
+    if (!unknownLabels.isEmpty()) {
+        throw new GradleException(
+            "Unknown build target label(s) in -PbuildTargets='${prop}': " +
+                "${unknownLabels.join(', ')}. Valid labels: ${releaseTargets.collect { it.label }.join(', ')}"
+        )
+    }
+
     def active = releaseTargets.findAll { labels.contains(it.label) }
     if (active.isEmpty()) {
         throw new GradleException(
             "No release targets matched -PbuildTargets='${prop}'. " +
-            "Known labels: ${releaseTargets.collect { it.label }.join(', ')}"
+                "Known labels: ${releaseTargets.collect { it.label }.join(', ')}"
         )
     }
     return active
@@ -264,6 +284,7 @@ tasks.register("buildAllJars") {
 tasks.register("buildSelectedTargets") {
     group = "build"
     description = "Builds and collects only the jars specified by -PbuildTargets. Defaults to all targets."
+    dependsOn("validateBuildTargets")
     dependsOn("collectTargetJars", "stageReleaseMetadata")
     activeReleaseTargets.each { target ->
         def jarTaskName = jarTaskOverrides.get(target.path, "remapJar")
@@ -364,6 +385,15 @@ tasks.register("verifyFabricModRanges") {
     }
 }
 
+tasks.register("validateBuildTargets") {
+    group = "verification"
+    description = "Validates -PbuildTargets against the known release target labels."
+
+    doLast {
+        resolveActiveTargets()
+    }
+}
+
 tasks.register("verifyWorkspace") {
     group = "verification"
     description = "Runs formatting and checks across the currently included workspace."
@@ -396,7 +426,9 @@ def extractChangelog = { String ver ->
     def text = file("CHANGELOG.md").getText("UTF-8")
     def header = "## v${ver}"
     def start = text.indexOf(header)
-    if (start == -1) return "See CHANGELOG.md for ${ver} release notes."
+    if (start == -1) {
+        throw new GradleException("CHANGELOG.md does not contain a section header for v${ver}.")
+    }
     def afterHeader = text.indexOf("\n", start) + 1
     def nextHeader = text.indexOf("\n## ", afterHeader)
     def body = nextHeader == -1 ? text.substring(afterHeader) : text.substring(afterHeader, nextHeader)
@@ -420,6 +452,67 @@ def releaseJarFile = { Map target ->
         throw new GradleException("Missing release artifact label for ${target.projectName}")
     }
     return layout.projectDirectory.file("${releaseBundleDir}/${target.loader}/${rootProject.findProperty('modId')}-${label}-${rootProject.version}.jar")
+}
+
+def parseReleaseType = { ->
+    def rawReleaseType = findProperty("releaseType")?.toString()?.trim()
+    def releaseType = rawReleaseType == null || rawReleaseType.isEmpty() ? "stable" : rawReleaseType.toLowerCase()
+    if (!allowedReleaseTypes.contains(releaseType)) {
+        throw new GradleException(
+            "Invalid releaseType '${rawReleaseType}'. Expected one of: ${allowedReleaseTypes.join(', ')}."
+        )
+    }
+    return releaseType
+}
+
+def jarHasEntry = { java.util.zip.ZipFile zipFile, String entryName ->
+    return zipFile.getEntry(entryName) != null
+}
+
+def jarContainsClassFile = { java.util.zip.ZipFile zipFile ->
+    def entries = zipFile.entries()
+    while (entries.hasMoreElements()) {
+        def entry = entries.nextElement()
+        if (!entry.isDirectory() && entry.name.endsWith(".class")) {
+            return true
+        }
+    }
+    return false
+}
+
+def expectedMetadataEntryForLoader = [
+    fabric  : "fabric.mod.json",
+    forge   : "META-INF/mods.toml",
+    neoforge: "META-INF/neoforge.mods.toml"
+]
+
+def validateReleaseJar = { File jarFile, String loader, String label ->
+    if (!jarFile.exists()) {
+        throw new GradleException("Release jar not found: ${jarFile.path}")
+    }
+    if (jarFile.length() <= 0L) {
+        throw new GradleException("Release jar is empty: ${jarFile.path}")
+    }
+
+    def metadataEntry = expectedMetadataEntryForLoader[loader]
+    if (metadataEntry == null) {
+        throw new GradleException("No release metadata entry mapping defined for loader '${loader}'.")
+    }
+
+    try {
+        new java.util.zip.ZipFile(jarFile).withCloseable { zipFile ->
+            if (!jarHasEntry(zipFile, metadataEntry)) {
+                throw new GradleException(
+                    "Release jar ${jarFile.name} is missing required metadata entry '${metadataEntry}'."
+                )
+            }
+            if (!jarContainsClassFile(zipFile)) {
+                throw new GradleException("Release jar ${jarFile.name} does not contain any class files.")
+            }
+        }
+    } catch (java.io.IOException exception) {
+        throw new GradleException("Release jar is not a valid ZIP archive: ${jarFile.path}", exception)
+    }
 }
 
 tasks.register("cleanReleaseBundle", Delete) {
@@ -467,18 +560,35 @@ tasks.register("verifyReleaseBundle") {
     dependsOn("buildTargetJars")
 
     doLast {
-        def missing = activeReleaseTargets.collect { target ->
-            def jarFile = releaseJarFile(target).asFile
-            jarFile.exists() ? null : jarFile.path
-        }.findAll { it != null }
+        def missing = []
 
-        [
-            layout.projectDirectory.file("${releaseBundleDir}/GITHUB_CHANGELOG.md").asFile,
-            layout.projectDirectory.file("${releaseBundleDir}/MODRINTH_CHANGELOG.md").asFile,
-            layout.projectDirectory.file("${releaseBundleDir}/BUILD_INFO.md").asFile
-        ].each { metadataFile ->
+        activeReleaseTargets.each { target ->
+            def jarFile = releaseJarFile(target).asFile
+            try {
+                validateReleaseJar(jarFile, target.loader, target.label)
+            } catch (GradleException exception) {
+                missing << exception.message
+            }
+        }
+
+        def githubChangelog = layout.projectDirectory.file("${releaseBundleDir}/GITHUB_CHANGELOG.md").asFile
+        def modrinthChangelog = layout.projectDirectory.file("${releaseBundleDir}/MODRINTH_CHANGELOG.md").asFile
+        def buildInfo = layout.projectDirectory.file("${releaseBundleDir}/BUILD_INFO.md").asFile
+        [githubChangelog, modrinthChangelog, buildInfo].each { metadataFile ->
             if (!metadataFile.exists()) {
                 missing << metadataFile.path
+            } else if (metadataFile.length() <= 0L) {
+                missing << "${metadataFile.path} (empty)"
+            }
+        }
+
+        def buildInfoText = buildInfo.exists() ? buildInfo.getText("UTF-8") : ""
+        if (buildInfoText) {
+            activeReleaseTargets.each { target ->
+                def expectedName = "${rootProject.findProperty('modId')}-${target.label}-${version}.jar"
+                if (!buildInfoText.contains(expectedName)) {
+                    missing << "${buildInfo.path} missing reference to ${expectedName}"
+                }
             }
         }
 
@@ -499,6 +609,7 @@ tasks.named("collectTargetJars") {
 tasks.register("publishToModrinth") {
     group = "publishing"
     description = "Uploads built jars to Modrinth via the REST API."
+    dependsOn("validateReleaseType")
     dependsOn("buildSelectedTargets")
     outputs.upToDateWhen { false }
     doNotTrackState("Network publish — must always run")
@@ -517,7 +628,7 @@ tasks.register("publishToModrinth") {
             throw new GradleException("modrinthProjectId is not set.")
         }
         def versionStr    = version as String
-        def releaseType   = findProperty("releaseType")?.toString()?.toLowerCase() ?: "stable"
+        def releaseType   = parseReleaseType()
         def versionType   = (releaseType == "stable") ? "release" : releaseType
         def dryRun        = findProperty("publishDryRun")?.toString()?.toBoolean() ?: false
         def changelog     = extractChangelog(versionStr)
@@ -663,6 +774,7 @@ tasks.register("publishToModrinth") {
 tasks.register("publishToGitHub") {
     group = "publishing"
     description = "Creates or updates a GitHub release and attaches all built jars."
+    dependsOn("validateReleaseType")
     dependsOn("buildSelectedTargets")
     outputs.upToDateWhen { false }
     doNotTrackState("Network publish — must always run")
@@ -676,7 +788,7 @@ tasks.register("publishToGitHub") {
 
         def versionStr = version as String
         def tagName    = "v${versionStr}"
-        def releaseType = findProperty("releaseType")?.toString()?.toLowerCase() ?: "stable"
+        def releaseType = parseReleaseType()
         def dryRun     = findProperty("publishDryRun")?.toString()?.toBoolean() ?: false
         def changelogFile = layout.projectDirectory.file("${releaseBundleDir}/GITHUB_CHANGELOG.md").asFile
         def changelogText = changelogFile.exists() ? changelogFile.text : extractChangelog(versionStr)
@@ -744,4 +856,13 @@ tasks.register("publishMods") {
     dependsOn("publishToModrinth")
     def skipGitHub = findProperty("noGitHub")?.toString()?.toBoolean() ?: false
     if (!skipGitHub) dependsOn("publishToGitHub")
+}
+
+tasks.register("validateReleaseType") {
+    group = "verification"
+    description = "Validates -PreleaseType against the supported publishing modes."
+
+    doLast {
+        parseReleaseType()
+    }
 }

@@ -1,5 +1,6 @@
 package net.beeboyd.keyset.core.profile;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -278,6 +279,7 @@ public final class KeysetProfiles {
       if (normalizedName == null) {
         normalizedName = fallbackProfileName(normalizedId);
       }
+      normalizedName = uniqueProfileName(normalized, normalizedName, null);
 
       normalized.put(
           normalizedId,
@@ -322,9 +324,14 @@ public final class KeysetProfiles {
 
   private static String uniqueProfileName(
       KeysetProfilesConfig config, String baseName, String ignoredProfileId) {
+    return uniqueProfileName(config.getProfiles(), baseName, ignoredProfileId);
+  }
+
+  private static String uniqueProfileName(
+      Map<String, KeysetProfile> profiles, String baseName, String ignoredProfileId) {
     String candidate = baseName;
     int suffix = 2;
-    while (containsProfileName(config, candidate, ignoredProfileId)) {
+    while (containsProfileName(profiles, candidate, ignoredProfileId)) {
       candidate = baseName + " (" + suffix + ")";
       suffix++;
     }
@@ -333,8 +340,13 @@ public final class KeysetProfiles {
 
   private static boolean containsProfileName(
       KeysetProfilesConfig config, String candidate, String ignoredProfileId) {
+    return containsProfileName(config.getProfiles(), candidate, ignoredProfileId);
+  }
+
+  private static boolean containsProfileName(
+      Map<String, KeysetProfile> profiles, String candidate, String ignoredProfileId) {
     String needle = candidate.toLowerCase(Locale.ROOT);
-    for (KeysetProfile profile : config.getProfiles().values()) {
+    for (KeysetProfile profile : profiles.values()) {
       if (profile.getId().equals(ignoredProfileId)) {
         continue;
       }
@@ -366,11 +378,18 @@ public final class KeysetProfiles {
       return "profile";
     }
 
+    String decomposed = Normalizer.normalize(normalized, Normalizer.Form.NFKD);
     StringBuilder slug = new StringBuilder();
     boolean lastWasSeparator = false;
-    String lowerCase = normalized.toLowerCase(Locale.ROOT);
+    String lowerCase = decomposed.toLowerCase(Locale.ROOT);
     for (int index = 0; index < lowerCase.length(); index++) {
       char character = lowerCase.charAt(index);
+      int characterType = Character.getType(character);
+      if (characterType == Character.NON_SPACING_MARK
+          || characterType == Character.COMBINING_SPACING_MARK
+          || characterType == Character.ENCLOSING_MARK) {
+        continue;
+      }
       if ((character >= 'a' && character <= 'z') || (character >= '0' && character <= '9')) {
         slug.append(character);
         lastWasSeparator = false;

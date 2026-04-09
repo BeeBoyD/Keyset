@@ -165,6 +165,7 @@ public final class KeysetScreen extends Screen {
 
   @Override
   protected void init() {
+    clearChildren();
     computeLayout();
 
     int profileInnerX = profileCardX + CARD_PADDING;
@@ -408,16 +409,19 @@ public final class KeysetScreen extends Screen {
                 "keyset.profile.move_up",
                 profileInnerX,
                 moveRowY,
-                profileTwoColumnWidth,
+                useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
                 button -> moveSelectedUp(),
                 "keyset.tip.profile_move_up"));
     moveDownButton =
         addDrawableChild(
             button(
                 "keyset.profile.move_down",
-                profileInnerX + profileTwoColumnWidth + profileButtonGap,
+                profileInnerX
+                    + (useThreeColumnProfileGrid
+                        ? profileThreeColumnWidth + profileButtonGap
+                        : profileTwoColumnWidth + profileButtonGap),
                 moveRowY,
-                profileTwoColumnWidth,
+                useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
                 button -> moveSelectedDown(),
                 "keyset.tip.profile_move_down"));
 
@@ -431,7 +435,7 @@ public final class KeysetScreen extends Screen {
                         ? (profileThreeColumnWidth + profileButtonGap) * 2
                         : profileTwoColumnWidth + profileButtonGap),
                 useThreeColumnProfileGrid
-                    ? profileRowY
+                    ? moveRowY
                     : profileRowY + (profileActionStep * 5) + profileActionStep,
                 useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
                 button -> jumpToActiveProfile(),
@@ -551,6 +555,7 @@ public final class KeysetScreen extends Screen {
   @Override
   public void tick() {
     super.tick();
+    applyPendingStatusNotice();
     if (searchDebounceTimer > 0) {
       searchDebounceTimer--;
       if (searchDebounceTimer == 0) {
@@ -771,7 +776,14 @@ public final class KeysetScreen extends Screen {
       ButtonWidget.PressAction action,
       String tooltipKey) {
     ButtonWidget widget =
-        ButtonWidget.builder(Text.translatable(messageKey), action)
+        ButtonWidget.builder(
+                Text.translatable(messageKey),
+                clicked -> {
+                  if (!clicked.active || !clicked.visible) {
+                    return;
+                  }
+                  action.onPress(clicked);
+                })
             .dimensions(x, y, buttonWidth, buttonHeight)
             .build();
     setTooltip(widget, tooltipKey);
@@ -786,7 +798,16 @@ public final class KeysetScreen extends Screen {
       ButtonWidget.PressAction action,
       Text tooltipText) {
     ButtonWidget widget =
-        ButtonWidget.builder(message, action).dimensions(x, y, buttonWidth, buttonHeight).build();
+        ButtonWidget.builder(
+                message,
+                clicked -> {
+                  if (!clicked.active || !clicked.visible) {
+                    return;
+                  }
+                  action.onPress(clicked);
+                })
+            .dimensions(x, y, buttonWidth, buttonHeight)
+            .build();
     if (tooltipText != null) {
       setTooltip(widget, tooltipText);
     }
@@ -1587,10 +1608,16 @@ public final class KeysetScreen extends Screen {
   }
 
   private void jumpToActiveProfile() {
-    if (config == null) {
+    if (config == null || jumpToActiveButton == null) {
       return;
     }
-    selectProfileById(config.getActiveProfileId());
+    String activeProfileId = config.getActiveProfileId();
+    if (!jumpToActiveButton.active
+        || activeProfileId == null
+        || activeProfileId.equals(selectedProfileId)) {
+      return;
+    }
+    selectProfileById(activeProfileId);
   }
 
   private void createProfile() {
@@ -1661,14 +1688,20 @@ public final class KeysetScreen extends Screen {
   }
 
   private void applySelected() {
+    if (applyButton != null && !applyButton.active) {
+      return;
+    }
     if (isSelectedProfileActive()) {
       // Already active — no confirmation needed, just re-apply.
       runAction(
           () -> {
-            service.activateProfile(client, selectedProfileId);
+            KeysetFabricService.ActivationResult activationResult =
+                service.activateProfile(client, selectedProfileId);
             previewPlan = null;
             reloadState(selectedProfileId, selectedBindingId());
-            setStatus(Text.translatable("keyset.status.profile_applied").getString(), false);
+            setStatus(
+                activationStatusMessage(activationResult, "keyset.status.profile_applied"),
+                activationResult.hasConflicts());
           });
       return;
     }
@@ -1683,11 +1716,14 @@ public final class KeysetScreen extends Screen {
               if (confirmed) {
                 runAction(
                     () -> {
-                      service.activateProfile(client, selectedProfileId);
+                      KeysetFabricService.ActivationResult activationResult =
+                          service.activateProfile(client, selectedProfileId);
                       previewPlan = null;
                       reloadState(selectedProfileId, selectedBindingId());
                       setStatus(
-                          Text.translatable("keyset.status.profile_applied").getString(), false);
+                          activationStatusMessage(
+                              activationResult, "keyset.status.profile_applied"),
+                          activationResult.hasConflicts());
                     });
               }
               client.setScreen(this);
@@ -1736,6 +1772,9 @@ public final class KeysetScreen extends Screen {
     if (selectedProfileId == null) {
       return;
     }
+    if (moveUpButton != null && !moveUpButton.active) {
+      return;
+    }
     runAction(
         () -> {
           service.moveProfileUp(client, selectedProfileId);
@@ -1745,6 +1784,9 @@ public final class KeysetScreen extends Screen {
 
   private void moveSelectedDown() {
     if (selectedProfileId == null) {
+      return;
+    }
+    if (moveDownButton != null && !moveDownButton.active) {
       return;
     }
     runAction(
@@ -2021,7 +2063,9 @@ public final class KeysetScreen extends Screen {
         Text.translatable(compactButtons ? "keyset.compact.import" : "keyset.import"));
     moveUpButton.setMessage(Text.translatable("keyset.profile.move_up"));
     moveDownButton.setMessage(Text.translatable("keyset.profile.move_down"));
-    jumpToActiveButton.setMessage(Text.translatable("keyset.profile.jump_active"));
+    jumpToActiveButton.setMessage(
+        Text.translatable(
+            compactButtons ? "keyset.compact.profile.jump_active" : "keyset.profile.jump_active"));
     jumpButton.setMessage(
         Text.translatable(compactButtons ? "keyset.compact.binding.jump" : "keyset.binding.jump"));
     clearBindingButton.setMessage(
@@ -2031,8 +2075,46 @@ public final class KeysetScreen extends Screen {
     reassignButton.setMessage(
         Text.translatable(
             compactButtons ? "keyset.compact.binding.reassign" : "keyset.binding.reassign"));
+    fitResponsiveButtonLabels(compactButtons);
     if (redoButton != null) {
       redoButton.setMessage(Text.translatable("keyset.resolve.redo"));
+    }
+  }
+
+  private void fitResponsiveButtonLabels(boolean compactButtons) {
+    fitButtonLabel(previousProfileButton);
+    fitButtonLabel(nextProfileButton);
+    fitButtonLabel(applyButton);
+    fitButtonLabel(captureButton);
+    fitButtonLabel(renameButton);
+    fitButtonLabel(createButton);
+    fitButtonLabel(duplicateButton);
+    fitButtonLabel(deleteButton);
+    fitButtonLabel(exportButton);
+    fitButtonLabel(importButton);
+    fitButtonLabel(moveUpButton);
+    fitButtonLabel(moveDownButton);
+    fitButtonLabel(jumpToActiveButton);
+    fitButtonLabel(jumpButton);
+    fitButtonLabel(clearBindingButton);
+    fitButtonLabel(clearAllBindingsButton);
+    fitButtonLabel(reassignButton);
+    fitButtonLabel(previewResolveButton);
+    fitButtonLabel(applyPreviewButton);
+    fitButtonLabel(undoButton);
+    fitButtonLabel(redoButton);
+  }
+
+  private void fitButtonLabel(ButtonWidget button) {
+    if (button == null) {
+      return;
+    }
+
+    int maxTextWidth = Math.max(8, button.getWidth() - 10);
+    String raw = button.getMessage().getString();
+    String fitted = ellipsize(raw, maxTextWidth);
+    if (!fitted.equals(raw)) {
+      button.setMessage(Text.literal(fitted));
     }
   }
 
@@ -2102,6 +2184,22 @@ public final class KeysetScreen extends Screen {
       return;
     }
     setStatus(notice.getMessage(), notice.isError());
+  }
+
+  private String activationStatusMessage(
+      KeysetFabricService.ActivationResult activationResult, String successTranslationKey) {
+    String successMessage = Text.translatable(successTranslationKey).getString();
+    if (activationResult == null || !activationResult.hasConflicts()) {
+      return successMessage;
+    }
+
+    return successMessage
+        + " "
+        + Text.translatable(
+                "keyset.status.profile_conflicts",
+                Integer.valueOf(activationResult.getConflictCount()),
+                Integer.valueOf(activationResult.getAffectedBindingCount()))
+            .getString();
   }
 
   private void updateDynamicTooltips(boolean activeSelection, boolean bindingActionsActive) {

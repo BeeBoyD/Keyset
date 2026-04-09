@@ -28,6 +28,7 @@ import net.beeboyd.keyset.core.profile.KeysetProfile;
 import net.beeboyd.keyset.core.profile.KeysetProfiles;
 import net.beeboyd.keyset.core.profile.KeysetProfilesConfig;
 import net.beeboyd.keyset.core.profile.KeysetProfilesJson;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
@@ -134,6 +135,21 @@ public final class KeysetFabricService {
     queueStatusNotice(message, error);
   }
 
+  public void flushStatusNoticeToHud(Minecraft client) {
+    if (client == null || client.player == null) {
+      return;
+    }
+
+    StatusNotice notice = consumeStatusNotice();
+    if (notice == null) {
+      return;
+    }
+
+    client.player.sendOverlayMessage(
+        Component.literal(notice.getMessage())
+            .withStyle(notice.isError() ? ChatFormatting.RED : ChatFormatting.GREEN));
+  }
+
   public List<KeysetProfile> listProfiles(Minecraft client) throws IOException {
     ensureLoaded(client);
     return new ArrayList<KeysetProfile>(config.getProfiles().values());
@@ -196,12 +212,14 @@ public final class KeysetFabricService {
     return config.getActiveProfileId();
   }
 
-  public void activateProfile(Minecraft client, String profileId) throws IOException {
+  public ActivationResult activateProfile(Minecraft client, String profileId) throws IOException {
     ensureLoaded(client);
     config = KeysetProfiles.setActiveProfile(config, profileId);
-    applyProfile(client.options, requireProfile(config, profileId));
-    cachedConflictReport = null;
+    KeysetProfile profile = requireProfile(config, profileId);
+    applyProfile(client.options, profile);
+    cachedConflictReport = KeysetConflicts.analyze(describeBindings(client.options));
     save(client);
+    return ActivationResult.from(profile.getName(), cachedConflictReport);
   }
 
   public void captureCurrentToProfile(Minecraft client, String profileId, boolean stickySnapshots)
@@ -477,11 +495,12 @@ public final class KeysetFabricService {
     return true;
   }
 
-  public String cycleToNextProfile(Minecraft client) throws IOException {
+  public ActivationResult cycleToNextProfile(Minecraft client) throws IOException {
     ensureLoaded(client);
     List<KeysetProfile> profiles = new ArrayList<KeysetProfile>(config.getProfiles().values());
     if (profiles.size() <= 1) {
-      return config.getActiveProfileId();
+      KeysetProfile activeProfile = requireProfile(config, config.getActiveProfileId());
+      return ActivationResult.from(activeProfile.getName(), KeysetConflictReport.empty());
     }
 
     List<String> profileIds = new ArrayList<String>(config.getProfiles().keySet());
@@ -491,15 +510,15 @@ public final class KeysetFabricService {
     }
     int nextIndex = (currentIndex + 1) % profileIds.size();
     String nextProfileId = profileIds.get(nextIndex);
-    activateProfile(client, nextProfileId);
-    return config.getProfile(nextProfileId).getName();
+    return activateProfile(client, nextProfileId);
   }
 
-  public String cycleToPreviousProfile(Minecraft client) throws IOException {
+  public ActivationResult cycleToPreviousProfile(Minecraft client) throws IOException {
     ensureLoaded(client);
     List<KeysetProfile> profiles = new ArrayList<KeysetProfile>(config.getProfiles().values());
     if (profiles.size() <= 1) {
-      return config.getActiveProfileId();
+      KeysetProfile activeProfile = requireProfile(config, config.getActiveProfileId());
+      return ActivationResult.from(activeProfile.getName(), KeysetConflictReport.empty());
     }
 
     List<String> profileIds = new ArrayList<String>(config.getProfiles().keySet());
@@ -509,8 +528,7 @@ public final class KeysetFabricService {
     }
     int prevIndex = (currentIndex - 1 + profileIds.size()) % profileIds.size();
     String prevProfileId = profileIds.get(prevIndex);
-    activateProfile(client, prevProfileId);
-    return config.getProfile(prevProfileId).getName();
+    return activateProfile(client, prevProfileId);
   }
 
   public void moveProfileUp(Minecraft client, String profileId) throws IOException {
@@ -1083,6 +1101,41 @@ public final class KeysetFabricService {
 
     public boolean isError() {
       return error;
+    }
+  }
+
+  public static final class ActivationResult {
+    private final String profileName;
+    private final int conflictCount;
+    private final int affectedBindingCount;
+
+    private ActivationResult(String profileName, int conflictCount, int affectedBindingCount) {
+      this.profileName = profileName;
+      this.conflictCount = conflictCount;
+      this.affectedBindingCount = affectedBindingCount;
+    }
+
+    private static ActivationResult from(String profileName, KeysetConflictReport conflictReport) {
+      KeysetConflictReport safeReport =
+          conflictReport == null ? KeysetConflictReport.empty() : conflictReport;
+      return new ActivationResult(
+          profileName, safeReport.getConflictCount(), safeReport.getAffectedBindingCount());
+    }
+
+    public String getProfileName() {
+      return profileName;
+    }
+
+    public int getConflictCount() {
+      return conflictCount;
+    }
+
+    public int getAffectedBindingCount() {
+      return affectedBindingCount;
+    }
+
+    public boolean hasConflicts() {
+      return conflictCount > 0;
     }
   }
 }

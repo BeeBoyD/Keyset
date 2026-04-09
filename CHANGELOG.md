@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## v1.2.1 - 2026-04-09
+
+### Highlights
+
+- **Cross-loader launch testing got much more reliable.** The built-client tester now resolves each target's actual dev-launch main class from Gradle metadata instead of assuming one bootstrap path for all versions.
+- **Forge and NeoForge startup paths are now aligned across version families.** Older leaves that require `cpw.mods.bootstraplauncher.BootstrapLauncher` and newer leaves that require `net.neoforged.fml.startup.Client` are both handled correctly.
+- **Keyset UI interactions are cleaner and safer in paged layouts.** Overlapping action controls were repositioned, and disabled controls no longer remain interactable.
+
+### Fixed
+
+- Fixed Forge compile and runtime regressions caused by profile-cycle API return type changes.
+- Fixed built-client launcher failures caused by wrong Java argument sets on mixed-version targets.
+- Fixed target label normalization edge cases so range aliases map to valid CI build labels more predictably.
+- Fixed 3-column paged layout overlap where action buttons could render on top of each other.
+- Fixed disabled-button interaction leakage so inactive controls are not still clickable.
+
+### Tooling
+
+- Added broader target-selection support in the built-client test runner:
+  - accepts loader-wide selectors (`fabric`, `forge`, `neoforge`)
+  - supports `all` for full matrix execution
+  - supports skip-target filtering for long test passes
+- Improved launch diagnostics and result capture to make manual QA runs easier to triage from generated CSV output.
+
 ## v1.2.0 - 2026-04-07
 
 ### Added

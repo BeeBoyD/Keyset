@@ -79,6 +79,7 @@ jobs:
       - name: Parse build targets from commit message
         id: targets
         run: |
+          set -eu
           MSG="${{ github.event.head_commit.message }}"
           if printf '%s' "$MSG" | grep -qE '\bbuild:all\b'; then
             echo "targets=all" >> "$GITHUB_OUTPUT"
@@ -89,10 +90,18 @@ jobs:
               echo "targets=$TARGETS" >> "$GITHUB_OUTPUT"
               echo "should_build=true" >> "$GITHUB_OUTPUT"
             else
+              if printf '%s' "$MSG" | grep -qE '\bbuild:'; then
+                echo "::error::Found a build: marker in the commit message, but no valid build target labels were parsed."
+                exit 1
+              fi
               echo "targets=" >> "$GITHUB_OUTPUT"
               echo "should_build=false" >> "$GITHUB_OUTPUT"
             fi
           fi
+
+      - name: Validate build targets
+        if: steps.targets.outputs.should_build == 'true'
+        run: ./gradlew validateBuildTargets -PbuildTargets=${{ steps.targets.outputs.targets }}
 
       - name: Set up JDK 25
         if: steps.targets.outputs.should_build == 'true'

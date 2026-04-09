@@ -109,8 +109,7 @@ def legacyProjectDirectories = [
     "platform-forge-1_17_1"   : "platforms/forge/1_17_1",
     "platform-forge-1_18_2"   : "platforms/forge/1_18_2",
     "platform-forge-1_19_2"   : "platforms/forge/1_19_2",
-    "platform-forge-1_19_4"   : "platforms/forge/1_19_4",
-    "platform-forge-26_1"     : "platforms/forge/26_1"
+    "platform-forge-1_19_4"   : "platforms/forge/1_19_4"
 ]
 
 def selectedProjectDirectories = workspaceProfile == "ci"

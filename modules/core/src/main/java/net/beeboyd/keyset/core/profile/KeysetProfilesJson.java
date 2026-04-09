@@ -23,6 +23,7 @@ import net.beeboyd.keyset.core.KeysetCoreMetadata;
 
 /** JSON codec and safe file persistence for {@link KeysetProfilesConfig}. */
 public final class KeysetProfilesJson {
+  private static final int LEGACY_SCHEMA_VERSION = 0;
   private static final Gson GSON =
       new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
 
@@ -106,14 +107,12 @@ public final class KeysetProfilesJson {
     }
 
     JsonObject rootObject = root.getAsJsonObject();
-    int schema = readSchema(rootObject);
-    if (schema > KeysetCoreMetadata.CONFIG_SCHEMA) {
-      throw new JsonParseException("Unsupported profile schema " + schema);
-    }
-
+    JsonObject migratedRoot = migrateSchema(rootObject);
     return KeysetProfiles.normalize(
         new KeysetProfilesConfig(
-            schema, readString(rootObject, "activeProfile"), readProfiles(rootObject)));
+            KeysetCoreMetadata.CONFIG_SCHEMA,
+            readString(migratedRoot, "activeProfile"),
+            readProfiles(migratedRoot)));
   }
 
   private JsonObject toElement(KeysetProfilesConfig config) {
@@ -158,13 +157,35 @@ public final class KeysetProfilesJson {
   private int readSchema(JsonObject rootObject) {
     JsonElement schemaElement = rootObject.get("schema");
     if (schemaElement == null || schemaElement.isJsonNull()) {
-      return KeysetCoreMetadata.CONFIG_SCHEMA;
+      return LEGACY_SCHEMA_VERSION;
     }
     try {
       return schemaElement.getAsInt();
     } catch (NumberFormatException | UnsupportedOperationException exception) {
       throw new JsonParseException("Invalid schema value", exception);
     }
+  }
+
+  private JsonObject migrateSchema(JsonObject rootObject) {
+    int schema = readSchema(rootObject);
+    if (schema > KeysetCoreMetadata.CONFIG_SCHEMA) {
+      throw new JsonParseException("Unsupported profile schema " + schema);
+    }
+
+    switch (schema) {
+      case LEGACY_SCHEMA_VERSION:
+        return migrateLegacySchema(rootObject);
+      case KeysetCoreMetadata.CONFIG_SCHEMA:
+        return rootObject;
+      default:
+        throw new JsonParseException("Unsupported profile schema " + schema);
+    }
+  }
+
+  private JsonObject migrateLegacySchema(JsonObject rootObject) {
+    JsonObject migratedRoot = rootObject.deepCopy();
+    migratedRoot.addProperty("schema", KeysetCoreMetadata.CONFIG_SCHEMA);
+    return migratedRoot;
   }
 
   private Map<String, KeysetProfile> readProfiles(JsonObject rootObject) {

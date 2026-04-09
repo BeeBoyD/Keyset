@@ -15,11 +15,11 @@ import net.beeboyd.keyset.platform.fabric.KeysetFabricService;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService.AutoResolvePlan;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService.ImportResult;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
@@ -414,16 +414,19 @@ public final class KeysetScreen extends Screen {
                 "keyset.profile.move_up",
                 profileInnerX,
                 moveRowY,
-                profileTwoColumnWidth,
+                useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
                 button -> moveSelectedUp(),
                 "keyset.tip.profile_move_up"));
     moveDownButton =
         addRenderableWidget(
             button(
                 "keyset.profile.move_down",
-                profileInnerX + profileTwoColumnWidth + profileButtonGap,
+                profileInnerX
+                    + (useThreeColumnProfileGrid
+                        ? profileThreeColumnWidth + profileButtonGap
+                        : profileTwoColumnWidth + profileButtonGap),
                 moveRowY,
-                profileTwoColumnWidth,
+                useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
                 button -> moveSelectedDown(),
                 "keyset.tip.profile_move_down"));
 
@@ -437,7 +440,7 @@ public final class KeysetScreen extends Screen {
                         ? (profileThreeColumnWidth + profileButtonGap) * 2
                         : profileTwoColumnWidth + profileButtonGap),
                 useThreeColumnProfileGrid
-                    ? profileRowY
+                    ? moveRowY
                     : profileRowY + (profileActionStep * 5) + profileActionStep,
                 useThreeColumnProfileGrid ? profileThreeColumnWidth : profileTwoColumnWidth,
                 button -> jumpToActiveProfile(),
@@ -557,6 +560,7 @@ public final class KeysetScreen extends Screen {
   @Override
   public void tick() {
     super.tick();
+    applyPendingStatusNotice();
     if (searchDebounceTimer > 0) {
       searchDebounceTimer--;
       if (searchDebounceTimer == 0) {
@@ -778,7 +782,14 @@ public final class KeysetScreen extends Screen {
   private Button button(
       String messageKey, int x, int y, int buttonWidth, Button.OnPress action, String tooltipKey) {
     Button widget =
-        Button.builder(Component.translatable(messageKey), action)
+        Button.builder(
+                Component.translatable(messageKey),
+                clicked -> {
+                  if (!clicked.active || !clicked.visible) {
+                    return;
+                  }
+                  action.onPress(clicked);
+                })
             .bounds(x, y, buttonWidth, buttonHeight)
             .build();
     setTooltip(widget, tooltipKey);
@@ -792,7 +803,17 @@ public final class KeysetScreen extends Screen {
       int buttonWidth,
       Button.OnPress action,
       Component tooltipText) {
-    Button widget = Button.builder(message, action).bounds(x, y, buttonWidth, buttonHeight).build();
+    Button widget =
+        Button.builder(
+                message,
+                clicked -> {
+                  if (!clicked.active || !clicked.visible) {
+                    return;
+                  }
+                  action.onPress(clicked);
+                })
+            .bounds(x, y, buttonWidth, buttonHeight)
+            .build();
     if (tooltipText != null) {
       setTooltip(widget, tooltipText);
     }
@@ -1605,10 +1626,16 @@ public final class KeysetScreen extends Screen {
   }
 
   private void jumpToActiveProfile() {
-    if (config == null) {
+    if (config == null || jumpToActiveButton == null) {
       return;
     }
-    selectProfileById(config.getActiveProfileId());
+    String activeProfileId = config.getActiveProfileId();
+    if (!jumpToActiveButton.active
+        || activeProfileId == null
+        || activeProfileId.equals(selectedProfileId)) {
+      return;
+    }
+    selectProfileById(activeProfileId);
   }
 
   private void createProfile() {
@@ -1665,7 +1692,8 @@ public final class KeysetScreen extends Screen {
               if (confirmed) {
                 runAction(
                     () -> {
-                      String fallbackProfileId = service.deleteProfile(minecraft, selectedProfileId);
+                      String fallbackProfileId =
+                          service.deleteProfile(minecraft, selectedProfileId);
                       previewPlan = null;
                       reloadState(fallbackProfileId, null);
                       setStatus(
@@ -1680,14 +1708,20 @@ public final class KeysetScreen extends Screen {
   }
 
   private void applySelected() {
+    if (applyButton != null && !applyButton.active) {
+      return;
+    }
     if (isSelectedProfileActive()) {
       // Already active — no confirmation needed, just re-apply.
       runAction(
           () -> {
-            service.activateProfile(minecraft, selectedProfileId);
+            KeysetFabricService.ActivationResult activationResult =
+                service.activateProfile(minecraft, selectedProfileId);
             previewPlan = null;
             reloadState(selectedProfileId, selectedBindingId());
-            setStatus(Component.translatable("keyset.status.profile_applied").getString(), false);
+            setStatus(
+                activationStatusMessage(activationResult, "keyset.status.profile_applied"),
+                activationResult.hasConflicts());
           });
       return;
     }
@@ -1702,12 +1736,14 @@ public final class KeysetScreen extends Screen {
               if (confirmed) {
                 runAction(
                     () -> {
-                      service.activateProfile(minecraft, selectedProfileId);
+                      KeysetFabricService.ActivationResult activationResult =
+                          service.activateProfile(minecraft, selectedProfileId);
                       previewPlan = null;
                       reloadState(selectedProfileId, selectedBindingId());
                       setStatus(
-                          Component.translatable("keyset.status.profile_applied").getString(),
-                          false);
+                          activationStatusMessage(
+                              activationResult, "keyset.status.profile_applied"),
+                          activationResult.hasConflicts());
                     });
               }
               minecraft.setScreen(this);
@@ -1758,6 +1794,9 @@ public final class KeysetScreen extends Screen {
     if (selectedProfileId == null) {
       return;
     }
+    if (moveUpButton != null && !moveUpButton.active) {
+      return;
+    }
     runAction(
         () -> {
           service.moveProfileUp(minecraft, selectedProfileId);
@@ -1767,6 +1806,9 @@ public final class KeysetScreen extends Screen {
 
   private void moveSelectedDown() {
     if (selectedProfileId == null) {
+      return;
+    }
+    if (moveDownButton != null && !moveDownButton.active) {
       return;
     }
     runAction(
@@ -2047,7 +2089,9 @@ public final class KeysetScreen extends Screen {
         Component.translatable(compactButtons ? "keyset.compact.import" : "keyset.import"));
     moveUpButton.setMessage(Component.translatable("keyset.profile.move_up"));
     moveDownButton.setMessage(Component.translatable("keyset.profile.move_down"));
-    jumpToActiveButton.setMessage(Component.translatable("keyset.profile.jump_active"));
+    jumpToActiveButton.setMessage(
+        Component.translatable(
+            compactButtons ? "keyset.compact.profile.jump_active" : "keyset.profile.jump_active"));
     jumpButton.setMessage(
         Component.translatable(
             compactButtons ? "keyset.compact.binding.jump" : "keyset.binding.jump"));
@@ -2058,8 +2102,46 @@ public final class KeysetScreen extends Screen {
     reassignButton.setMessage(
         Component.translatable(
             compactButtons ? "keyset.compact.binding.reassign" : "keyset.binding.reassign"));
+    fitResponsiveButtonLabels(compactButtons);
     if (redoButton != null) {
       redoButton.setMessage(Component.translatable("keyset.resolve.redo"));
+    }
+  }
+
+  private void fitResponsiveButtonLabels(boolean compactButtons) {
+    fitButtonLabel(previousProfileButton);
+    fitButtonLabel(nextProfileButton);
+    fitButtonLabel(applyButton);
+    fitButtonLabel(captureButton);
+    fitButtonLabel(renameButton);
+    fitButtonLabel(createButton);
+    fitButtonLabel(duplicateButton);
+    fitButtonLabel(deleteButton);
+    fitButtonLabel(exportButton);
+    fitButtonLabel(importButton);
+    fitButtonLabel(moveUpButton);
+    fitButtonLabel(moveDownButton);
+    fitButtonLabel(jumpToActiveButton);
+    fitButtonLabel(jumpButton);
+    fitButtonLabel(clearBindingButton);
+    fitButtonLabel(clearAllBindingsButton);
+    fitButtonLabel(reassignButton);
+    fitButtonLabel(previewResolveButton);
+    fitButtonLabel(applyPreviewButton);
+    fitButtonLabel(undoButton);
+    fitButtonLabel(redoButton);
+  }
+
+  private void fitButtonLabel(Button button) {
+    if (button == null) {
+      return;
+    }
+
+    int maxTextWidth = Math.max(8, button.getWidth() - 10);
+    String raw = button.getMessage().getString();
+    String fitted = ellipsize(raw, maxTextWidth);
+    if (!fitted.equals(raw)) {
+      button.setMessage(Component.literal(fitted));
     }
   }
 
@@ -2129,6 +2211,22 @@ public final class KeysetScreen extends Screen {
       return;
     }
     setStatus(notice.getMessage(), notice.isError());
+  }
+
+  private String activationStatusMessage(
+      KeysetFabricService.ActivationResult activationResult, String successTranslationKey) {
+    String successMessage = Component.translatable(successTranslationKey).getString();
+    if (activationResult == null || !activationResult.hasConflicts()) {
+      return successMessage;
+    }
+
+    return successMessage
+        + " "
+        + Component.translatable(
+                "keyset.status.profile_conflicts",
+                Integer.valueOf(activationResult.getConflictCount()),
+                Integer.valueOf(activationResult.getAffectedBindingCount()))
+            .getString();
   }
 
   private void updateDynamicTooltips(boolean activeSelection, boolean bindingActionsActive) {
