@@ -99,10 +99,6 @@ jobs:
             fi
           fi
 
-      - name: Validate build targets
-        if: steps.targets.outputs.should_build == 'true'
-        run: ./gradlew validateBuildTargets -PbuildTargets=${{ steps.targets.outputs.targets }}
-
       - name: Set up JDK 25
         if: steps.targets.outputs.should_build == 'true'
         uses: actions/setup-java@v4
@@ -117,6 +113,10 @@ jobs:
       - name: Validate Gradle wrapper
         if: steps.targets.outputs.should_build == 'true'
         uses: gradle/actions/wrapper-validation@v4
+
+      - name: Validate build targets
+        if: steps.targets.outputs.should_build == 'true'
+        run: ./gradlew validateBuildTargets -PbuildTargets=${{ steps.targets.outputs.targets }}
 
       - name: Build selected targets
         if: steps.targets.outputs.should_build == 'true'
