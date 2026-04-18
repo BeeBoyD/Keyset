@@ -123,8 +123,8 @@ def releaseTargetSpecsByLoader = [
         [path: ":platform-forge-1_21_1", label: "forge-1.21.1", minecraftVersions: ["1.21", "1.21.1"]]
     ],
     neoforge : [
-        [path: ":platform-neoforge-1_20_1", label: "neoforge-1.20.1-1.20.2", minecraftVersions: ["1.20.1", "1.20.2"]],
-        [path: ":platform-neoforge-1_20_4", label: "neoforge-1.20.4", minecraftVersions: ["1.20.3", "1.20.4"]],
+        [path: ":platform-neoforge-1_20_1", label: "neoforge-1.20.1-1.20.2", minecraftVersions: ["1.20.1", "1.20.2"], metadataEntry: "META-INF/mods.toml"],
+        [path: ":platform-neoforge-1_20_4", label: "neoforge-1.20.4", minecraftVersions: ["1.20.3", "1.20.4"], metadataEntry: "META-INF/mods.toml"],
         [path: ":platform-neoforge-1_20_6", label: "neoforge-1.20.6", minecraftVersions: ["1.20.5", "1.20.6"]],
         [path: ":platform-neoforge-1_21_1", label: "neoforge-1.21.1", minecraftVersions: ["1.21", "1.21.1"]],
         [path: ":platform-neoforge-1_21_4", label: "neoforge-1.21.4", minecraftVersions: ["1.21.2", "1.21.3", "1.21.4"]],
@@ -148,7 +148,8 @@ def releaseTargets = releaseTargetSpecsByLoader.collectMany { loader, specs ->
             path             : spec.path,
             projectName      : spec.path.substring(1),
             label            : spec.label,
-            minecraftVersions: spec.minecraftVersions
+            minecraftVersions: spec.minecraftVersions,
+            metadataEntry    : spec.metadataEntry ?: null
         ]
     }
 }
@@ -486,17 +487,12 @@ def expectedMetadataEntryForLoader = [
     neoforge: "META-INF/neoforge.mods.toml"
 ]
 
-def validateReleaseJar = { File jarFile, String loader, String label ->
+def validateReleaseJar = { File jarFile, String metadataEntry, String label ->
     if (!jarFile.exists()) {
         throw new GradleException("Release jar not found: ${jarFile.path}")
     }
     if (jarFile.length() <= 0L) {
         throw new GradleException("Release jar is empty: ${jarFile.path}")
-    }
-
-    def metadataEntry = expectedMetadataEntryForLoader[loader]
-    if (metadataEntry == null) {
-        throw new GradleException("No release metadata entry mapping defined for loader '${loader}'.")
     }
 
     try {
@@ -564,8 +560,9 @@ tasks.register("verifyReleaseBundle") {
 
         activeReleaseTargets.each { target ->
             def jarFile = releaseJarFile(target).asFile
+            def metadataEntry = target.metadataEntry ?: expectedMetadataEntryForLoader[target.loader]
             try {
-                validateReleaseJar(jarFile, target.loader, target.label)
+                validateReleaseJar(jarFile, metadataEntry, target.label)
             } catch (GradleException exception) {
                 missing << exception.message
             }
