@@ -35,6 +35,7 @@ public final class KeysetNeoForgeClientMod {
   private static final String CYCLE_NEXT_KEY_ID = "keyset.key.cycle_profile_next";
   private static final String CYCLE_PREV_KEY_ID = "keyset.key.cycle_profile_prev";
   private static final String MISC_CATEGORY_KEY = "key.categories.misc";
+  private static final String KEYSET_CATEGORY_KEY = "key.categories.keyset";
   private static final String LEGACY_MISC_CATEGORY_FIELD = "MISC_CATEGORY";
   private static final String MODERN_MISC_CATEGORY_FIELD = "MISC";
 
@@ -55,6 +56,7 @@ public final class KeysetNeoForgeClientMod {
     private KeyBinding openScreenKeyBinding;
     private KeyBinding cycleNextKeyBinding;
     private KeyBinding cyclePrevKeyBinding;
+    private final KeyBinding[] slotKeyBindings = new KeyBinding[5];
     private final KeysetClientHooks<MinecraftClient, Screen> clientHooks =
         new KeysetClientHooks<MinecraftClient, Screen>();
     private boolean started;
@@ -76,6 +78,10 @@ public final class KeysetNeoForgeClientMod {
       event.register(openScreenKeyBinding);
       event.register(cycleNextKeyBinding);
       event.register(cyclePrevKeyBinding);
+      for (int i = 0; i < 5; i++) {
+        slotKeyBindings[i] = createKeyBinding("keyset.key.activate_slot_" + (i + 1), KEYSET_CATEGORY_KEY);
+        event.register(slotKeyBindings[i]);
+      }
     }
 
     private void onClientTick(ClientTickEvent.Post event) {
@@ -107,6 +113,21 @@ public final class KeysetNeoForgeClientMod {
           cyclePrevKeyBinding == null ? null : cyclePrevKeyBinding::wasPressed,
           () -> queueCycleStatus(SERVICE.cycleToPreviousProfile(client)),
           exception -> LOGGER.warn("Failed to cycle to previous profile", exception));
+
+      for (int i = 0; i < 5; i++) {
+        final int slotIndex = i;
+        KeysetClientHooks.consumeAllPresses(
+            slotKeyBindings[slotIndex] == null ? null : slotKeyBindings[slotIndex]::wasPressed,
+            () -> {
+              KeysetFabricService.ActivationResult result =
+                  SERVICE.activateProfileByIndex(client, slotIndex);
+              if (result != null) {
+                queueCycleStatus(result);
+              }
+            },
+            exception ->
+                LOGGER.warn("Failed to activate profile slot {}", slotIndex + 1, exception));
+      }
 
       flushHudStatusNotice(client);
       clientHooks.flushPendingOpen(
@@ -226,6 +247,11 @@ public final class KeysetNeoForgeClientMod {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static KeyBinding createKeyBinding(String keyId) {
+      return createKeyBinding(keyId, null);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static KeyBinding createKeyBinding(String keyId, String categoryKey) {
       for (var constructor : KeyBinding.class.getConstructors()) {
         Class<?>[] parameterTypes = constructor.getParameterTypes();
         if (parameterTypes.length != 3
@@ -235,7 +261,7 @@ public final class KeysetNeoForgeClientMod {
         }
 
         try {
-          Object categoryArgument = resolveMiscCategoryArgument(parameterTypes[2]);
+          Object categoryArgument = resolveCategoryArgument(parameterTypes[2], categoryKey);
           if (categoryArgument == null) {
             continue;
           }
@@ -253,9 +279,12 @@ public final class KeysetNeoForgeClientMod {
       throw new IllegalStateException("Unable to create Keyset NeoForge key binding");
     }
 
-    private static Object resolveMiscCategoryArgument(Class<?> categoryType)
+    private static Object resolveCategoryArgument(Class<?> categoryType, String categoryKey)
         throws IllegalAccessException {
       if (categoryType == String.class) {
+        if (categoryKey != null) {
+          return categoryKey;
+        }
         Object legacyMiscCategory = staticFieldValue(KeyBinding.class, LEGACY_MISC_CATEGORY_FIELD);
         return legacyMiscCategory instanceof String ? legacyMiscCategory : MISC_CATEGORY_KEY;
       }

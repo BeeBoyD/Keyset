@@ -30,10 +30,13 @@ public final class KeysetFabricClient implements ClientModInitializer {
   private static final int CONTROLS_BUTTON_MARGIN = 8;
   private static final Logger LOGGER = LoggerFactory.getLogger(KeysetCoreMetadata.MOD_ID);
   private static final KeysetFabricService SERVICE = new KeysetFabricService();
+  private static final KeyBinding.Category KEYSET_CATEGORY =
+      new KeyBinding.Category(net.minecraft.util.Identifier.of("keyset", "keyset"));
 
   private KeyBinding openScreenKeyBinding;
   private KeyBinding cycleNextKeyBinding;
   private KeyBinding cyclePrevKeyBinding;
+  private final KeyBinding[] slotKeyBindings = new KeyBinding[5];
   private final KeysetClientHooks<net.minecraft.client.MinecraftClient, Screen> clientHooks =
       new KeysetClientHooks<net.minecraft.client.MinecraftClient, Screen>();
 
@@ -52,21 +55,30 @@ public final class KeysetFabricClient implements ClientModInitializer {
             new KeyBinding(
                 "keyset.key.open_screen",
                 InputUtil.UNKNOWN_KEY.getCode(),
-                KeyBinding.Category.MISC));
+                KEYSET_CATEGORY));
 
     cycleNextKeyBinding =
         KeyBindingHelper.registerKeyBinding(
             new KeyBinding(
                 "keyset.key.cycle_profile_next",
                 InputUtil.UNKNOWN_KEY.getCode(),
-                KeyBinding.Category.MISC));
+                KEYSET_CATEGORY));
 
     cyclePrevKeyBinding =
         KeyBindingHelper.registerKeyBinding(
             new KeyBinding(
                 "keyset.key.cycle_profile_prev",
                 InputUtil.UNKNOWN_KEY.getCode(),
-                KeyBinding.Category.MISC));
+                KEYSET_CATEGORY));
+
+    for (int i = 0; i < 5; i++) {
+      slotKeyBindings[i] =
+          KeyBindingHelper.registerKeyBinding(
+              new KeyBinding(
+                  "keyset.key.activate_slot_" + (i + 1),
+                  InputUtil.UNKNOWN_KEY.getCode(),
+                  KEYSET_CATEGORY));
+    }
 
     ClientLifecycleEvents.CLIENT_STARTED.register(
         client -> {
@@ -98,6 +110,21 @@ public final class KeysetFabricClient implements ClientModInitializer {
               cyclePrevKeyBinding::wasPressed,
               () -> queueCycleStatus(SERVICE.cycleToPreviousProfile(client)),
               exception -> LOGGER.warn("Failed to cycle to previous profile", exception));
+
+          for (int i = 0; i < 5; i++) {
+            final int slotIndex = i;
+            KeysetClientHooks.consumeAllPresses(
+                slotKeyBindings[slotIndex]::wasPressed,
+                () -> {
+                  KeysetFabricService.ActivationResult result =
+                      SERVICE.activateProfileByIndex(client, slotIndex);
+                  if (result != null) {
+                    queueCycleStatus(result);
+                  }
+                },
+                exception ->
+                    LOGGER.warn("Failed to activate profile slot {}", slotIndex + 1, exception));
+          }
 
           flushHudStatusNotice(client);
           clientHooks.flushPendingOpen(

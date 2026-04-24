@@ -103,7 +103,7 @@ subprojects {
         }
     }
 }
-// The 1.1.x release line ships only the modern 1.20.1+ targets.
+// The 1.3.x release line ships only the modern 1.20.1+ targets.
 // Legacy leaves stay in the repo for critical-fix maintenance when needed.
 def releaseTargetSpecsByLoader = [
     fabric   : [
@@ -422,18 +422,32 @@ tasks.register("verifyCiWorkspace") {
 // Publishing — mod-publish-plugin
 // ---------------------------------------------------------------------------
 
-/** Extracts the changelog section for the given version from CHANGELOG.md. */
-def extractChangelog = { String ver ->
-    def text = file("CHANGELOG.md").getText("UTF-8")
+/** Extracts the version section body from the given Markdown file. */
+def extractVersionSection = { File sourceFile, String ver ->
+    def text = sourceFile.getText("UTF-8")
     def header = "## v${ver}"
     def start = text.indexOf(header)
     if (start == -1) {
-        throw new GradleException("CHANGELOG.md does not contain a section header for v${ver}.")
+        throw new GradleException("${sourceFile.name} does not contain a section header for v${ver}.")
     }
     def afterHeader = text.indexOf("\n", start) + 1
     def nextHeader = text.indexOf("\n## ", afterHeader)
     def body = nextHeader == -1 ? text.substring(afterHeader) : text.substring(afterHeader, nextHeader)
     return body.trim()
+}
+
+/** Extracts the changelog section for the given version from CHANGELOG.md. */
+def extractChangelog = { String ver ->
+    return extractVersionSection(file("CHANGELOG.md"), ver)
+}
+
+/** Uses per-channel release notes when present, otherwise falls back to CHANGELOG.md. */
+def extractReleaseNotes = { String channel, String ver ->
+    def notesFile = file("release-notes/${channel}/v${ver}.md")
+    if (notesFile.exists()) {
+        return notesFile.getText("UTF-8").trim()
+    }
+    return extractChangelog(ver)
 }
 
 def loaderNamesForProject = [
@@ -532,9 +546,10 @@ tasks.register("stageReleaseMetadata") {
         def releaseDir = githubChangelog.asFile.parentFile
         releaseDir.mkdirs()
 
-        def changelogBody = extractChangelog(version as String) + "\n"
-        githubChangelog.asFile.text = changelogBody
-        modrinthChangelog.asFile.text = changelogBody
+        def githubChangelogBody = extractReleaseNotes("github", version as String) + "\n"
+        def modrinthChangelogBody = extractReleaseNotes("modrinth", version as String) + "\n"
+        githubChangelog.asFile.text = githubChangelogBody
+        modrinthChangelog.asFile.text = modrinthChangelogBody
 
         def lines = [
             "# Keyset ${version} Build Bundle",
@@ -628,7 +643,7 @@ tasks.register("publishToModrinth") {
         def releaseType   = parseReleaseType()
         def versionType   = (releaseType == "stable") ? "release" : releaseType
         def dryRun        = findProperty("publishDryRun")?.toString()?.toBoolean() ?: false
-        def changelog     = extractChangelog(versionStr)
+        def changelog     = extractReleaseNotes("modrinth", versionStr)
         def CRLF          = "\r\n"
         def buildNumber = null
         if (releaseType == "beta") {
@@ -788,7 +803,7 @@ tasks.register("publishToGitHub") {
         def releaseType = parseReleaseType()
         def dryRun     = findProperty("publishDryRun")?.toString()?.toBoolean() ?: false
         def changelogFile = layout.projectDirectory.file("${releaseBundleDir}/GITHUB_CHANGELOG.md").asFile
-        def changelogText = changelogFile.exists() ? changelogFile.text : extractChangelog(versionStr)
+        def changelogText = changelogFile.exists() ? changelogFile.text : extractReleaseNotes("github", versionStr)
 
         def jarFiles = activeReleaseTargets.collect { releaseJarFile(it).asFile }.findAll { it.exists() }
 

@@ -38,9 +38,12 @@ public final class KeysetForgeClientMod {
     private static final Logger LOGGER = LoggerFactory.getLogger(KeysetCoreMetadata.MOD_ID);
     private static final KeysetFabricService SERVICE = new KeysetFabricService();
 
+    private static final String KEYSET_CATEGORY = "key.categories.keyset";
+
     private KeyBinding openScreenKeyBinding;
     private KeyBinding cycleNextKeyBinding;
     private KeyBinding cyclePrevKeyBinding;
+    private final KeyBinding[] slotKeyBindings = new KeyBinding[5];
     private Screen pendingParentScreen;
     private boolean openScreenRequested;
     private boolean started;
@@ -59,20 +62,28 @@ public final class KeysetForgeClientMod {
       LOGGER.info("Registering Keyset Forge key mapping");
       openScreenKeyBinding =
           new KeyBinding(
-              "keyset.key.open_screen", InputUtil.UNKNOWN_KEY.getCode(), KeyBinding.MISC_CATEGORY);
+              "keyset.key.open_screen", InputUtil.UNKNOWN_KEY.getCode(), KEYSET_CATEGORY);
       cycleNextKeyBinding =
           new KeyBinding(
               "keyset.key.cycle_profile_next",
               InputUtil.UNKNOWN_KEY.getCode(),
-              KeyBinding.MISC_CATEGORY);
+              KEYSET_CATEGORY);
       cyclePrevKeyBinding =
           new KeyBinding(
               "keyset.key.cycle_profile_prev",
               InputUtil.UNKNOWN_KEY.getCode(),
-              KeyBinding.MISC_CATEGORY);
+              KEYSET_CATEGORY);
       event.register(openScreenKeyBinding);
       event.register(cycleNextKeyBinding);
       event.register(cyclePrevKeyBinding);
+      for (int i = 0; i < 5; i++) {
+        slotKeyBindings[i] =
+            new KeyBinding(
+                "keyset.key.activate_slot_" + (i + 1),
+                InputUtil.UNKNOWN_KEY.getCode(),
+                KEYSET_CATEGORY);
+        event.register(slotKeyBindings[i]);
+      }
     }
 
     private void onClientTick(TickEvent.ClientTickEvent event) {
@@ -117,6 +128,22 @@ public final class KeysetForgeClientMod {
             queueCycleStatus(SERVICE.cycleToPreviousProfile(client));
           } catch (Exception exception) {
             LOGGER.warn("Failed to cycle to previous profile", exception);
+          }
+        }
+      }
+
+      for (int i = 0; i < 5; i++) {
+        if (slotKeyBindings[i] != null) {
+          while (slotKeyBindings[i].wasPressed()) {
+            try {
+              KeysetFabricService.ActivationResult result =
+                  SERVICE.activateProfileByIndex(client, i);
+              if (result != null) {
+                queueCycleStatus(result);
+              }
+            } catch (Exception exception) {
+              LOGGER.warn("Failed to activate profile slot {}", i + 1, exception);
+            }
           }
         }
       }

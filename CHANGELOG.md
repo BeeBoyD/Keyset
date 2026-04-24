@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## v1.3.0 - 2026-04-24
+
+### Added
+
+- Direct `Activate Profile Slot 1-5` hotkeys across the active Fabric, Forge, and NeoForge targets so the first five saved profiles can be applied immediately.
+- A dedicated `Keyset` controls category for the open-screen, cycle-profile, and slot-activation keybinds.
+
+### Changed
+
+- Active Fabric services now expose slot-based profile activation while continuing to use the existing saved profile order as the source of truth.
+- Release automation can now use dedicated per-channel release notes so GitHub and Modrinth copy can diverge when needed.
+
+### Fixed
+
+- Modern `1.21.11` and `26.1` client paths now construct the newer key category record types with the correct identifier objects, fixing compilation for the latest category API shape.
+
 ## v1.2.1 - 2026-04-09
 
 ### Highlights

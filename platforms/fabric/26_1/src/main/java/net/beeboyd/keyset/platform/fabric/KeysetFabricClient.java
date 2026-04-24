@@ -33,9 +33,13 @@ public final class KeysetFabricClient implements ClientModInitializer {
   private static final Logger LOGGER = LoggerFactory.getLogger(KeysetCoreMetadata.MOD_ID);
   private static final KeysetFabricService SERVICE = new KeysetFabricService();
 
+  private static final KeyMapping.Category KEYSET_CATEGORY =
+      new KeyMapping.Category(net.minecraft.resources.Identifier.fromNamespaceAndPath("keyset", "keyset"));
+
   private KeyMapping openScreenKeyMapping;
   private KeyMapping cycleNextKeyMapping;
   private KeyMapping cyclePrevKeyMapping;
+  private final KeyMapping[] slotKeyMappings = new KeyMapping[5];
   private final KeysetClientHooks<Minecraft, Screen> clientHooks =
       new KeysetClientHooks<Minecraft, Screen>();
 
@@ -54,21 +58,30 @@ public final class KeysetFabricClient implements ClientModInitializer {
             new KeyMapping(
                 "keyset.key.open_screen",
                 InputConstants.UNKNOWN.getValue(),
-                KeyMapping.Category.MISC));
+                KEYSET_CATEGORY));
 
     cycleNextKeyMapping =
         KeyMappingHelper.registerKeyMapping(
             new KeyMapping(
                 "keyset.key.cycle_profile_next",
                 InputConstants.UNKNOWN.getValue(),
-                KeyMapping.Category.MISC));
+                KEYSET_CATEGORY));
 
     cyclePrevKeyMapping =
         KeyMappingHelper.registerKeyMapping(
             new KeyMapping(
                 "keyset.key.cycle_profile_prev",
                 InputConstants.UNKNOWN.getValue(),
-                KeyMapping.Category.MISC));
+                KEYSET_CATEGORY));
+
+    for (int i = 0; i < 5; i++) {
+      slotKeyMappings[i] =
+          KeyMappingHelper.registerKeyMapping(
+              new KeyMapping(
+                  "keyset.key.activate_slot_" + (i + 1),
+                  InputConstants.UNKNOWN.getValue(),
+                  KEYSET_CATEGORY));
+    }
 
     ClientLifecycleEvents.CLIENT_STARTED.register(
         client -> {
@@ -99,6 +112,21 @@ public final class KeysetFabricClient implements ClientModInitializer {
               cyclePrevKeyMapping::consumeClick,
               () -> queueCycleStatus(SERVICE.cycleToPreviousProfile(client)),
               exception -> LOGGER.warn("Failed to cycle to previous profile", exception));
+
+          for (int i = 0; i < 5; i++) {
+            final int slotIndex = i;
+            KeysetClientHooks.consumeAllPresses(
+                slotKeyMappings[slotIndex]::consumeClick,
+                () -> {
+                  KeysetFabricService.ActivationResult result =
+                      SERVICE.activateProfileByIndex(client, slotIndex);
+                  if (result != null) {
+                    queueCycleStatus(result);
+                  }
+                },
+                exception ->
+                    LOGGER.warn("Failed to activate profile slot {}", slotIndex + 1, exception));
+          }
 
           flushHudStatusNotice(client);
           clientHooks.flushPendingOpen(

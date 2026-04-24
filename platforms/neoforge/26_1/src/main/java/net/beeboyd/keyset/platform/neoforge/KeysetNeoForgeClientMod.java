@@ -45,9 +45,13 @@ public final class KeysetNeoForgeClientMod {
     private static final Logger LOGGER = LoggerFactory.getLogger(KeysetCoreMetadata.MOD_ID);
     private static final KeysetFabricService SERVICE = new KeysetFabricService();
 
+    private static final KeyMapping.Category KEYSET_CATEGORY =
+        new KeyMapping.Category(net.minecraft.resources.Identifier.fromNamespaceAndPath("keyset", "keyset"));
+
     private KeyMapping openScreenKeyMapping;
     private KeyMapping cycleNextKeyMapping;
     private KeyMapping cyclePrevKeyMapping;
+    private final KeyMapping[] slotKeyMappings = new KeyMapping[5];
     private final KeysetClientHooks<Minecraft, Screen> clientHooks =
         new KeysetClientHooks<Minecraft, Screen>();
     private boolean started;
@@ -67,20 +71,28 @@ public final class KeysetNeoForgeClientMod {
           new KeyMapping(
               "keyset.key.open_screen",
               InputConstants.UNKNOWN.getValue(),
-              KeyMapping.Category.MISC);
+              KEYSET_CATEGORY);
       cycleNextKeyMapping =
           new KeyMapping(
               "keyset.key.cycle_profile_next",
               InputConstants.UNKNOWN.getValue(),
-              KeyMapping.Category.MISC);
+              KEYSET_CATEGORY);
       cyclePrevKeyMapping =
           new KeyMapping(
               "keyset.key.cycle_profile_prev",
               InputConstants.UNKNOWN.getValue(),
-              KeyMapping.Category.MISC);
+              KEYSET_CATEGORY);
       event.register(openScreenKeyMapping);
       event.register(cycleNextKeyMapping);
       event.register(cyclePrevKeyMapping);
+      for (int i = 0; i < 5; i++) {
+        slotKeyMappings[i] =
+            new KeyMapping(
+                "keyset.key.activate_slot_" + (i + 1),
+                InputConstants.UNKNOWN.getValue(),
+                KEYSET_CATEGORY);
+        event.register(slotKeyMappings[i]);
+      }
     }
 
     private void onClientTick(ClientTickEvent.Post event) {
@@ -112,6 +124,21 @@ public final class KeysetNeoForgeClientMod {
           cyclePrevKeyMapping == null ? null : cyclePrevKeyMapping::consumeClick,
           () -> queueCycleStatus(SERVICE.cycleToPreviousProfile(client)),
           exception -> LOGGER.warn("Failed to cycle to previous profile", exception));
+
+      for (int i = 0; i < 5; i++) {
+        final int slotIndex = i;
+        KeysetClientHooks.consumeAllPresses(
+            slotKeyMappings[slotIndex] == null ? null : slotKeyMappings[slotIndex]::consumeClick,
+            () -> {
+              KeysetFabricService.ActivationResult result =
+                  SERVICE.activateProfileByIndex(client, slotIndex);
+              if (result != null) {
+                queueCycleStatus(result);
+              }
+            },
+            exception ->
+                LOGGER.warn("Failed to activate profile slot {}", slotIndex + 1, exception));
+      }
 
       flushHudStatusNotice(client);
       clientHooks.flushPendingOpen(

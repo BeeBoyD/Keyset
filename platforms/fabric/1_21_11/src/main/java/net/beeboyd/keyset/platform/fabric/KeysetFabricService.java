@@ -534,6 +534,16 @@ public final class KeysetFabricService {
     return activateProfile(client, prevProfileId);
   }
 
+  public ActivationResult activateProfileByIndex(MinecraftClient client, int slotIndex)
+      throws IOException {
+    ensureLoaded(client);
+    List<String> profileIds = new ArrayList<String>(config.getProfiles().keySet());
+    if (slotIndex < 0 || slotIndex >= profileIds.size()) {
+      return null;
+    }
+    return activateProfile(client, profileIds.get(slotIndex));
+  }
+
   public void moveProfileUp(MinecraftClient client, String profileId) throws IOException {
     ensureLoaded(client);
     config = KeysetProfiles.moveProfileUp(config, profileId);

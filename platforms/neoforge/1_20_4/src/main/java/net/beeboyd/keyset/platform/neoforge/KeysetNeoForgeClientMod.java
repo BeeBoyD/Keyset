@@ -48,6 +48,7 @@ public final class KeysetNeoForgeClientMod {
     private KeyBinding openScreenKeyBinding;
     private KeyBinding cycleNextKeyBinding;
     private KeyBinding cyclePrevKeyBinding;
+    private final KeyBinding[] slotKeyBindings = new KeyBinding[5];
     private final KeysetClientHooks<MinecraftClient, Screen> clientHooks =
         new KeysetClientHooks<MinecraftClient, Screen>();
     private boolean started;
@@ -66,20 +67,28 @@ public final class KeysetNeoForgeClientMod {
       LOGGER.info("Registering Keyset NeoForge key mapping");
       openScreenKeyBinding =
           new KeyBinding(
-              "keyset.key.open_screen", InputUtil.UNKNOWN_KEY.getCode(), KeyBinding.MISC_CATEGORY);
+              "keyset.key.open_screen", InputUtil.UNKNOWN_KEY.getCode(), "key.categories.keyset");
       cycleNextKeyBinding =
           new KeyBinding(
               "keyset.key.cycle_profile_next",
               InputUtil.UNKNOWN_KEY.getCode(),
-              KeyBinding.MISC_CATEGORY);
+              "key.categories.keyset");
       cyclePrevKeyBinding =
           new KeyBinding(
               "keyset.key.cycle_profile_prev",
               InputUtil.UNKNOWN_KEY.getCode(),
-              KeyBinding.MISC_CATEGORY);
+              "key.categories.keyset");
       event.register(openScreenKeyBinding);
       event.register(cycleNextKeyBinding);
       event.register(cyclePrevKeyBinding);
+      for (int i = 0; i < 5; i++) {
+        slotKeyBindings[i] =
+            new KeyBinding(
+                "keyset.key.activate_slot_" + (i + 1),
+                InputUtil.UNKNOWN_KEY.getCode(),
+                "key.categories.keyset");
+        event.register(slotKeyBindings[i]);
+      }
     }
 
     private void onClientTick(TickEvent.ClientTickEvent event) {
@@ -115,6 +124,21 @@ public final class KeysetNeoForgeClientMod {
           cyclePrevKeyBinding == null ? null : cyclePrevKeyBinding::wasPressed,
           () -> queueCycleStatus(SERVICE.cycleToPreviousProfile(client)),
           exception -> LOGGER.warn("Failed to cycle to previous profile", exception));
+
+      for (int i = 0; i < 5; i++) {
+        final int slotIndex = i;
+        KeysetClientHooks.consumeAllPresses(
+            slotKeyBindings[slotIndex] == null ? null : slotKeyBindings[slotIndex]::wasPressed,
+            () -> {
+              KeysetFabricService.ActivationResult result =
+                  SERVICE.activateProfileByIndex(client, slotIndex);
+              if (result != null) {
+                queueCycleStatus(result);
+              }
+            },
+            exception ->
+                LOGGER.warn("Failed to activate profile slot {}", slotIndex + 1, exception));
+      }
 
       flushHudStatusNotice(client);
       clientHooks.flushPendingOpen(

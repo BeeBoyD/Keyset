@@ -15,7 +15,7 @@ Keyset is a profile-based keybind manager for modded Minecraft.
 It lets you store full control layouts, switch between them instantly, inspect conflicts with context, and preview safer cleanup before anything gets applied.
 
 > ⚠️ **Release line note:**
-> `1.1.x` targets Minecraft `1.20.1+`.
+> `1.3.x` targets Minecraft `1.20.1+`.
 > Older `1.16.5-1.19.4` builds remain on the `1.0.x` line and only receive critical bug fixes.
 > Profile compatibility stays the same across the supported release line.
 
@@ -27,12 +27,12 @@ It lets you store full control layouts, switch between them instantly, inspect c
 - Fix one bind directly or run a guided cleanup pass
 - Export and import profile JSON for backup or sharing
 
-## 🚀 1.1.0 Highlights
+## 🚀 1.3.0 Highlights
 
-- The active release line now focuses on modern `1.20.1+` loaders and Minecraft versions
-- Opening Keyset from `Controls` is more reliable across reopen, resize, and GUI scale changes
-- Manual edits made in vanilla `Controls` now sync back into the active profile with visible status
-- Config loading is safer with backup recovery, broken-file archiving, and clearer recovery messages
+- Bind `Activate Profile Slot 1-5` and jump straight to your first saved profiles without opening the full UI
+- Keyset hotkeys now live in their own `Keyset` category instead of getting buried in misc
+- The slot hotkey rollout covers the active Fabric, Forge, and NeoForge targets
+- Existing profile data still works as-is; slot shortcuts simply follow your saved profile order
 
 Legacy `1.16.5-1.19.4` builds stay available on the `1.0.x` line with the same profile format, but the active UI and feature work now lives on `1.20.1+`.
 
@@ -44,9 +44,9 @@ Legacy `1.16.5-1.19.4` builds stay available on the `1.0.x` line with the same p
 
 Release assets are split by loader and Minecraft range, for example:
 
-- `keyset-fabric-1.20.1-1.20.2-1.1.0.jar`
-- `keyset-forge-1.21.1-1.1.0.jar`
-- `keyset-neoforge-1.21-1.21.11-1.1.0.jar`
+- `keyset-fabric-1.20.1-1.20.2-1.3.0.jar`
+- `keyset-forge-1.21.1-1.3.0.jar`
+- `keyset-neoforge-1.21-1.21.11-1.3.0.jar`
 
 Notes:
 
@@ -96,7 +96,7 @@ Notes:
 
 ## ✅ Supported Versions
 
-Current `1.1.x` release line:
+Current `1.3.x` release line:
 
 | Minecraft | Fabric | Quilt | Forge | NeoForge |
 | --- | --- | --- | --- | --- |
@@ -133,4 +133,4 @@ config/keybindprofiles.json
 
 ## 📍 Status
 
-Current stable release line on this branch: `1.1.2`
+Current stable release line on this branch: `1.3.0`
