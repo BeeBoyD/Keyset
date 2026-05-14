@@ -21,5 +21,18 @@ builtJars/**/.DS_Store
 
 # Misc
 out/
+
+# AI / agent tooling
 .claude/
 CLAUDE.md
+WORK-LOG.md
+CODEX.md
+.aider*
+.cursor/
+.copilot/
+*.claude-session
+KEYSET-2.0-PLAN.md
+.repowise/
+.codex
+.claudeignore
+.mcp.json

@@ -555,11 +555,24 @@ normalize_file_to_temp() {
   local suffix="$2"
   local temp_file
   temp_file="$(mktemp "${TMPDIR:-/tmp}/keyset-${suffix}.XXXXXX")"
-  sed \
-    -e "s|/Users/beeboyd/Developer/MCMods/Keyset|${REPO_ROOT}|g" \
-    -e "s|/Users/beeboyd/.gradle|${HOME}/.gradle|g" \
-    -e "s|/Users/beeboyd|${HOME}|g" \
-    "${source_file}" >"${temp_file}"
+  python - "${source_file}" "${temp_file}" "${REPO_ROOT}" "${HOME}" "${suffix}" <<'PY'
+from pathlib import Path
+import sys
+
+source = Path(sys.argv[1])
+target = Path(sys.argv[2])
+repo_root = sys.argv[3]
+home = sys.argv[4]
+suffix = sys.argv[5]
+
+text = source.read_text(encoding="utf-8-sig")
+text = text.replace("/Users/beeboyd/Developer/MCMods/Keyset", repo_root)
+text = text.replace("/Users/beeboyd/.gradle", f"{home}/.gradle")
+text = text.replace("/Users/beeboyd", home)
+if suffix == "remap-classpath":
+    text = text.replace("\r", "").replace("\n", "")
+target.write_text(text.rstrip("\n"), encoding="utf-8")
+PY
   printf '%s\n' "${temp_file}"
 }
 
@@ -657,6 +670,7 @@ build_classpath_from_remap() {
   local remap_classpath_file="$1"
   local runtime_classpath normalized_parts=() part
   runtime_classpath="$(<"${remap_classpath_file}")"
+  runtime_classpath="${runtime_classpath#$'\ufeff'}"
   IFS=':' read -r -a parts <<<"${runtime_classpath}"
   for part in "${parts[@]}"; do
     normalized_parts+=("$(resolve_existing_classpath_entry "${part}")")

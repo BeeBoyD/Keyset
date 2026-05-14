@@ -1,118 +1,126 @@
 <p align="center">
-  <img src="logo.png" alt="Keyset logo" width="192" />
+  <img src="logo.png" alt="Keyset logo" width="160" />
 </p>
 
-# Keyset
+<h1 align="center">Keyset</h1>
 
-[![GitHub Release](https://img.shields.io/github/v/release/BeeBoyD/Keyset?display_name=tag&label=GitHub%20Release)](https://github.com/BeeBoyD/Keyset/releases)
-[![Modrinth](https://img.shields.io/modrinth/dt/keyset?logo=modrinth&label=Modrinth)](https://modrinth.com/project/keyset)
-[![CurseForge](https://img.shields.io/badge/CurseForge-Keyset-f16436)](https://legacy.curseforge.com/minecraft/mc-mods/keyset)
-[![License](https://img.shields.io/github/license/BeeBoyD/Keyset)](https://github.com/BeeBoyD/Keyset/blob/main/LICENSE)
-[![Client-Side](https://img.shields.io/badge/side-client--side-4caf50)](https://github.com/BeeBoyD/Keyset)
+<p align="center">
+  <strong>Profile-based keybind manager for Minecraft.</strong><br />
+  Save layouts, swap instantly, and fix conflicts without losing context.
+</p>
 
-Keyset is a profile-based keybind manager for modded Minecraft.
+<p align="center">
+  <a href="https://github.com/BeeBoyD/Keyset/releases"><img src="https://img.shields.io/github/v/release/BeeBoyD/Keyset?display_name=tag&label=Release&color=4c8b2b" alt="GitHub Release" /></a>
+  <a href="https://modrinth.com/mod/keyset"><img src="https://img.shields.io/modrinth/dt/keyset?logo=modrinth&label=Modrinth&color=1bd96a" alt="Modrinth" /></a>
+  <a href="https://legacy.curseforge.com/minecraft/mc-mods/keyset"><img src="https://img.shields.io/badge/CurseForge-Keyset-f16436?logo=curseforge" alt="CurseForge" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/BeeBoyD/Keyset?color=blue" alt="License" /></a>
+  <a href="https://github.com/BeeBoyD/Keyset"><img src="https://img.shields.io/badge/side-client--only-4caf50" alt="Client-Side" /></a>
+  <a href="https://github.com/BeeBoyD/Keyset/releases"><img src="https://img.shields.io/badge/Minecraft-1.20.1--26.1-62b0e8" alt="MC Versions" /></a>
+</p>
 
-It lets you store full control layouts, switch between them instantly, inspect conflicts with context, and preview safer cleanup before anything gets applied.
+<p align="center">
+  <a href="https://modrinth.com/mod/keyset">Modrinth</a> ·
+  <a href="https://legacy.curseforge.com/minecraft/mc-mods/keyset">CurseForge</a> ·
+  <a href="https://github.com/BeeBoyD/Keyset/releases">GitHub Releases</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
 
-> ⚠️ **Release line note:**
-> `1.3.x` targets Minecraft `1.20.1+`.
-> Older `1.16.5-1.19.4` builds remain on the `1.0.x` line and only receive critical bug fixes.
-> Profile compatibility stays the same across the supported release line.
+---
 
 ## ✨ Why Keyset
 
-- Save separate keybind setups for different playstyles, packs, or tasks
-- Swap profiles instantly without rebuilding controls by hand
-- Find overloaded keys faster in large modpacks
-- Fix one bind directly or run a guided cleanup pass
-- Export and import profile JSON for backup or sharing
+Keyset gives you named keybind profiles so you can move between PvP, building, tech, modpack, or general-play layouts without rebuilding your controls every time.
 
-## 🚀 1.3.0 Highlights
+It is built for players who want:
 
-- Bind `Activate Profile Slot 1-5` and jump straight to your first saved profiles without opening the full UI
-- Keyset hotkeys now live in their own `Keyset` category instead of getting buried in misc
-- The slot hotkey rollout covers the active Fabric, Forge, and NeoForge targets
-- Existing profile data still works as-is; slot shortcuts simply follow your saved profile order
+- Fast profile switching with a clean in-game workflow
+- Conflict cleanup with enough detail to make confident decisions
+- Safe bulk fixing when a pack adds too many overlapping binds
+- A local, profile-based setup that stays out of your way once configured
 
-Legacy `1.16.5-1.19.4` builds stay available on the `1.0.x` line with the same profile format, but the active UI and feature work now lives on `1.20.1+`.
+> **Release line note:** `1.3.x` targets Minecraft `1.20.1+`. Older `1.16.5-1.19.4` builds are on the `1.0.x` line and receive critical fixes only. Profile format compatibility is stable across the supported release line.
 
-## 📥 Download
+---
 
-- [GitHub Releases](https://github.com/BeeBoyD/Keyset/releases)
-- [Modrinth](https://modrinth.com/project/keyset)
-- [CurseForge](https://legacy.curseforge.com/minecraft/mc-mods/keyset)
+## 🚀 Highlights
 
-Release assets are split by loader and Minecraft range, for example:
+- Multiple named profiles with instant switching
+- Starter profiles: `Default`, `PvP`, `Building`, `Tech`
+- Reorder, duplicate, rename, and delete profiles
+- Import and export profile JSON through the clipboard
+- Active profile persists across restarts
+- Missing or temporarily unavailable keybind IDs are preserved
+- Conflict browser with search by name, category, key, or internal ID
+- Group conflicts by assigned key or by category
+- Direct actions for a selected conflict
+- Safe Fix with preview, apply, undo, and protected vanilla binds
+- Deterministic output for the same input
+- Slot hotkeys `1`-`5`, cycle next/prev, and open-screen hotkey
 
-- `keyset-fabric-1.20.1-1.20.2-1.3.0.jar`
-- `keyset-forge-1.21.1-1.3.0.jar`
-- `keyset-neoforge-1.21-1.21.11-1.3.0.jar`
-
-Notes:
-
-- Quilt uses the Fabric-compatible jars.
-- Forge support is intentionally capped at `1.21.1`.
-- Older `1.16.5-1.19.4` builds remain available on the `1.0.x` line for critical bug fixes only.
+---
 
 ## 🧭 Quick Start
 
 1. Open Minecraft's `Controls` screen and click `Keyset`.
-2. Pick an existing profile or create a new one from your live controls.
-3. Click `Save Live` once the current layout is where you want it.
-4. Search conflicts by action, key, category, or internal id.
-5. Use direct actions for a single bind, or use `Preview` in `Safe Fix` for a guided cleanup pass.
+2. Pick an existing profile or create one from your live controls.
+3. Click `Save Live` to capture the current layout into the selected profile.
+4. Search conflicts by action, key, category, or internal ID.
+5. Use direct actions for one bind, or open `Safe Fix` for a guided cleanup pass.
+6. Export profiles as JSON for backup or sharing.
 
-## 🔧 Feature Set
+---
 
-- Multiple keybind profiles with instant switching
-- Starter profiles: `Default`, `PvP`, `Building`, `Tech`
-- Conflict browser with search and grouping by key or category
-- Direct actions for the selected conflict
-- Safe auto-fix flow with preview, apply, and undo
-- Clipboard JSON export and import
-- Persistent local storage in `config/keybindprofiles.json`
-
-## 🧠 Behavior Notes
-
-### Profiles
-
-- The active profile persists across restarts.
-- `Save Live` captures the current controls into the selected profile.
-- Missing or temporarily unavailable keybind ids are preserved and can reactivate later.
-
-### Conflicts
-
-- Conflicts can be grouped by assigned key or by category.
-- Search matches display names, categories, key labels, and internal ids.
-- Cross-category conflicts are still shown.
-- Direct actions only affect the active profile.
-
-### Safe Fix
-
-- Important vanilla binds are protected by default: movement, inventory, chat, escape, and drop
-- Sticky user edits saved into the active profile are respected
-- Healthy non-conflicting assignments are not overwritten
-- Output is deterministic for the same input
-
-## ✅ Supported Versions
+## 📦 Supported Versions
 
 Current `1.3.x` release line:
 
-| Minecraft | Fabric | Quilt | Forge | NeoForge |
-| --- | --- | --- | --- | --- |
-| 1.20.1-1.20.2 | ✅ | ✅ | ✅ | ✅ |
-| 1.20.3-1.20.4 | ✅ | ✅ | ✅ | ✅ |
-| 1.20.5-1.20.6 | ✅ | ✅ | ✅ | ✅ |
-| 1.21.1 | ✅ | ✅ | ✅ | ✅ |
-| 1.21.2-1.21.4 | ✅ | ✅ | ❌ | ✅ |
-| 1.21.5-1.21.11 | ✅ | ✅ | ❌ | ✅ |
-| 26.1 | ✅ | ✅ | ❌ | ✅ |
+| Minecraft      | Fabric | Quilt | Forge | NeoForge |
+| -------------- | ------ | ----- | ----- | -------- |
+| 1.20.1-1.20.2  | ✅     | ✅    | ✅    | ✅       |
+| 1.20.3-1.20.4  | ✅     | ✅    | ✅    | ✅       |
+| 1.20.5-1.20.6  | ✅     | ✅    | ✅    | ✅       |
+| 1.21.1         | ✅     | ✅    | ✅    | ✅       |
+| 1.21.2-1.21.4  | ✅     | ✅    | ❌    | ✅       |
+| 1.21.5-1.21.11 | ✅     | ✅    | ❌    | ✅       |
+| 26.1           | ✅     | ✅    | ❌    | ✅       |
 
 Legacy maintenance line:
 
 - `1.0.x` remains available for `1.16.5-1.19.4`
-- Those older builds are now critical-fix-only
-- Profile compatibility remains stable across the supported release line
+- Legacy builds receive critical-fix-only maintenance
+- Profile compatibility remains stable across the supported release family
+
+Additional notes:
+
+- Forge support is intentionally capped at `1.21.1`
+- Quilt uses the Fabric-compatible jars
+
+---
+
+## ⬇️ Downloads
+
+- [Modrinth](https://modrinth.com/mod/keyset)
+- [CurseForge](https://legacy.curseforge.com/minecraft/mc-mods/keyset)
+- [GitHub Releases](https://github.com/BeeBoyD/Keyset/releases)
+
+Jar naming follows `loader + MC range + version`, for example:
+
+- `keyset-fabric-1.21.1-1.3.0.jar`
+- `keyset-forge-1.21.1-1.3.0.jar`
+- `keyset-neoforge-1.21.5-1.21.11-1.3.0.jar`
+
+---
+
+## 🛠️ Building
+
+```sh
+./gradlew build
+./gradlew verifyActiveWorkspace
+```
+
+Builds require Java 25+. Gradle toolchains handle lower target runtimes automatically.
+
+---
 
 ## 🔒 Privacy
 
@@ -124,13 +132,17 @@ Profile data is stored locally in:
 config/keybindprofiles.json
 ```
 
+---
+
 ## 📦 Modpack Notes
 
 - Client-side only
 - Safe to include in packs
 - Does not add gameplay content
-- Designed to stay additive instead of fighting other keybind mods
+- Designed to stay additive and avoid fighting other keybind mods
 
-## 📍 Status
+---
 
-Current stable release line on this branch: `1.3.0`
+## 💬 Support
+
+If Keyset has been useful to you, consider [supporting development](https://www.buymeacoffee.com/beeboyd).

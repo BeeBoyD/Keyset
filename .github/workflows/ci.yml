@@ -122,12 +122,6 @@ jobs:
         if: steps.targets.outputs.should_build == 'true'
         run: ./gradlew buildSelectedTargets -PbuildTargets=${{ steps.targets.outputs.targets }}
 
-      - name: Publish to Modrinth (beta)
-        if: steps.targets.outputs.should_build == 'true'
-        run: ./gradlew publishToModrinth -PbuildTargets=${{ steps.targets.outputs.targets }} -PreleaseType=beta
-        env:
-          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
-
       - name: Create or update GitHub pre-release
         if: steps.targets.outputs.should_build == 'true'
         run: ./gradlew publishToGitHub -PbuildTargets=${{ steps.targets.outputs.targets }} -PreleaseType=beta

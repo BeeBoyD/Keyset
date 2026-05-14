@@ -8,13 +8,13 @@
 [![License](https://img.shields.io/github/license/BeeBoyD/Keyset)](https://github.com/BeeBoyD/Keyset/blob/main/LICENSE)
 [![Client-Side](https://img.shields.io/badge/side-client--side-4caf50)](https://modrinth.com/project/keyset)
 
-Keyset is a profile-based keybind manager for modded Minecraft.
+Keyset is a profile-based keybind manager for Minecraft.
 
-Save full control layouts, swap them instantly, inspect conflicts with context, and preview safer cleanup before anything gets applied.
+Save layouts, swap instantly, inspect conflicts with context, and use Safe Fix when you want a guided cleanup pass.
 
 > ⚠️ **Release line note:**
-> `1.1.x` targets Minecraft `1.20.1+`.
-> Older `1.16.5-1.19.4` builds remain on the `1.0.x` line and only receive critical bug fixes.
+> `1.3.x` targets Minecraft `1.20.1+`.
+> Older `1.16.5-1.19.4` builds remain on the `1.0.x` line and receive critical fixes only.
 > Profile compatibility stays the same across the supported release line.
 
 ## ✨ Why It Helps
@@ -25,14 +25,14 @@ Save full control layouts, swap them instantly, inspect conflicts with context, 
 - Guided Safe Fix when you want a cleaner automated pass
 - JSON export and import for backup or sharing
 
-## 🚀 1.1.x Highlights
+## 🚀 Highlights
 
-- Cleaner modern UI on the active `1.20.1+` line
-- More reliable Controls-screen button behavior and screen opening
-- Safer config recovery with backup restore and clearer status messages
-- Fabric, Quilt, and NeoForge support for Minecraft 26.1 (the first fully unobfuscated release)
-
-Older `1.16.5-1.19.4` builds stay available on the `1.0.x` line with the same profile format, but active development now lives on `1.20.1+`.
+- Multiple keybind profiles with instant switching
+- Starter profiles: `Default`, `PvP`, `Building`, `Tech`
+- Conflict browser with search and grouping
+- Direct actions for the selected conflict
+- Safe auto-fix with preview, apply, and undo
+- Clipboard JSON export and import
 
 ## 🧭 Quick Start
 
@@ -46,17 +46,17 @@ Older `1.16.5-1.19.4` builds stay available on the `1.0.x` line with the same pr
 
 - [Modrinth](https://modrinth.com/project/keyset)
 - [CurseForge](https://legacy.curseforge.com/minecraft/mc-mods/keyset)
-- [GitHub](https://github.com/BeeBoyD/Keyset/releases)
+- [GitHub Releases](https://github.com/BeeBoyD/Keyset/releases)
 
 Published files are split by loader and Minecraft range, for example:
 
-- `keyset-fabric-1.20.1-1.20.2-1.1.0.jar`
-- `keyset-forge-1.21.1-1.1.0.jar`
-- `keyset-neoforge-1.21-1.21.11-1.1.0.jar`
+- `keyset-fabric-1.20.1-1.20.2-1.3.0.jar`
+- `keyset-forge-1.21.1-1.3.0.jar`
+- `keyset-neoforge-1.21.5-1.21.11-1.3.0.jar`
 
 ## ✅ Supported Versions
 
-Current `1.1.x` release line:
+Current `1.3.x` release line:
 
 | Minecraft | Fabric | Quilt | Forge | NeoForge |
 | --- | --- | --- | --- | --- |
@@ -72,7 +72,6 @@ Notes:
 
 - Quilt uses the Fabric-compatible jars.
 - Forge support is intentionally capped at `1.21.1`.
-- Forge 26.1 support is pending upstream loader tooling.
 - Older `1.16.5-1.19.4` builds remain on the `1.0.x` line for critical bug fixes only.
 
 ## 🔒 Privacy
@@ -90,7 +89,4 @@ It does not send telemetry or upload your controls anywhere.
 - Client-side only
 - Safe to include in packs
 - No gameplay content
-
-## 📍 Status
-
-Current stable release line: `1.1.2`
+- Designed to stay additive and avoid fighting other keybind mods

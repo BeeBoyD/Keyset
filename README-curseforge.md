@@ -6,18 +6,26 @@
 [![Modrinth](https://img.shields.io/modrinth/dt/keyset?logo=modrinth&label=Modrinth)](https://modrinth.com/project/keyset)
 [![Source](https://img.shields.io/badge/source-GitHub-24292f)](https://github.com/BeeBoyD/Keyset)
 
-Keyset is a profile-based keybind manager for modded Minecraft.
+Keyset is a profile-based keybind manager for Minecraft.
 
-Save full control layouts, swap them instantly, inspect conflicts with context, and preview safer cleanup before applying changes.
+Save layouts, swap them instantly, inspect conflicts with context, and use Safe Fix for a guided cleanup pass when your controls get crowded.
 
 > 💡 **Support tip:** for faster updates, issue tracking, and the best support experience, please use the [Modrinth project page](https://modrinth.com/project/keyset).
 
 > ⚠️ **Release line note:**
-> `1.1.x` targets Minecraft `1.20.1+`.
-> Older `1.16.5-1.19.4` builds remain on the `1.0.x` line and only receive critical bug fixes.
+> `1.3.x` targets Minecraft `1.20.1+`.
+> Older `1.16.5-1.19.4` builds remain on the `1.0.x` line and receive critical fixes only.
 > Profile compatibility stays the same across the supported release line.
 
-## ✨ What It Does
+## ✨ Why It Helps
+
+- Separate profiles for PvP, building, tech packs, or general play
+- Faster conflict cleanup in bigger modpacks
+- Direct one-bind fixes when you know exactly what you want
+- Guided Safe Fix when you want a cleaner automated pass
+- JSON export and import for backup or sharing
+
+## 🚀 Highlights
 
 - Multiple keybind profiles with instant switching
 - Starter profiles: `Default`, `PvP`, `Building`, `Tech`
@@ -39,11 +47,15 @@ Save full control layouts, swap them instantly, inspect conflicts with context, 
 - [Modrinth](https://modrinth.com/project/keyset)
 - [GitHub Releases](https://github.com/BeeBoyD/Keyset/releases)
 
-Published files are split by loader and Minecraft range.
+Published files are split by loader and Minecraft range, for example:
+
+- `keyset-fabric-1.20.1-1.20.2-1.3.0.jar`
+- `keyset-forge-1.21.1-1.3.0.jar`
+- `keyset-neoforge-1.21.5-1.21.11-1.3.0.jar`
 
 ## ✅ Supported Versions
 
-Current `1.1.x` release line:
+Current `1.3.x` release line:
 
 | Minecraft | Fabric | Quilt | Forge | NeoForge |
 | --- | --- | --- | --- | --- |
@@ -55,9 +67,11 @@ Current `1.1.x` release line:
 | 1.21.5-1.21.11 | ✅ | ✅ | ❌ | ✅ |
 | 26.1 | ✅ | ✅ | ❌ | ✅ |
 
-Older `1.16.5-1.19.4` builds remain available on the `1.0.x` line and are now critical-fix-only.
+Notes:
 
-Forge 26.1 support is pending upstream loader tooling.
+- Quilt uses the Fabric-compatible jars.
+- Forge support is intentionally capped at `1.21.1`.
+- Older `1.16.5-1.19.4` builds remain on the `1.0.x` line for critical bug fixes only.
 
 ## 🔒 Privacy
 
