@@ -21,9 +21,9 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 
@@ -149,6 +149,15 @@ public final class KeysetScreen extends Screen {
 
     buildSidebarButtons();
     rebuildTabWidgets();
+
+    // ? help button — always accessible in topbar
+    int helpBtnX = width - KeysetTheme.PAD - 20;
+    int helpBtnY = topbarY + (KeysetTheme.TOPBAR_H - 16) / 2;
+    addDrawableChild(
+        ButtonWidget.builder(
+                Text.literal("?"), b -> client.setScreen(new TutorialScreen(this, service)))
+            .dimensions(helpBtnX, helpBtnY, 16, 16)
+            .build());
   }
 
   private void buildSidebarButtons() {
@@ -382,6 +391,28 @@ public final class KeysetScreen extends Screen {
         int cw = textRenderer.getWidth("LIVE") + 8;
         int cx2 = sidebarX + sidebarW - cw - 4;
         int cy2 = rowY + (rowH - 12) / 2;
+
+        // MOD badge — show when active profile differs from live MC bindings
+        boolean isModified = client != null && profileDiffersFromLive(profile, client);
+        if (isModified) {
+          int mw = textRenderer.getWidth("MOD") + 8;
+          int mx2 = cx2 - mw - 3;
+          ctx.fill(
+              mx2,
+              cy2,
+              mx2 + mw,
+              cy2 + 12,
+              KeysetTheme.withAlpha(KeysetTheme.CHIP_ERR_BG, screenAlpha));
+          ctx.drawBorder(
+              mx2, cy2, mw, 12, KeysetTheme.withAlpha(KeysetTheme.CHIP_ERR_BR, screenAlpha));
+          ctx.drawCenteredTextWithShadow(
+              textRenderer,
+              Text.literal("MOD"),
+              mx2 + mw / 2,
+              cy2 + 2,
+              KeysetTheme.withAlpha(KeysetTheme.ERROR, screenAlpha));
+        }
+
         ctx.fill(
             cx2,
             cy2,
@@ -727,19 +758,8 @@ public final class KeysetScreen extends Screen {
       String category = kb.getCategory();
       String categoryName = Text.translatable(category).getString();
 
-      String keyLabel;
-      if (snap.getKeyStroke().isUnbound()) {
-        keyLabel = "None";
-      } else {
-        try {
-          keyLabel =
-              InputUtil.fromTranslationKey(snap.getKeyStroke().getKeyToken())
-                  .getLocalizedText()
-                  .getString();
-        } catch (Exception e) {
-          keyLabel = snap.getKeyStroke().getKeyToken();
-        }
-      }
+      // Rule 3: read live MC state, not profile snapshot
+      String keyLabel = kb.getBoundKeyLocalizedText().getString();
 
       boolean conflict =
           !snap.getKeyStroke().isUnbound()
@@ -969,6 +989,20 @@ public final class KeysetScreen extends Screen {
       if (b.getDisplayName().toLowerCase().contains(filter)) return true;
       if (b.getCategoryName().toLowerCase().contains(filter)) return true;
       if (b.getId().toLowerCase().contains(filter)) return true;
+    }
+    return false;
+  }
+
+  private boolean profileDiffersFromLive(KeysetProfile profile, MinecraftClient mc) {
+    Map<String, KeysetBindingSnapshot> bindings = profile.getBindings();
+    for (KeyBinding kb : mc.options.allKeys) {
+      KeysetBindingSnapshot snap = bindings.get(kb.getTranslationKey());
+      if (snap == null) continue;
+      boolean snapUnbound = snap.getKeyStroke().isUnbound();
+      boolean liveUnbound = kb.isUnbound();
+      if (snapUnbound != liveUnbound) return true;
+      if (!snapUnbound && !snap.getKeyStroke().getKeyToken().equals(kb.getBoundKeyTranslationKey()))
+        return true;
     }
     return false;
   }
