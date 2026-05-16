@@ -11,6 +11,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.screen.Screen;
@@ -37,10 +38,6 @@ public final class KeysetFabricClient implements ClientModInitializer {
   private final KeyBinding[] slotKeyBindings = new KeyBinding[5];
   private final KeysetClientHooks<net.minecraft.client.MinecraftClient, Screen> clientHooks =
       new KeysetClientHooks<net.minecraft.client.MinecraftClient, Screen>();
-
-  // Single-slot injection tracking — only one ControlsOptionsScreen open at a time.
-  private Screen lastInjectedScreen;
-  private ClickableWidget lastInjectedButton;
 
   public static KeysetFabricService getService() {
     return SERVICE;
@@ -89,6 +86,24 @@ public final class KeysetFabricClient implements ClientModInitializer {
           } catch (Exception exception) {
             LOGGER.error("Failed to initialize Keyset profiles", exception);
           }
+
+          // Show tutorial on first launch — queued for next tick (can't open screens here)
+          if (!SERVICE.isTutorialComplete(client)) {
+            ClientTickEvents.START_CLIENT_TICK.register(
+                new ClientTickEvents.StartTick() {
+                  private boolean shown = false;
+
+                  @Override
+                  public void onStartTick(net.minecraft.client.MinecraftClient mc) {
+                    if (!shown && mc.currentScreen == null) {
+                      mc.setScreen(
+                          new net.beeboyd.keyset.platform.fabric.screen.TutorialScreen(
+                              null, SERVICE));
+                      shown = true;
+                    }
+                  }
+                });
+          }
         });
 
     ClientTickEvents.END_CLIENT_TICK.register(
@@ -133,21 +148,29 @@ public final class KeysetFabricClient implements ClientModInitializer {
               KeysetFabricClient::isKeysetScreen);
         });
 
+    ClientPlayConnectionEvents.JOIN.register(
+        (handler, sender, client) -> {
+          String address =
+              client.getCurrentServerEntry() != null
+                  ? client.getCurrentServerEntry().address
+                  : null;
+          SERVICE.handleServerJoin(client, address);
+        });
+
     ScreenEvents.AFTER_INIT.register(
         (client, screen, scaledWidth, scaledHeight) -> {
           if (!(screen instanceof ControlsOptionsScreen)) {
-            // If we're navigating to a non-Controls screen, clear the injection slot.
-            lastInjectedScreen = null;
-            lastInjectedButton = null;
             return;
           }
 
           List<ClickableWidget> buttons = Screens.getButtons(screen);
 
-          // Remove stale button from previous screen (same object reused after resize, etc.).
-          if (lastInjectedScreen == screen && lastInjectedButton != null) {
-            buttons.remove(lastInjectedButton);
-          }
+          // Remove any previously-injected button by label — stateless, always correct.
+          String keysetLabel = Text.translatable("keyset.open").getString();
+          buttons.removeIf(
+              b ->
+                  b instanceof ButtonWidget
+                      && ((ButtonWidget) b).getMessage().getString().equals(keysetLabel));
 
           int[] placement =
               KeysetControlsButtonPlacement.findPlacement(
@@ -186,9 +209,6 @@ public final class KeysetFabricClient implements ClientModInitializer {
                   .build();
           keysetButton.setTooltip(Tooltip.of(Text.translatable("keyset.subtitle")));
           buttons.add(keysetButton);
-
-          lastInjectedScreen = screen;
-          lastInjectedButton = keysetButton;
         });
   }
 

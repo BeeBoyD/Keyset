@@ -1,5 +1,6 @@
 {
   "keyset.title": "Keyset",
+  "keyset.action.done": "Done",
   "keyset.subtitle": "Swap profiles and clean conflicts faster",
   "keyset.open": "Keyset",
   "keyset.key.open_screen": "Open Keyset",
@@ -176,5 +177,17 @@
   "keyset.tip.profile_move_up": "Move the selected profile one position up in the list.",
   "keyset.tip.profile_move_down": "Move the selected profile one position down in the list.",
   "keyset.error.redo_unavailable": "Nothing to redo.",
-  "keyset.error.profile_name_blank": "Profile name cannot be blank."
+  "keyset.error.profile_name_blank": "Profile name cannot be blank.",
+  "keyset.tutorial.1.title": "Welcome to Keyset",
+  "keyset.tutorial.1.body": "Keyset lets you save multiple keybind layouts as profiles and switch between them instantly — perfect for different games, servers, or playstyles.",
+  "keyset.tutorial.2.title": "Profiles",
+  "keyset.tutorial.2.body": "Create profiles for different situations. Select a profile in the sidebar to view its bindings. Click Activate to make it live.",
+  "keyset.tutorial.3.title": "Activate & Save Live",
+  "keyset.tutorial.3.body": "Activate applies the selected profile's bindings to your game. Save Live captures your current bindings into the selected profile — your last changes, saved.",
+  "keyset.tutorial.4.title": "Conflicts",
+  "keyset.tutorial.4.body": "The Conflicts tab shows when two actions share the same key. Click a conflict to clear or rebind one of them. Safe and easy.",
+  "keyset.tutorial.back": "← Back",
+  "keyset.tutorial.next": "Next →",
+  "keyset.tutorial.finish": "Get Started",
+  "keyset.tutorial.skip": "Skip"
 }
