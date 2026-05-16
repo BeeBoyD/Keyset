@@ -25,6 +25,9 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 
 public final class KeysetScreen extends Screen {
+  private static final int TUTORIAL_OVERLAY_Z = 400;
+  private static final int TUTORIAL_PANEL_WIDTH = 320;
+  private static final int TUTORIAL_PANEL_HEIGHT = 160;
 
   enum Tab {
     BINDINGS,
@@ -358,10 +361,22 @@ public final class KeysetScreen extends Screen {
     renderDoneButton(ctx, mouseX, mouseY);
     renderFooter(ctx);
     if (tutorialActive && tutorialStep != TutorialStep.DONE) {
+      renderTutorialOverlay(ctx, mouseX, mouseY);
+    }
+  }
+
+  private void renderTutorialOverlay(DrawContext ctx, int mouseX, int mouseY) {
+    ctx.draw();
+    ctx.getMatrices().push();
+    try {
+      ctx.getMatrices().translate(0, 0, TUTORIAL_OVERLAY_Z);
       renderTutorialDarkening(ctx);
       renderTutorialArrow(ctx);
       renderTutorialPanel(ctx, mouseX, mouseY);
+    } finally {
+      ctx.getMatrices().pop();
     }
+    ctx.draw();
   }
 
   private void renderTopbar(DrawContext ctx) {
@@ -377,12 +392,12 @@ public final class KeysetScreen extends Screen {
         width - KeysetTheme.PAD * 2,
         KeysetTheme.TOPBAR_H,
         KeysetTheme.withAlpha(KeysetTheme.BORDER, screenAlpha));
-    ctx.drawTextWithShadow(
+    ctx.drawCenteredTextWithShadow(
         textRenderer,
-        this.title,
-        KeysetTheme.PAD + 12,
+        Text.literal("KEYSET").styled(style -> style.withBold(true)),
+        width / 2,
         topbarY + 13,
-        KeysetTheme.withAlpha(KeysetTheme.TEXT_TITLE, screenAlpha));
+        KeysetTheme.withAlpha(KeysetTheme.ACCENT, screenAlpha));
   }
 
   private void renderSidebar(DrawContext ctx, int mouseX, int mouseY) {
@@ -1727,7 +1742,8 @@ public final class KeysetScreen extends Screen {
   }
 
   private void renderTutorialPanel(DrawContext ctx, int mx, int my) {
-    int pw = 260, ph = 130;
+    int pw = tutorialPanelWidth();
+    int ph = tutorialPanelHeight();
     int px = mainX + mainW - pw - 10;
     int py = mainY + mainH - ph - 10;
 
@@ -1760,7 +1776,11 @@ public final class KeysetScreen extends Screen {
         KeysetTheme.TEXT_TITLE);
 
     var lines = textRenderer.wrapLines(Text.translatable(tutorialStep.bodyKey()), pw - 12);
-    for (int i = 0; i < Math.min(lines.size(), 3); i++) {
+    int bodyLineLimit =
+        tutorialStep == TutorialStep.WELCOME
+            ? Math.max(3, (ph - 60) / 11)
+            : Math.max(3, (ph - 86) / 11);
+    for (int i = 0; i < Math.min(lines.size(), bodyLineLimit); i++) {
       ctx.drawTextWithShadow(
           textRenderer, lines.get(i), px + 6, py + 36 + i * 11, KeysetTheme.TEXT_BODY);
     }
@@ -1768,13 +1788,13 @@ public final class KeysetScreen extends Screen {
     boolean complete = isStepComplete();
     if (complete && tutorialStep != TutorialStep.WELCOME) {
       ctx.drawTextWithShadow(
-          textRenderer, Text.literal("✓ Done!"), px + 6, py + 94, KeysetTheme.SUCCESS);
+          textRenderer, Text.literal("✓ Done!"), px + 6, py + ph - 38, KeysetTheme.SUCCESS);
     } else if (tutorialStep != TutorialStep.WELCOME) {
       ctx.drawTextWithShadow(
           textRenderer,
           Text.translatable(tutorialStep.hintKey()),
           px + 6,
-          py + 94,
+          py + ph - 38,
           KeysetTheme.TEXT_MUTED);
     }
 
@@ -1904,10 +1924,19 @@ public final class KeysetScreen extends Screen {
 
   private boolean isOverTutorialPanel(int mx, int my) {
     if (!tutorialActive || tutorialStep == TutorialStep.DONE) return false;
-    int pw = 260, ph = 130;
+    int pw = tutorialPanelWidth();
+    int ph = tutorialPanelHeight();
     int px = mainX + mainW - pw - 10;
     int py = mainY + mainH - ph - 10;
     return mx >= px && mx < px + pw && my >= py && my < py + ph;
+  }
+
+  private int tutorialPanelWidth() {
+    return Math.min(TUTORIAL_PANEL_WIDTH, Math.max(260, mainW - 20));
+  }
+
+  private int tutorialPanelHeight() {
+    return Math.min(TUTORIAL_PANEL_HEIGHT, Math.max(130, mainH - 20));
   }
 
   private void setStatus(String msg, boolean error) {
