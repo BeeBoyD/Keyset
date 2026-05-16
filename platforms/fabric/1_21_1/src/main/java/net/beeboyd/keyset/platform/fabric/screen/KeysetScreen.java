@@ -10,9 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.beeboyd.keyset.core.autoswitch.AutoSwitchRule;
-import net.beeboyd.keyset.core.binding.KeysetBindingDescriptor;
-import net.beeboyd.keyset.core.conflict.KeysetConflict;
-import net.beeboyd.keyset.core.conflict.KeysetConflictReport;
 import net.beeboyd.keyset.core.profile.KeysetBindingSnapshot;
 import net.beeboyd.keyset.core.profile.KeysetProfile;
 import net.beeboyd.keyset.core.profile.KeysetProfilesConfig;
@@ -77,12 +74,17 @@ public final class KeysetScreen extends Screen {
 
   private record AutoSwitchTarget(boolean isAddBtn, int deleteIndex, int x, int y, int w, int h) {}
 
+  private record ConflictGroup(String boundKey, List<KeyBinding> bindings) {}
+
   enum TutorialStep {
     WELCOME("keyset.tutorial.welcome"),
-    CREATE_PROFILE("keyset.tutorial.create"),
-    ACTIVATE_PROFILE("keyset.tutorial.activate"),
-    OPEN_CONFLICTS("keyset.tutorial.conflicts"),
+    CREATE("keyset.tutorial.create"),
+    RENAME("keyset.tutorial.rename"),
+    ACTIVATE("keyset.tutorial.activate"),
+    CONFLICTS("keyset.tutorial.conflicts"),
+    FIX_CONFLICT("keyset.tutorial.fix"),
     SAVE_LIVE("keyset.tutorial.savelive"),
+    AUTO_SWITCH("keyset.tutorial.autoswitch"),
     DONE("keyset.tutorial.done");
 
     private final String keyPrefix;
@@ -157,14 +159,17 @@ public final class KeysetScreen extends Screen {
   // Conflict auto-refresh
   private String lastKeybindHash = "";
   private int refreshTick = 0;
+  private final List<ConflictGroup> conflictGroups = new ArrayList<>();
 
   // Interactive tutorial
   private boolean tutorialActive;
   private TutorialStep tutorialStep = TutorialStep.WELCOME;
   private ButtonWidget btnTutNext;
-  private int profileCountAtStart;
+  private int profileCountAtStepStart;
+  private String profileNameAtStepStart = "";
   private boolean didActivate;
   private boolean didSaveLive;
+  private boolean didOpenConflictDialog;
 
   public KeysetScreen(Screen parent, KeysetFabricService service) {
     super(Text.translatable("keyset.title"));
@@ -203,6 +208,7 @@ public final class KeysetScreen extends Screen {
 
     buildSidebarButtons();
     rebuildTabWidgets();
+    refreshConflicts();
 
     // ? help button — always reopens tutorial from WELCOME
     int helpBtnX = width - KeysetTheme.PAD - 20;
@@ -240,7 +246,7 @@ public final class KeysetScreen extends Screen {
           addDrawableChild(
               ButtonWidget.builder(
                       Text.translatable(
-                          tutorialStep == TutorialStep.SAVE_LIVE
+                          tutorialStep == TutorialStep.AUTO_SWITCH
                               ? "keyset.tutorial.finish"
                               : "keyset.tutorial.next"),
                       b -> advanceTutorial())
@@ -263,20 +269,22 @@ public final class KeysetScreen extends Screen {
     int by = sidebarY + mainH - 84;
     int g = KeysetTheme.GAP_SM;
     int hw = (bw - g) / 2;
-    int tw = (bw - g * 2) / 3;
     int qw = (bw - g * 3) / 4;
 
     sidebarButtons.add(
         new SidebarBtn("keyset.profile.apply", this::activateSelected, bx, by, hw, 18));
     sidebarButtons.add(
         new SidebarBtn("keyset.profile.capture", this::saveLiveSelected, bx + hw + g, by, hw, 18));
-    sidebarButtons.add(new SidebarBtn("keyset.profile.new", this::newProfile, bx, by + 22, tw, 18));
+    sidebarButtons.add(new SidebarBtn("keyset.profile.new", this::newProfile, bx, by + 22, qw, 18));
     sidebarButtons.add(
         new SidebarBtn(
-            "keyset.profile.duplicate", this::cloneSelected, bx + tw + g, by + 22, tw, 18));
+            "keyset.profile.rename", this::renameSelected, bx + qw + g, by + 22, qw, 18));
     sidebarButtons.add(
         new SidebarBtn(
-            "keyset.profile.delete", this::confirmDelete, bx + (tw + g) * 2, by + 22, tw, 18));
+            "keyset.profile.duplicate", this::cloneSelected, bx + (qw + g) * 2, by + 22, qw, 18));
+    sidebarButtons.add(
+        new SidebarBtn(
+            "keyset.profile.delete", this::confirmDelete, bx + (qw + g) * 3, by + 22, qw, 18));
     sidebarButtons.add(new SidebarBtn("↑", this::moveUp, bx, by + 44, qw, 18));
     sidebarButtons.add(new SidebarBtn("↓", this::moveDown, bx + qw + g, by + 44, qw, 18));
     sidebarButtons.add(
@@ -443,7 +451,11 @@ public final class KeysetScreen extends Screen {
       boolean active = profile.getId().equals(cfg.getActiveProfileId());
       boolean selected = profile.getId().equals(selectedProfileId);
       boolean hovered =
-          mx >= sidebarX && mx < sidebarX + sidebarW && my >= rowY && my < rowY + rowH;
+          !isOverTutorialPanel(mx, my)
+              && mx >= sidebarX
+              && mx < sidebarX + sidebarW
+              && my >= rowY
+              && my < rowY + rowH;
 
       if (selected) {
         ctx.fill(
@@ -547,7 +559,11 @@ public final class KeysetScreen extends Screen {
   private void renderSidebarButtons(DrawContext ctx, int mx, int my) {
     for (SidebarBtn btn : sidebarButtons) {
       boolean hovered =
-          mx >= btn.x() && mx < btn.x() + btn.w() && my >= btn.y() && my < btn.y() + btn.h();
+          !isOverTutorialPanel(mx, my)
+              && mx >= btn.x()
+              && mx < btn.x() + btn.w()
+              && my >= btn.y()
+              && my < btn.y() + btn.h();
       int bg =
           hovered
               ? KeysetTheme.withAlpha(KeysetTheme.ACCENT, screenAlpha * 0.85f)
@@ -592,6 +608,7 @@ public final class KeysetScreen extends Screen {
       boolean active = currentTab == tabs[i];
       boolean hovered =
           !active
+              && !isOverTutorialPanel((int) mouseX, (int) mouseY)
               && mouseX >= tx
               && mouseX < tx + tabW
               && mouseY >= tabBarY
@@ -654,7 +671,11 @@ public final class KeysetScreen extends Screen {
     int toggleX = mainX + mainW - KeysetTheme.GAP - toggleW;
     int toggleY = contentY + KeysetTheme.GAP;
     boolean toggleHovered =
-        mx >= toggleX && mx < toggleX + toggleW && my >= toggleY && my < toggleY + 18;
+        !isOverTutorialPanel(mx, my)
+            && mx >= toggleX
+            && mx < toggleX + toggleW
+            && my >= toggleY
+            && my < toggleY + 18;
     String toggleLabel = bindingsGroupByCategory ? "Group: Cat" : "Group: Key";
     ctx.fill(
         toggleX,
@@ -781,7 +802,12 @@ public final class KeysetScreen extends Screen {
 
   private void renderBindingRow(
       DrawContext ctx, BindingRow row, int x, int y, int w, int mx, int my) {
-    boolean hovered = mx >= x && mx < x + w && my >= y && my < y + KeysetTheme.ROW_H;
+    boolean hovered =
+        !isOverTutorialPanel(mx, my)
+            && mx >= x
+            && mx < x + w
+            && my >= y
+            && my < y + KeysetTheme.ROW_H;
     if (hovered) {
       ctx.fill(
           x,
@@ -884,37 +910,16 @@ public final class KeysetScreen extends Screen {
     int listTop = contentY + KeysetTheme.GAP + 18 + KeysetTheme.GAP_SM;
     int listBot = mainY + mainH - KeysetTheme.GAP_SM;
 
-    if (selectedProfileId == null) {
-      ctx.drawCenteredTextWithShadow(
-          textRenderer,
-          Text.literal("Select a profile to view conflicts."),
-          mainX + mainW / 2,
-          listTop + (listBot - listTop) / 2 - 4,
-          KeysetTheme.withAlpha(KeysetTheme.TEXT_DISABLED, screenAlpha));
-      return;
-    }
-
-    KeysetConflictReport report;
-    try {
-      report = service.buildConflictReport(client, selectedProfileId);
-    } catch (IOException e) {
-      return;
-    }
-
     String filter = conflictsSearch != null ? conflictsSearch.getText().trim().toLowerCase() : "";
-    List<KeysetConflict> conflicts = new ArrayList<>(report.getConflicts());
-    if (!filter.isEmpty()) {
-      List<KeysetConflict> filtered = new ArrayList<>();
-      for (KeysetConflict c : conflicts) {
-        if (matchesConflictFilter(c, filter)) filtered.add(c);
-      }
-      conflicts = filtered;
+    List<ConflictGroup> visible = new ArrayList<>();
+    for (ConflictGroup g : conflictGroups) {
+      if (filter.isEmpty() || matchesConflictFilter(g, filter)) visible.add(g);
     }
 
-    if (conflicts.isEmpty()) {
-      int msgColor = report.isEmpty() ? KeysetTheme.SUCCESS : KeysetTheme.TEXT_DISABLED;
+    if (visible.isEmpty()) {
+      int msgColor = conflictGroups.isEmpty() ? KeysetTheme.SUCCESS : KeysetTheme.TEXT_DISABLED;
       String msg =
-          report.isEmpty()
+          conflictGroups.isEmpty()
               ? Text.translatable("keyset.conflicts.none").getString()
               : "No conflicts match this search.";
       ctx.drawCenteredTextWithShadow(
@@ -926,12 +931,11 @@ public final class KeysetScreen extends Screen {
       return;
     }
 
-    // Compute content height
     int contentHeight = 0;
-    for (KeysetConflict c : conflicts) {
+    for (ConflictGroup g : visible) {
       contentHeight += 28;
-      if (expandedConflictGroups.contains(c.getKeySignature())) {
-        contentHeight += c.getBindings().size() * KeysetTheme.ROW_H;
+      if (expandedConflictGroups.contains(g.boundKey())) {
+        contentHeight += g.bindings().size() * KeysetTheme.ROW_H;
       }
     }
 
@@ -947,43 +951,44 @@ public final class KeysetScreen extends Screen {
     int rowW = mainW - KeysetTheme.GAP_SM * 2;
     int rowX = mainX + KeysetTheme.GAP_SM;
 
-    for (KeysetConflict c : conflicts) {
-      boolean expanded = expandedConflictGroups.contains(c.getKeySignature());
+    for (ConflictGroup g : visible) {
+      boolean expanded = expandedConflictGroups.contains(g.boundKey());
+      String keyLabel = g.bindings().get(0).getBoundKeyLocalizedText().getString();
 
       conflictTargets.add(
           new ConflictTarget(
-              true, c.getKeySignature(), rowX, curY, rowW, 28, null, null, null, null, null));
+              true, g.boundKey(), rowX, curY, rowW, 28, null, null, null, null, null));
 
       if (curY + 28 > listTop && curY < listBot) {
-        renderConflictGroup(
-            ctx, c.getKeyDisplayName(), c.getBindings().size(), expanded, rowX, curY, rowW, mx, my);
+        renderConflictGroup(ctx, keyLabel, g.bindings().size(), expanded, rowX, curY, rowW, mx, my);
       }
       curY += 28;
 
       if (expanded) {
-        for (KeysetBindingDescriptor b : c.getBindings()) {
+        for (KeyBinding kb : g.bindings()) {
+          String actionName = Text.translatable(kb.getTranslationKey()).getString();
+          String categoryName = Text.translatable(kb.getCategory()).getString();
           List<String> others = new ArrayList<>();
-          for (KeysetBindingDescriptor other : c.getBindings()) {
-            if (!other.getId().equals(b.getId())) {
-              others.add(other.getDisplayName());
+          for (KeyBinding other : g.bindings()) {
+            if (!other.getTranslationKey().equals(kb.getTranslationKey())) {
+              others.add(Text.translatable(other.getTranslationKey()).getString());
             }
           }
           conflictTargets.add(
               new ConflictTarget(
                   false,
-                  c.getKeySignature(),
+                  g.boundKey(),
                   rowX,
                   curY,
                   rowW,
                   KeysetTheme.ROW_H,
-                  b.getId(),
-                  b.getDisplayName(),
-                  c.getKeyDisplayName(),
-                  b.getCategoryName(),
+                  kb.getTranslationKey(),
+                  actionName,
+                  keyLabel,
+                  categoryName,
                   others));
           if (curY + KeysetTheme.ROW_H > listTop && curY < listBot) {
-            renderConflictBinding(
-                ctx, b.getDisplayName(), b.getCategoryName(), rowX, curY, rowW, mx, my);
+            renderConflictBinding(ctx, actionName, categoryName, rowX, curY, rowW, mx, my);
           }
           curY += KeysetTheme.ROW_H;
         }
@@ -1015,7 +1020,7 @@ public final class KeysetScreen extends Screen {
       int w,
       int mx,
       int my) {
-    boolean hov = mx >= x && mx < x + w && my >= y && my < y + 28;
+    boolean hov = !isOverTutorialPanel(mx, my) && mx >= x && mx < x + w && my >= y && my < y + 28;
     ctx.fill(x, y, x + w, y + 28, KeysetTheme.scaleAlpha(KeysetTheme.BG_SURFACE, screenAlpha));
     if (hov) {
       ctx.fill(x, y, x + w, y + 28, KeysetTheme.withAlpha(KeysetTheme.BG_HOVER, screenAlpha));
@@ -1058,7 +1063,12 @@ public final class KeysetScreen extends Screen {
   private void renderConflictBinding(
       DrawContext ctx, String actionName, String category, int x, int y, int w, int mx, int my) {
     int indent = 16;
-    boolean hov = mx >= x + indent && mx < x + w && my >= y && my < y + KeysetTheme.ROW_H;
+    boolean hov =
+        !isOverTutorialPanel(mx, my)
+            && mx >= x + indent
+            && mx < x + w
+            && my >= y
+            && my < y + KeysetTheme.ROW_H;
     if (hov) {
       ctx.fill(
           x,
@@ -1083,12 +1093,14 @@ public final class KeysetScreen extends Screen {
         KeysetTheme.withAlpha(KeysetTheme.TEXT_MUTED, screenAlpha));
   }
 
-  private boolean matchesConflictFilter(KeysetConflict c, String filter) {
-    if (c.getKeyDisplayName().toLowerCase().contains(filter)) return true;
-    for (KeysetBindingDescriptor b : c.getBindings()) {
-      if (b.getDisplayName().toLowerCase().contains(filter)) return true;
-      if (b.getCategoryName().toLowerCase().contains(filter)) return true;
-      if (b.getId().toLowerCase().contains(filter)) return true;
+  private boolean matchesConflictFilter(ConflictGroup g, String filter) {
+    if (g.bindings().get(0).getBoundKeyLocalizedText().getString().toLowerCase().contains(filter))
+      return true;
+    for (KeyBinding kb : g.bindings()) {
+      if (Text.translatable(kb.getTranslationKey()).getString().toLowerCase().contains(filter))
+        return true;
+      if (Text.translatable(kb.getCategory()).getString().toLowerCase().contains(filter))
+        return true;
     }
     return false;
   }
@@ -1124,7 +1136,12 @@ public final class KeysetScreen extends Screen {
     int btnH = 18;
     int btnX = mainX + mainW - KeysetTheme.GAP - btnW;
     int btnY = contentY + KeysetTheme.GAP;
-    boolean addHov = mx >= btnX && mx < btnX + btnW && my >= btnY && my < btnY + btnH;
+    boolean addHov =
+        !isOverTutorialPanel(mx, my)
+            && mx >= btnX
+            && mx < btnX + btnW
+            && my >= btnY
+            && my < btnY + btnH;
     ctx.fill(
         btnX,
         btnY,
@@ -1174,7 +1191,12 @@ public final class KeysetScreen extends Screen {
       AutoSwitchRule rule = rules.get(i);
       if (curY + rowH > listBot) break;
 
-      boolean rowHov = mx >= rowX && mx < rowX + rowW && my >= curY && my < curY + rowH;
+      boolean rowHov =
+          !isOverTutorialPanel(mx, my)
+              && mx >= rowX
+              && mx < rowX + rowW
+              && my >= curY
+              && my < curY + rowH;
       if (rowHov) {
         ctx.fill(
             rowX,
@@ -1219,7 +1241,12 @@ public final class KeysetScreen extends Screen {
       int delW = 16;
       int delX = rowX + rowW - delW - 4;
       int delY = curY + (rowH - 14) / 2;
-      boolean delHov = mx >= delX && mx < delX + delW && my >= delY && my < delY + 14;
+      boolean delHov =
+          !isOverTutorialPanel(mx, my)
+              && mx >= delX
+              && mx < delX + delW
+              && my >= delY
+              && my < delY + 14;
       ctx.fill(
           delX,
           delY,
@@ -1282,6 +1309,10 @@ public final class KeysetScreen extends Screen {
   public boolean mouseClicked(double mouseX, double mouseY, int button) {
     int mx = (int) mouseX;
     int my = (int) mouseY;
+
+    if (isOverTutorialPanel(mx, my)) {
+      return super.mouseClicked(mouseX, mouseY, button);
+    }
 
     // Done button
     int dbw = 60, dbh = 18;
@@ -1392,6 +1423,7 @@ public final class KeysetScreen extends Screen {
   }
 
   private void openConflictDialog(ConflictTarget t) {
+    didOpenConflictDialog = true;
     String activeId;
     try {
       activeId = service.getConfig(client).getActiveProfileId();
@@ -1428,7 +1460,8 @@ public final class KeysetScreen extends Screen {
     int bw = 60, bh = 18;
     int bx = width - bw - KeysetTheme.PAD;
     int by = height - bh - KeysetTheme.PAD;
-    boolean hovered = mx >= bx && mx < bx + bw && my >= by && my < by + bh;
+    boolean hovered =
+        !isOverTutorialPanel(mx, my) && mx >= bx && mx < bx + bw && my >= by && my < by + bh;
     ctx.fill(
         bx,
         by,
@@ -1500,6 +1533,20 @@ public final class KeysetScreen extends Screen {
     } catch (IOException | IllegalArgumentException e) {
       setStatus(e.getMessage(), true);
     }
+  }
+
+  private void renameSelected() {
+    if (selectedProfileId == null) return;
+    KeysetProfilesConfig cfg;
+    try {
+      cfg = service.getConfig(client);
+    } catch (IOException e) {
+      setStatus(e.getMessage(), true);
+      return;
+    }
+    KeysetProfile profile = cfg.getProfile(selectedProfileId);
+    if (profile == null) return;
+    client.setScreen(new RenameProfileDialog(this, service, selectedProfileId, profile.getName()));
   }
 
   private void cloneSelected() {
@@ -1600,29 +1647,61 @@ public final class KeysetScreen extends Screen {
   }
 
   private void refreshConflicts() {
-    // Conflict data is recomputed each render; just reset scroll + expanded state
+    conflictGroups.clear();
     conflictsScrollTarget = 0;
     conflictsScrollSmooth = 0;
+    if (client == null || client.options == null || client.options.allKeys == null) return;
+    Map<String, List<KeyBinding>> byKey = new LinkedHashMap<>();
+    for (KeyBinding kb : client.options.allKeys) {
+      String boundKey = kb.getBoundKeyTranslationKey();
+      if (boundKey.equals("key.keyboard.unknown")) continue;
+      byKey.computeIfAbsent(boundKey, k -> new ArrayList<>()).add(kb);
+    }
+    for (Map.Entry<String, List<KeyBinding>> entry : byKey.entrySet()) {
+      if (entry.getValue().size() > 1) {
+        conflictGroups.add(new ConflictGroup(entry.getKey(), entry.getValue()));
+      }
+    }
   }
 
   // ── Tutorial ─────────────────────────────────────────────────────────────────
+
+  private int getProfileCount() {
+    try {
+      return service.getConfig(client).getProfiles().size();
+    } catch (IOException e) {
+      return 0;
+    }
+  }
+
+  private String getSelectedProfileName() {
+    if (selectedProfileId == null) return "";
+    try {
+      KeysetProfile p = service.getConfig(client).getProfile(selectedProfileId);
+      return p != null ? p.getName() : "";
+    } catch (IOException e) {
+      return "";
+    }
+  }
 
   private boolean isStepComplete() {
     switch (tutorialStep) {
       case WELCOME:
         return true;
-      case CREATE_PROFILE:
-        try {
-          return service.getConfig(client).getProfiles().size() > profileCountAtStart;
-        } catch (IOException e) {
-          return false;
-        }
-      case ACTIVATE_PROFILE:
+      case CREATE:
+        return getProfileCount() > profileCountAtStepStart;
+      case RENAME:
+        return !getSelectedProfileName().equals(profileNameAtStepStart);
+      case ACTIVATE:
         return didActivate;
-      case OPEN_CONFLICTS:
+      case CONFLICTS:
         return currentTab == Tab.CONFLICTS;
+      case FIX_CONFLICT:
+        return didOpenConflictDialog || conflictGroups.isEmpty();
       case SAVE_LIVE:
         return didSaveLive;
+      case AUTO_SWITCH:
+        return currentTab == Tab.AUTO_SWITCH;
       default:
         return true;
     }
@@ -1631,14 +1710,19 @@ public final class KeysetScreen extends Screen {
   private void advanceTutorial() {
     TutorialStep[] steps = TutorialStep.values();
     tutorialStep = steps[tutorialStep.ordinal() + 1];
-    if (tutorialStep == TutorialStep.DONE) {
+    if (tutorialStep == TutorialStep.CREATE) {
+      profileCountAtStepStart = getProfileCount();
+    } else if (tutorialStep == TutorialStep.RENAME) {
+      profileNameAtStepStart = getSelectedProfileName();
+    } else if (tutorialStep == TutorialStep.ACTIVATE) {
+      didActivate = false;
+    } else if (tutorialStep == TutorialStep.FIX_CONFLICT) {
+      didOpenConflictDialog = false;
+    } else if (tutorialStep == TutorialStep.SAVE_LIVE) {
+      didSaveLive = false;
+    } else if (tutorialStep == TutorialStep.DONE) {
       tutorialActive = false;
       service.setTutorialComplete(client, true);
-    } else if (tutorialStep == TutorialStep.CREATE_PROFILE) {
-      try {
-        profileCountAtStart = service.getConfig(client).getProfiles().size();
-      } catch (IOException ignored) {
-      }
     }
     clearChildren();
     init();
@@ -1708,50 +1792,50 @@ public final class KeysetScreen extends Screen {
     if (tutorialStep == TutorialStep.WELCOME || tutorialStep == TutorialStep.DONE) return;
     float pulse = (float) (Math.sin(System.currentTimeMillis() / 400.0) * 0.3 + 0.7);
     int arrowCol = KeysetTheme.withAlpha(KeysetTheme.ACCENT, pulse);
+    Text rightArrow = Text.literal("▶");
+    Text downArrow = Text.literal("▼");
 
-    if (tutorialStep == TutorialStep.CREATE_PROFILE) {
+    if (tutorialStep == TutorialStep.CREATE
+        || tutorialStep == TutorialStep.RENAME
+        || tutorialStep == TutorialStep.ACTIVATE
+        || tutorialStep == TutorialStep.SAVE_LIVE) {
+      String labelKey =
+          tutorialStep == TutorialStep.CREATE
+              ? "keyset.profile.new"
+              : tutorialStep == TutorialStep.RENAME
+                  ? "keyset.profile.rename"
+                  : tutorialStep == TutorialStep.ACTIVATE
+                      ? "keyset.profile.apply"
+                      : "keyset.profile.capture";
       sidebarButtons.stream()
-          .filter(b -> b.labelKey().equals("keyset.profile.new"))
+          .filter(b -> b.labelKey().equals(labelKey))
           .findFirst()
           .ifPresent(
               btn ->
                   ctx.drawTextWithShadow(
                       textRenderer,
-                      Text.literal("▶"),
+                      rightArrow,
                       btn.x() - 14,
                       btn.y() + (btn.h() - 9) / 2,
                       arrowCol));
-    } else if (tutorialStep == TutorialStep.ACTIVATE_PROFILE) {
-      sidebarButtons.stream()
-          .filter(b -> b.labelKey().equals("keyset.profile.apply"))
-          .findFirst()
-          .ifPresent(
-              btn ->
-                  ctx.drawTextWithShadow(
-                      textRenderer,
-                      Text.literal("▶"),
-                      btn.x() - 14,
-                      btn.y() + (btn.h() - 9) / 2,
-                      arrowCol));
-    } else if (tutorialStep == TutorialStep.OPEN_CONFLICTS) {
-      // Point at Conflicts tab (index 1)
+    } else if (tutorialStep == TutorialStep.CONFLICTS
+        || tutorialStep == TutorialStep.FIX_CONFLICT) {
       int tabW = mainW / 4;
-      int tx = mainX + tabW; // Conflicts is tab index 1
-      ctx.drawTextWithShadow(
-          textRenderer, Text.literal("▼"), tx + tabW / 2 - 3, tabBarY - 12, arrowCol);
-    } else if (tutorialStep == TutorialStep.SAVE_LIVE) {
-      sidebarButtons.stream()
-          .filter(b -> b.labelKey().equals("keyset.profile.capture"))
-          .findFirst()
-          .ifPresent(
-              btn ->
-                  ctx.drawTextWithShadow(
-                      textRenderer,
-                      Text.literal("▶"),
-                      btn.x() - 14,
-                      btn.y() + (btn.h() - 9) / 2,
-                      arrowCol));
+      int tx = mainX + Tab.CONFLICTS.ordinal() * tabW;
+      ctx.drawTextWithShadow(textRenderer, downArrow, tx + tabW / 2 - 3, tabBarY - 12, arrowCol);
+    } else if (tutorialStep == TutorialStep.AUTO_SWITCH) {
+      int tabW = mainW / 4;
+      int tx = mainX + Tab.AUTO_SWITCH.ordinal() * tabW;
+      ctx.drawTextWithShadow(textRenderer, downArrow, tx + tabW / 2 - 3, tabBarY - 12, arrowCol);
     }
+  }
+
+  private boolean isOverTutorialPanel(int mx, int my) {
+    if (!tutorialActive || tutorialStep == TutorialStep.DONE) return false;
+    int pw = 260, ph = 130;
+    int px = mainX + mainW - pw - 10;
+    int py = mainY + mainH - ph - 10;
+    return mx >= px && mx < px + pw && my >= py && my < py + ph;
   }
 
   private void setStatus(String msg, boolean error) {
