@@ -122,12 +122,10 @@ public final class KeysetFabricService {
   private KeysetAutoSwitchStore autoSwitchStore;
   private List<AutoSwitchRule> autoSwitchRules;
 
+  // tutorial fields declared inline in the Tutorial section below
+
   public void onClientStarted(MinecraftClient client) throws IOException {
     ensureLoaded(client);
-    // do not apply on screen open — only apply at client start
-    if (config != null) {
-      applyProfile(client.options, requireProfile(config, config.getActiveProfileId()));
-    }
   }
 
   public KeysetProfilesConfig getConfig(MinecraftClient client) throws IOException {
@@ -618,6 +616,62 @@ public final class KeysetFabricService {
 
   private Path autoSwitchPath(MinecraftClient client) {
     return client.runDirectory.toPath().resolve("config").resolve("keyset-autoswitch.json");
+  }
+
+  // ── Tutorial ─────────────────────────────────────────────────────────────────
+
+  private boolean tutorialComplete;
+  private boolean tutorialLoaded;
+
+  public boolean isTutorialComplete(MinecraftClient client) {
+    if (!tutorialLoaded) {
+      loadTutorialPrefs(client);
+    }
+    return tutorialComplete;
+  }
+
+  public void setTutorialComplete(MinecraftClient client, boolean complete) {
+    tutorialComplete = complete;
+    tutorialLoaded = true;
+    saveTutorialPrefs(client);
+  }
+
+  private void loadTutorialPrefs(MinecraftClient client) {
+    tutorialLoaded = true;
+    Path path = tutorialPrefsPath(client);
+    if (!Files.exists(path)) {
+      return;
+    }
+    try (java.io.Reader reader =
+        Files.newBufferedReader(path, java.nio.charset.StandardCharsets.UTF_8)) {
+      com.google.gson.JsonObject obj =
+          new com.google.gson.JsonParser().parse(reader).getAsJsonObject();
+      if (obj.has("tutorialComplete")) {
+        tutorialComplete = obj.get("tutorialComplete").getAsBoolean();
+      }
+    } catch (Exception e) {
+      LOGGER.warn("Keyset: could not read tutorial prefs", e);
+    }
+  }
+
+  private void saveTutorialPrefs(MinecraftClient client) {
+    Path path = tutorialPrefsPath(client);
+    try {
+      Path parent = path.getParent();
+      if (parent != null) Files.createDirectories(parent);
+      com.google.gson.JsonObject obj = new com.google.gson.JsonObject();
+      obj.addProperty("tutorialComplete", tutorialComplete);
+      try (java.io.Writer writer =
+          Files.newBufferedWriter(path, java.nio.charset.StandardCharsets.UTF_8)) {
+        writer.write(new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(obj));
+      }
+    } catch (IOException e) {
+      LOGGER.warn("Keyset: could not save tutorial prefs", e);
+    }
+  }
+
+  private Path tutorialPrefsPath(MinecraftClient client) {
+    return client.runDirectory.toPath().resolve("config").resolve("keyset-prefs.json");
   }
 
   private void ensureLoaded(MinecraftClient client) throws IOException {
