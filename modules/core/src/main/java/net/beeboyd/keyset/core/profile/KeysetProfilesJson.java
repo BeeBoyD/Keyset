@@ -51,6 +51,48 @@ public final class KeysetProfilesJson {
     return GSON.toJson(toElement(normalized));
   }
 
+  /**
+   * Serializes a single profile to portable JSON for sharing. Does NOT wrap in a config object and
+   * does NOT call normalize(), so no phantom "Default" profile is injected.
+   */
+  public String singleProfileToJson(KeysetProfile profile) {
+    JsonObject profileObject = new JsonObject();
+    profileObject.addProperty("name", profile.getName());
+    profileObject.addProperty("builtIn", profile.isBuiltIn());
+    JsonObject bindings = new JsonObject();
+    for (Map.Entry<String, KeysetBindingSnapshot> entry : profile.getBindings().entrySet()) {
+      KeysetBindingSnapshot snapshot = entry.getValue();
+      JsonObject bindingObject = new JsonObject();
+      if (!snapshot.getKeyStroke().isUnbound()) {
+        bindingObject.addProperty("key", snapshot.getKeyStroke().getKeyToken());
+      }
+      JsonArray modifiers = new JsonArray();
+      for (KeysetModifier modifier : snapshot.getKeyStroke().getModifiers()) {
+        modifiers.add(modifier.name());
+      }
+      bindingObject.add("modifiers", modifiers);
+      if (snapshot.isSticky()) {
+        bindingObject.addProperty("sticky", true);
+      }
+      bindings.add(entry.getKey(), bindingObject);
+    }
+    profileObject.add("bindings", bindings);
+    return GSON.toJson(profileObject);
+  }
+
+  /**
+   * Deserializes a single profile from portable share JSON (inverse of singleProfileToJson). The
+   * caller supplies the profileId that will be assigned to the new profile.
+   */
+  public KeysetProfile singleProfileFromJson(String json, String profileId) {
+    JsonObject obj = new JsonParser().parse(json).getAsJsonObject();
+    return new KeysetProfile(
+        profileId,
+        fallbackProfileName(readString(obj, "name"), profileId),
+        false,
+        readBindings(obj));
+  }
+
   /** Reads the config file, returning a starter document when the file does not exist yet. */
   public KeysetProfilesConfig read(Path path) throws IOException {
     if (path == null) {

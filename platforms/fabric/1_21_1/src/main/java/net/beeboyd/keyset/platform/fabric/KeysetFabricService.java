@@ -248,6 +248,27 @@ public final class KeysetFabricService {
     return codec.toJson(new KeysetProfilesConfig(config.getSchemaVersion(), profileId, profiles));
   }
 
+  /** Exports a single profile as portable share JSON (no config wrapper, no normalization). */
+  public String exportShareProfileJson(MinecraftClient client, String profileId)
+      throws IOException {
+    ensureLoaded(client);
+    KeysetProfile profile = requireProfile(config, profileId);
+    return codec.singleProfileToJson(profile);
+  }
+
+  /** Imports a single profile from portable share JSON. Returns ImportResult with the new ID. */
+  public ImportResult importShareProfileJson(MinecraftClient client, String json)
+      throws IOException {
+    ensureLoaded(client);
+    KeysetProfile temp = codec.singleProfileFromJson(json, "temp");
+    KeysetProfilesConfig previousConfig = config;
+    config = KeysetProfiles.createProfile(config, temp.getName());
+    String newId = findAddedProfileId(previousConfig, config);
+    config = replaceProfileBindings(config, newId, temp.getBindings(), false);
+    save(client);
+    return new ImportResult(1, newId);
+  }
+
   public void clearActiveBinding(MinecraftClient client, String bindingId) throws IOException {
     ensureLoaded(client);
     requireLiveBinding(client.options, bindingId);
