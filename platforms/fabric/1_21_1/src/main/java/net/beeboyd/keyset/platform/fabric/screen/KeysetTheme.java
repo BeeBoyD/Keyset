@@ -10,7 +10,7 @@ public final class KeysetTheme {
   public static final int BG_SURFACE = 0xFF1E2125;
   public static final int BG_SIDEBAR = 0xFF191C20;
   public static final int BG_TAB_ACTIVE = 0xFF22262B;
-  public static final int BG_HOVER = 0x14FFFFFF;
+  public static final int BG_HOVER = 0xFF252A30;
 
   // Borders
   public static final int BORDER = 0xFF2A2E33;
