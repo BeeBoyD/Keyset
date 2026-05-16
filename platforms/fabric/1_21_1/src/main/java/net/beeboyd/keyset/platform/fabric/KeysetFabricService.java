@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
+import net.beeboyd.keyset.core.autoswitch.AutoSwitchMatcher;
+import net.beeboyd.keyset.core.autoswitch.AutoSwitchRule;
 import net.beeboyd.keyset.core.binding.KeysetBindingDescriptor;
 import net.beeboyd.keyset.core.conflict.KeysetConflict;
 import net.beeboyd.keyset.core.conflict.KeysetConflictReport;
@@ -117,9 +119,15 @@ public final class KeysetFabricService {
   private final ArrayDeque<UndoState> undoStack = new ArrayDeque<UndoState>();
   private final ArrayDeque<UndoState> redoStack = new ArrayDeque<UndoState>();
   private KeysetConflictReport cachedConflictReport;
+  private KeysetAutoSwitchStore autoSwitchStore;
+  private List<AutoSwitchRule> autoSwitchRules;
 
   public void onClientStarted(MinecraftClient client) throws IOException {
     ensureLoaded(client);
+    // do not apply on screen open — only apply at client start
+    if (config != null) {
+      applyProfile(client.options, requireProfile(config, config.getActiveProfileId()));
+    }
   }
 
   public KeysetProfilesConfig getConfig(MinecraftClient client) throws IOException {
@@ -556,6 +564,62 @@ public final class KeysetFabricService {
     save(client);
   }
 
+  // ── Auto-switch ──────────────────────────────────────────────────────────────
+
+  public List<AutoSwitchRule> getAutoSwitchRules(MinecraftClient client) throws IOException {
+    if (autoSwitchRules == null) {
+      autoSwitchStore = new KeysetAutoSwitchStore(autoSwitchPath(client));
+      autoSwitchRules = autoSwitchStore.load();
+    }
+    return autoSwitchRules;
+  }
+
+  public void addAutoSwitchRule(MinecraftClient client, AutoSwitchRule rule) throws IOException {
+    getAutoSwitchRules(client).add(rule);
+    autoSwitchStore.save(autoSwitchRules);
+  }
+
+  public void deleteAutoSwitchRule(MinecraftClient client, int index) throws IOException {
+    List<AutoSwitchRule> rules = getAutoSwitchRules(client);
+    if (index >= 0 && index < rules.size()) {
+      rules.remove(index);
+      autoSwitchStore.save(rules);
+    }
+  }
+
+  public void handleServerJoin(MinecraftClient client, String serverAddress) {
+    if (serverAddress == null || serverAddress.isEmpty()) return;
+    List<AutoSwitchRule> rules;
+    try {
+      rules = getAutoSwitchRules(client);
+    } catch (IOException e) {
+      LOGGER.warn("Keyset auto-switch: failed to load rules", e);
+      return;
+    }
+    for (AutoSwitchRule rule : rules) {
+      if (AutoSwitchMatcher.matchesGlob(rule.getPattern(), serverAddress)) {
+        try {
+          ActivationResult result = activateProfile(client, rule.getProfileId());
+          reportStatusNotice(
+              Text.translatable("keyset.status.profile_cycled", result.getProfileName())
+                  .getString(),
+              result.hasConflicts());
+        } catch (IOException | IllegalArgumentException e) {
+          LOGGER.warn(
+              "Keyset auto-switch: failed to activate profile {} for {}",
+              rule.getProfileId(),
+              serverAddress,
+              e);
+        }
+        break;
+      }
+    }
+  }
+
+  private Path autoSwitchPath(MinecraftClient client) {
+    return client.runDirectory.toPath().resolve("config").resolve("keyset-autoswitch.json");
+  }
+
   private void ensureLoaded(MinecraftClient client) throws IOException {
     if (loaded) {
       return;
@@ -572,7 +636,6 @@ public final class KeysetFabricService {
       }
       config = recoverConfigAfterLoadFailure(client);
       loaded = true;
-      applyProfile(client.options, requireProfile(config, config.getActiveProfileId()));
       return;
     }
 
@@ -582,7 +645,6 @@ public final class KeysetFabricService {
     }
 
     loaded = true;
-    applyProfile(client.options, requireProfile(config, config.getActiveProfileId()));
   }
 
   private KeysetProfilesConfig seedStarterProfiles(
