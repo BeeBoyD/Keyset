@@ -164,7 +164,7 @@ public final class KeysetScreen extends Screen {
   // Interactive tutorial
   private boolean tutorialActive;
   private TutorialStep tutorialStep = TutorialStep.WELCOME;
-  private ButtonWidget btnTutNext;
+  private boolean tutNextEnabled;
   private int profileCountAtStepStart;
   private String profileNameAtStepStart = "";
   private boolean didActivate;
@@ -187,8 +187,8 @@ public final class KeysetScreen extends Screen {
       lastKeybindHash = hash;
       refreshConflicts();
     }
-    if (tutorialActive && btnTutNext != null) {
-      btnTutNext.active = isStepComplete();
+    if (tutorialActive) {
+      tutNextEnabled = isStepComplete();
     }
   }
 
@@ -236,30 +236,7 @@ public final class KeysetScreen extends Screen {
       }
     }
 
-    // Tutorial panel buttons
-    if (tutorialActive && tutorialStep != TutorialStep.DONE) {
-      int pw = 260, ph = 130;
-      int px = mainX + mainW - pw - 10;
-      int py = mainY + mainH - ph - 10;
-      boolean complete = isStepComplete();
-      btnTutNext =
-          addDrawableChild(
-              ButtonWidget.builder(
-                      Text.translatable(
-                          tutorialStep == TutorialStep.AUTO_SWITCH
-                              ? "keyset.tutorial.finish"
-                              : "keyset.tutorial.next"),
-                      b -> advanceTutorial())
-                  .dimensions(px + pw - 76, py + ph - 22, 70, 16)
-                  .build());
-      btnTutNext.active = complete;
-      addDrawableChild(
-          ButtonWidget.builder(Text.translatable("keyset.tutorial.skip"), b -> skipTutorial())
-              .dimensions(px + 6, py + ph - 22, 50, 16)
-              .build());
-    } else {
-      btnTutNext = null;
-    }
+    tutNextEnabled = tutorialActive && isStepComplete();
   }
 
   private void buildSidebarButtons() {
@@ -381,8 +358,9 @@ public final class KeysetScreen extends Screen {
     renderDoneButton(ctx, mouseX, mouseY);
     renderFooter(ctx);
     if (tutorialActive && tutorialStep != TutorialStep.DONE) {
-      renderTutorialPanel(ctx, mouseX, mouseY);
+      renderTutorialDarkening(ctx);
       renderTutorialArrow(ctx);
+      renderTutorialPanel(ctx, mouseX, mouseY);
     }
   }
 
@@ -1310,8 +1288,21 @@ public final class KeysetScreen extends Screen {
     int mx = (int) mouseX;
     int my = (int) mouseY;
 
-    if (isOverTutorialPanel(mx, my)) {
-      return super.mouseClicked(mouseX, mouseY, button);
+    if (tutorialActive && tutorialStep != TutorialStep.DONE && button == 0) {
+      int tpw = 260, tph = 130;
+      int tpx = mainX + mainW - tpw - 10;
+      int tpy = mainY + mainH - tph - 10;
+      if (mx >= tpx && mx < tpx + tpw && my >= tpy && my < tpy + tph) {
+        int nbx = tpx + tpw - 76, nby = tpy + tph - 22;
+        if (mx >= nbx && mx < nbx + 70 && my >= nby && my < nby + 16 && tutNextEnabled) {
+          advanceTutorial();
+        }
+        int sbx = tpx + 6, sby = tpy + tph - 22;
+        if (mx >= sbx && mx < sbx + 50 && my >= sby && my < sby + 16) {
+          skipTutorial();
+        }
+        return true;
+      }
     }
 
     // Done button
@@ -1741,7 +1732,7 @@ public final class KeysetScreen extends Screen {
     int py = mainY + mainH - ph - 10;
 
     ctx.fill(px + 3, py + 3, px + pw + 3, py + ph + 3, 0x60000000);
-    ctx.fill(px, py, px + pw, py + ph, KeysetTheme.BG_SURFACE);
+    ctx.fill(px, py, px + pw, py + ph, 0xFF1E2125); // fully opaque — nothing bleeds through
     ctx.drawBorder(px, py, pw, ph, KeysetTheme.ACCENT);
     ctx.fill(px, py, px + pw, py + 18, KeysetTheme.BG_SIDEBAR);
     ctx.fill(px, py + 18, px + pw, py + 19, KeysetTheme.ACCENT_DIM);
@@ -1786,6 +1777,54 @@ public final class KeysetScreen extends Screen {
           py + 94,
           KeysetTheme.TEXT_MUTED);
     }
+
+    // Custom Next/Done button
+    int nbx = px + pw - 76, nby = py + ph - 22;
+    boolean nextHov = mx >= nbx && mx < nbx + 70 && my >= nby && my < nby + 16;
+    int nextBg =
+        !tutNextEnabled
+            ? KeysetTheme.withAlpha(KeysetTheme.BG_SURFACE, 0.5f)
+            : nextHov ? KeysetTheme.ACCENT : KeysetTheme.BG_TAB_ACTIVE;
+    int nextBr =
+        tutNextEnabled ? (nextHov ? KeysetTheme.ACCENT : KeysetTheme.BORDER) : KeysetTheme.BORDER;
+    int nextTxt =
+        tutNextEnabled ? (nextHov ? 0xFF1A0800 : KeysetTheme.TEXT_BODY) : KeysetTheme.TEXT_DISABLED;
+    ctx.fill(nbx, nby, nbx + 70, nby + 16, nextBg);
+    ctx.drawBorder(nbx, nby, 70, 16, nextBr);
+    Text nextLabel =
+        Text.translatable(
+            tutorialStep == TutorialStep.AUTO_SWITCH
+                ? "keyset.tutorial.finish"
+                : "keyset.tutorial.next");
+    if (nextHov && tutNextEnabled) {
+      ctx.drawText(
+          textRenderer,
+          nextLabel,
+          nbx + 35 - textRenderer.getWidth(nextLabel) / 2,
+          nby + 4,
+          nextTxt,
+          false);
+    } else {
+      ctx.drawCenteredTextWithShadow(textRenderer, nextLabel, nbx + 35, nby + 4, nextTxt);
+    }
+
+    // Custom Skip button
+    int sbx = px + 6, sby = py + ph - 22;
+    boolean skipHov = mx >= sbx && mx < sbx + 50 && my >= sby && my < sby + 16;
+    ctx.fill(
+        sbx, sby, sbx + 50, sby + 16, skipHov ? KeysetTheme.BG_TAB_ACTIVE : KeysetTheme.BG_SURFACE);
+    ctx.drawBorder(
+        sbx,
+        sby,
+        50,
+        16,
+        skipHov ? KeysetTheme.BORDER : KeysetTheme.withAlpha(KeysetTheme.BORDER, 0.5f));
+    ctx.drawCenteredTextWithShadow(
+        textRenderer,
+        Text.translatable("keyset.tutorial.skip"),
+        sbx + 25,
+        sby + 4,
+        skipHov ? KeysetTheme.TEXT_BODY : KeysetTheme.TEXT_MUTED);
   }
 
   private void renderTutorialArrow(DrawContext ctx) {
@@ -1828,6 +1867,39 @@ public final class KeysetScreen extends Screen {
       int tx = mainX + Tab.AUTO_SWITCH.ordinal() * tabW;
       ctx.drawTextWithShadow(textRenderer, downArrow, tx + tabW / 2 - 3, tabBarY - 12, arrowCol);
     }
+  }
+
+  private void renderTutorialDarkening(DrawContext ctx) {
+    if (!tutorialActive || tutorialStep == null) return;
+    int dim = 0x99000000;
+    int fx, fy, fw, fh;
+    if (tutorialStep == TutorialStep.CREATE
+        || tutorialStep == TutorialStep.RENAME
+        || tutorialStep == TutorialStep.ACTIVATE
+        || tutorialStep == TutorialStep.SAVE_LIVE) {
+      fx = sidebarX;
+      fy = sidebarY;
+      fw = sidebarW;
+      fh = mainH;
+    } else if (tutorialStep == TutorialStep.CONFLICTS
+        || tutorialStep == TutorialStep.FIX_CONFLICT) {
+      fx = mainX;
+      fy = tabBarY;
+      fw = mainW;
+      fh = mainH;
+    } else if (tutorialStep == TutorialStep.AUTO_SWITCH) {
+      fx = mainX;
+      fy = tabBarY;
+      fw = mainW;
+      fh = KeysetTheme.TAB_H + 4;
+    } else {
+      ctx.fill(0, 0, width, height, 0x55000000);
+      return;
+    }
+    if (fy > 0) ctx.fill(0, 0, width, fy, dim);
+    if (fy + fh < height) ctx.fill(0, fy + fh, width, height, dim);
+    if (fx > 0) ctx.fill(0, fy, fx, fy + fh, dim);
+    if (fx + fw < width) ctx.fill(fx + fw, fy, width, fy + fh, dim);
   }
 
   private boolean isOverTutorialPanel(int mx, int my) {
