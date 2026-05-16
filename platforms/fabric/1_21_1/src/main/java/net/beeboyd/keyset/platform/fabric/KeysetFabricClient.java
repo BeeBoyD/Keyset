@@ -86,24 +86,6 @@ public final class KeysetFabricClient implements ClientModInitializer {
           } catch (Exception exception) {
             LOGGER.error("Failed to initialize Keyset profiles", exception);
           }
-
-          // Show tutorial on first launch — queued for next tick (can't open screens here)
-          if (!SERVICE.isTutorialComplete(client)) {
-            ClientTickEvents.START_CLIENT_TICK.register(
-                new ClientTickEvents.StartTick() {
-                  private boolean shown = false;
-
-                  @Override
-                  public void onStartTick(net.minecraft.client.MinecraftClient mc) {
-                    if (!shown && mc.currentScreen == null) {
-                      mc.setScreen(
-                          new net.beeboyd.keyset.platform.fabric.screen.TutorialScreen(
-                              null, SERVICE));
-                      shown = true;
-                    }
-                  }
-                });
-          }
         });
 
     ClientTickEvents.END_CLIENT_TICK.register(

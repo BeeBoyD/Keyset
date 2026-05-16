@@ -77,6 +77,33 @@ public final class KeysetScreen extends Screen {
 
   private record AutoSwitchTarget(boolean isAddBtn, int deleteIndex, int x, int y, int w, int h) {}
 
+  enum TutorialStep {
+    WELCOME("keyset.tutorial.welcome"),
+    CREATE_PROFILE("keyset.tutorial.create"),
+    ACTIVATE_PROFILE("keyset.tutorial.activate"),
+    OPEN_CONFLICTS("keyset.tutorial.conflicts"),
+    SAVE_LIVE("keyset.tutorial.savelive"),
+    DONE("keyset.tutorial.done");
+
+    private final String keyPrefix;
+
+    TutorialStep(String keyPrefix) {
+      this.keyPrefix = keyPrefix;
+    }
+
+    String titleKey() {
+      return keyPrefix + ".title";
+    }
+
+    String bodyKey() {
+      return keyPrefix + ".body";
+    }
+
+    String hintKey() {
+      return keyPrefix + ".hint";
+    }
+  }
+
   private final Screen parent;
   private final KeysetFabricService service;
   private Tab currentTab = Tab.BINDINGS;
@@ -127,10 +154,37 @@ public final class KeysetScreen extends Screen {
   private float tabUnderlineX;
   private float tabUnderlineTarget;
 
+  // Conflict auto-refresh
+  private String lastKeybindHash = "";
+  private int refreshTick = 0;
+
+  // Interactive tutorial
+  private boolean tutorialActive;
+  private TutorialStep tutorialStep = TutorialStep.WELCOME;
+  private ButtonWidget btnTutNext;
+  private int profileCountAtStart;
+  private boolean didActivate;
+  private boolean didSaveLive;
+
   public KeysetScreen(Screen parent, KeysetFabricService service) {
     super(Text.translatable("keyset.title"));
     this.parent = parent;
     this.service = service;
+  }
+
+  @Override
+  public void tick() {
+    super.tick();
+    if (++refreshTick < 10) return;
+    refreshTick = 0;
+    String hash = computeKeybindHash();
+    if (!hash.equals(lastKeybindHash)) {
+      lastKeybindHash = hash;
+      refreshConflicts();
+    }
+    if (tutorialActive && btnTutNext != null) {
+      btnTutNext.active = isStepComplete();
+    }
   }
 
   @Override
@@ -150,14 +204,56 @@ public final class KeysetScreen extends Screen {
     buildSidebarButtons();
     rebuildTabWidgets();
 
-    // ? help button — always accessible in topbar
+    // ? help button — always reopens tutorial from WELCOME
     int helpBtnX = width - KeysetTheme.PAD - 20;
     int helpBtnY = topbarY + (KeysetTheme.TOPBAR_H - 16) / 2;
     addDrawableChild(
         ButtonWidget.builder(
-                Text.literal("?"), b -> client.setScreen(new TutorialScreen(this, service)))
+                Text.literal("?"),
+                b -> {
+                  tutorialActive = true;
+                  tutorialStep = TutorialStep.WELCOME;
+                  clearChildren();
+                  init();
+                })
             .dimensions(helpBtnX, helpBtnY, 16, 16)
             .build());
+
+    // First-launch tutorial trigger
+    if (!tutorialActive) {
+      try {
+        if (!service.isTutorialComplete(client)) {
+          tutorialActive = true;
+          tutorialStep = TutorialStep.WELCOME;
+        }
+      } catch (Exception ignored) {
+      }
+    }
+
+    // Tutorial panel buttons
+    if (tutorialActive && tutorialStep != TutorialStep.DONE) {
+      int pw = 260, ph = 130;
+      int px = mainX + mainW - pw - 10;
+      int py = mainY + mainH - ph - 10;
+      boolean complete = isStepComplete();
+      btnTutNext =
+          addDrawableChild(
+              ButtonWidget.builder(
+                      Text.translatable(
+                          tutorialStep == TutorialStep.SAVE_LIVE
+                              ? "keyset.tutorial.finish"
+                              : "keyset.tutorial.next"),
+                      b -> advanceTutorial())
+                  .dimensions(px + pw - 76, py + ph - 22, 70, 16)
+                  .build());
+      btnTutNext.active = complete;
+      addDrawableChild(
+          ButtonWidget.builder(Text.translatable("keyset.tutorial.skip"), b -> skipTutorial())
+              .dimensions(px + 6, py + ph - 22, 50, 16)
+              .build());
+    } else {
+      btnTutNext = null;
+    }
   }
 
   private void buildSidebarButtons() {
@@ -276,6 +372,10 @@ public final class KeysetScreen extends Screen {
     ctx.disableScissor();
     renderDoneButton(ctx, mouseX, mouseY);
     renderFooter(ctx);
+    if (tutorialActive && tutorialStep != TutorialStep.DONE) {
+      renderTutorialPanel(ctx, mouseX, mouseY);
+      renderTutorialArrow(ctx);
+    }
   }
 
   private void renderTopbar(DrawContext ctx) {
@@ -1374,6 +1474,7 @@ public final class KeysetScreen extends Screen {
     if (selectedProfileId == null) return;
     try {
       service.activateProfile(client, selectedProfileId);
+      didActivate = true;
       setStatus(Text.translatable("keyset.status.profile_applied").getString(), false);
     } catch (IOException | IllegalArgumentException e) {
       setStatus(e.getMessage(), true);
@@ -1384,6 +1485,7 @@ public final class KeysetScreen extends Screen {
     if (selectedProfileId == null) return;
     try {
       service.captureCurrentToProfile(client, selectedProfileId, true);
+      didSaveLive = true;
       setStatus(Text.translatable("keyset.status.profile_captured").getString(), false);
     } catch (IOException | IllegalArgumentException e) {
       setStatus(e.getMessage(), true);
@@ -1480,6 +1582,175 @@ public final class KeysetScreen extends Screen {
       }
     } catch (IOException | IllegalArgumentException e) {
       setStatus(e.getMessage(), true);
+    }
+  }
+
+  // ── Conflict auto-refresh ────────────────────────────────────────────────────
+
+  private String computeKeybindHash() {
+    if (client == null || client.options == null || client.options.allKeys == null) return "";
+    StringBuilder sb = new StringBuilder();
+    for (KeyBinding kb : client.options.allKeys) {
+      sb.append(kb.getTranslationKey())
+          .append('=')
+          .append(kb.getBoundKeyTranslationKey())
+          .append(';');
+    }
+    return sb.toString();
+  }
+
+  private void refreshConflicts() {
+    // Conflict data is recomputed each render; just reset scroll + expanded state
+    conflictsScrollTarget = 0;
+    conflictsScrollSmooth = 0;
+  }
+
+  // ── Tutorial ─────────────────────────────────────────────────────────────────
+
+  private boolean isStepComplete() {
+    switch (tutorialStep) {
+      case WELCOME:
+        return true;
+      case CREATE_PROFILE:
+        try {
+          return service.getConfig(client).getProfiles().size() > profileCountAtStart;
+        } catch (IOException e) {
+          return false;
+        }
+      case ACTIVATE_PROFILE:
+        return didActivate;
+      case OPEN_CONFLICTS:
+        return currentTab == Tab.CONFLICTS;
+      case SAVE_LIVE:
+        return didSaveLive;
+      default:
+        return true;
+    }
+  }
+
+  private void advanceTutorial() {
+    TutorialStep[] steps = TutorialStep.values();
+    tutorialStep = steps[tutorialStep.ordinal() + 1];
+    if (tutorialStep == TutorialStep.DONE) {
+      tutorialActive = false;
+      service.setTutorialComplete(client, true);
+    } else if (tutorialStep == TutorialStep.CREATE_PROFILE) {
+      try {
+        profileCountAtStart = service.getConfig(client).getProfiles().size();
+      } catch (IOException ignored) {
+      }
+    }
+    clearChildren();
+    init();
+  }
+
+  private void skipTutorial() {
+    tutorialActive = false;
+    service.setTutorialComplete(client, true);
+    clearChildren();
+    init();
+  }
+
+  private void renderTutorialPanel(DrawContext ctx, int mx, int my) {
+    int pw = 260, ph = 130;
+    int px = mainX + mainW - pw - 10;
+    int py = mainY + mainH - ph - 10;
+
+    ctx.fill(px + 3, py + 3, px + pw + 3, py + ph + 3, 0x60000000);
+    ctx.fill(px, py, px + pw, py + ph, KeysetTheme.BG_SURFACE);
+    ctx.drawBorder(px, py, pw, ph, KeysetTheme.ACCENT);
+    ctx.fill(px, py, px + pw, py + 18, KeysetTheme.BG_SIDEBAR);
+    ctx.fill(px, py + 18, px + pw, py + 19, KeysetTheme.ACCENT_DIM);
+
+    // Step dots (excluding WELCOME and DONE)
+    TutorialStep[] steps = TutorialStep.values();
+    int totalSteps = steps.length - 2;
+    int activeDotIdx = tutorialStep.ordinal() - 1;
+    for (int i = 0; i < totalSteps; i++) {
+      int col =
+          i < activeDotIdx
+              ? KeysetTheme.SUCCESS
+              : i == activeDotIdx ? KeysetTheme.ACCENT : KeysetTheme.TEXT_DISABLED;
+      int dx = px + pw - (totalSteps - i) * 10 - 5;
+      ctx.fill(dx, py + 5, dx + 6, py + 11, col);
+    }
+
+    ctx.drawTextWithShadow(
+        textRenderer, Text.literal("TUTORIAL"), px + 6, py + 5, KeysetTheme.TEXT_MUTED);
+    ctx.drawTextWithShadow(
+        textRenderer,
+        Text.translatable(tutorialStep.titleKey()),
+        px + 6,
+        py + 24,
+        KeysetTheme.TEXT_TITLE);
+
+    var lines = textRenderer.wrapLines(Text.translatable(tutorialStep.bodyKey()), pw - 12);
+    for (int i = 0; i < Math.min(lines.size(), 3); i++) {
+      ctx.drawTextWithShadow(
+          textRenderer, lines.get(i), px + 6, py + 36 + i * 11, KeysetTheme.TEXT_BODY);
+    }
+
+    boolean complete = isStepComplete();
+    if (complete && tutorialStep != TutorialStep.WELCOME) {
+      ctx.drawTextWithShadow(
+          textRenderer, Text.literal("✓ Done!"), px + 6, py + 94, KeysetTheme.SUCCESS);
+    } else if (tutorialStep != TutorialStep.WELCOME) {
+      ctx.drawTextWithShadow(
+          textRenderer,
+          Text.translatable(tutorialStep.hintKey()),
+          px + 6,
+          py + 94,
+          KeysetTheme.TEXT_MUTED);
+    }
+  }
+
+  private void renderTutorialArrow(DrawContext ctx) {
+    if (tutorialStep == TutorialStep.WELCOME || tutorialStep == TutorialStep.DONE) return;
+    float pulse = (float) (Math.sin(System.currentTimeMillis() / 400.0) * 0.3 + 0.7);
+    int arrowCol = KeysetTheme.withAlpha(KeysetTheme.ACCENT, pulse);
+
+    if (tutorialStep == TutorialStep.CREATE_PROFILE) {
+      sidebarButtons.stream()
+          .filter(b -> b.labelKey().equals("keyset.profile.new"))
+          .findFirst()
+          .ifPresent(
+              btn ->
+                  ctx.drawTextWithShadow(
+                      textRenderer,
+                      Text.literal("▶"),
+                      btn.x() - 14,
+                      btn.y() + (btn.h() - 9) / 2,
+                      arrowCol));
+    } else if (tutorialStep == TutorialStep.ACTIVATE_PROFILE) {
+      sidebarButtons.stream()
+          .filter(b -> b.labelKey().equals("keyset.profile.apply"))
+          .findFirst()
+          .ifPresent(
+              btn ->
+                  ctx.drawTextWithShadow(
+                      textRenderer,
+                      Text.literal("▶"),
+                      btn.x() - 14,
+                      btn.y() + (btn.h() - 9) / 2,
+                      arrowCol));
+    } else if (tutorialStep == TutorialStep.OPEN_CONFLICTS) {
+      // Point at Conflicts tab (index 1)
+      int tabW = mainW / 4;
+      int tx = mainX + tabW; // Conflicts is tab index 1
+      ctx.drawTextWithShadow(
+          textRenderer, Text.literal("▼"), tx + tabW / 2 - 3, tabBarY - 12, arrowCol);
+    } else if (tutorialStep == TutorialStep.SAVE_LIVE) {
+      sidebarButtons.stream()
+          .filter(b -> b.labelKey().equals("keyset.profile.capture"))
+          .findFirst()
+          .ifPresent(
+              btn ->
+                  ctx.drawTextWithShadow(
+                      textRenderer,
+                      Text.literal("▶"),
+                      btn.x() - 14,
+                      btn.y() + (btn.h() - 9) / 2,
+                      arrowCol));
     }
   }
 
