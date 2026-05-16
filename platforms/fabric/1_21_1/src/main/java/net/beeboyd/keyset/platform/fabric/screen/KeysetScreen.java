@@ -1,7 +1,9 @@
 package net.beeboyd.keyset.platform.fabric.screen;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -9,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import net.beeboyd.keyset.core.autoswitch.AutoSwitchRule;
 import net.beeboyd.keyset.core.profile.KeysetBindingSnapshot;
 import net.beeboyd.keyset.core.profile.KeysetProfile;
@@ -165,6 +168,7 @@ public final class KeysetScreen extends Screen {
   private String shareResultCode = "";
   private long shareExpiresAt = 0;
   private KeysetTextFieldWidget shareCodeField;
+  private List<ShareHistoryStore.Entry> shareHistory = new ArrayList<>();
 
   // Layout (computed in init)
   private int sidebarW;
@@ -239,6 +243,7 @@ public final class KeysetScreen extends Screen {
     buildSidebarButtons();
     rebuildTabWidgets();
     refreshConflicts();
+    shareHistory = ShareHistoryStore.load(shareHistoryPath());
 
     // ? help button — always reopens tutorial from WELCOME
     int helpBtnX = width - KeysetTheme.PAD - 20;
@@ -331,15 +336,16 @@ public final class KeysetScreen extends Screen {
       conflictsSearch.setMaxLength(64);
       addDrawableChild(conflictsSearch);
     } else if (currentTab == Tab.SHARE) {
-      int halfW = (mainW - KeysetTheme.GAP * 3) / 2;
-      int rightX = mainX + KeysetTheme.GAP * 2 + halfW;
-      int fieldY = contentY + KeysetTheme.GAP + 16 + KeysetTheme.GAP_SM;
-      int importBtnW = 56;
-      int fieldW = halfW - importBtnW - KeysetTheme.GAP_SM;
+      // Section 3 (import) is bottom-anchored; field Y matches renderShareTab
+      int gap = KeysetTheme.GAP;
+      int importBtnW = 60;
+      int fieldX = mainX + gap;
+      int fieldW = mainW - gap * 2 - importBtnW - KeysetTheme.GAP_SM;
+      int fieldY = mainY + mainH - gap - 18;
       shareCodeField =
-          new KeysetTextFieldWidget(textRenderer, rightX, fieldY, fieldW, 18, Text.empty());
-      shareCodeField.setPlaceholder(Text.literal("Enter code…"));
-      shareCodeField.setMaxLength(8);
+          new KeysetTextFieldWidget(textRenderer, fieldX, fieldY, fieldW, 18, Text.empty());
+      shareCodeField.setPlaceholder(Text.translatable("keyset.share.code.placeholder"));
+      shareCodeField.setMaxLength(9); // XXXX-XXXX with dash
       addDrawableChild(shareCodeField);
     }
   }
@@ -1505,10 +1511,16 @@ public final class KeysetScreen extends Screen {
     if (button == 0 && currentTab == Tab.SHARE) {
       for (ShareTarget t : shareTargets) {
         if (mx >= t.x() && mx < t.x() + t.w() && my >= t.y() && my < t.y() + t.h()) {
-          switch (t.id()) {
-            case "gen" -> doShareUpload();
-            case "copy" -> doShareCopy();
-            case "import" -> doShareImport();
+          String tid = t.id();
+          if (tid.equals("gen")) doShareUpload();
+          else if (tid.equals("copy")) doShareCopy();
+          else if (tid.equals("import")) doShareImport();
+          else if (tid.startsWith("del-")) {
+            int idx = Integer.parseInt(tid.substring(4));
+            if (idx >= 0 && idx < shareHistory.size()) {
+              shareHistory.remove(idx);
+              ShareHistoryStore.save(shareHistoryPath(), shareHistory);
+            }
           }
           return true;
         }
@@ -1525,29 +1537,26 @@ public final class KeysetScreen extends Screen {
 
     int gap = KeysetTheme.GAP;
     int gapSm = KeysetTheme.GAP_SM;
-    int halfW = (mainW - gap * 3) / 2;
-    int leftX = mainX + gap;
-    int rightX = mainX + gap * 2 + halfW;
-    int topY = contentY + gap;
-    int botY = mainY + mainH;
+    int contentX = mainX + gap;
+    int contentW = mainW - gap * 2;
+    int curY = contentY + gap;
 
-    // Vertical divider
-    int divX = mainX + gap + halfW + gap / 2;
-    ctx.fill(
-        divX,
-        contentY + gapSm,
-        divX + 1,
-        botY - gapSm,
-        KeysetTheme.withAlpha(KeysetTheme.BORDER, screenAlpha));
-
-    // ── Export (left) ──────────────────────────────────────────────────────
+    // ── Section 1: Share a Profile ─────────────────────────────────────────
     ctx.drawTextWithShadow(
         textRenderer,
-        Text.literal("Share Profile"),
-        leftX,
-        topY,
+        Text.translatable("keyset.share.section.share"),
+        contentX,
+        curY,
         KeysetTheme.withAlpha(KeysetTheme.TEXT_MUTED, screenAlpha));
+    ctx.fill(
+        contentX + textRenderer.getWidth(Text.translatable("keyset.share.section.share")) + 4,
+        curY + 5,
+        contentX + contentW,
+        curY + 6,
+        KeysetTheme.withAlpha(KeysetTheme.BORDER, screenAlpha));
+    curY += 14;
 
+    // Profile name + Share button (same row)
     String profileName = "(no profile selected)";
     if (selectedProfileId != null && client != null) {
       try {
@@ -1556,192 +1565,345 @@ public final class KeysetScreen extends Screen {
       } catch (IOException ignored) {
       }
     }
+    int shareBtnW = 64, shareBtnH = 18;
+    int shareBtnX = contentX + contentW - shareBtnW;
+    boolean shareDisabled = shareUploading || selectedProfileId == null;
+    boolean shareHov =
+        !shareDisabled
+            && !isOverTutorialPanel(mx, my)
+            && mx >= shareBtnX
+            && mx < shareBtnX + shareBtnW
+            && my >= curY
+            && my < curY + shareBtnH;
     ctx.drawTextWithShadow(
         textRenderer,
         Text.literal(profileName),
-        leftX,
-        topY + 14,
-        KeysetTheme.withAlpha(KeysetTheme.TEXT_BODY, screenAlpha));
-
-    int genBtnW = 110, genBtnH = 18;
-    int genBtnX = leftX + (halfW - genBtnW) / 2;
-    int genBtnY = topY + 14 + 12 + gapSm;
-    boolean genDisabled = shareUploading || selectedProfileId == null;
-    boolean genHov =
-        !genDisabled
-            && !isOverTutorialPanel(mx, my)
-            && mx >= genBtnX
-            && mx < genBtnX + genBtnW
-            && my >= genBtnY
-            && my < genBtnY + genBtnH;
+        contentX,
+        curY + 5,
+        KeysetTheme.withAlpha(
+            selectedProfileId == null ? KeysetTheme.TEXT_DISABLED : KeysetTheme.TEXT_BODY,
+            screenAlpha));
     ctx.fill(
-        genBtnX,
-        genBtnY,
-        genBtnX + genBtnW,
-        genBtnY + genBtnH,
+        shareBtnX,
+        curY,
+        shareBtnX + shareBtnW,
+        curY + shareBtnH,
         KeysetTheme.withAlpha(
-            genHov ? KeysetTheme.BG_TAB_ACTIVE : KeysetTheme.BG_SURFACE,
-            genDisabled ? screenAlpha * 0.5f : screenAlpha));
+            shareHov ? KeysetTheme.BG_TAB_ACTIVE : KeysetTheme.BG_SURFACE,
+            shareDisabled ? screenAlpha * 0.5f : screenAlpha));
     ctx.drawBorder(
-        genBtnX,
-        genBtnY,
-        genBtnW,
-        genBtnH,
+        shareBtnX,
+        curY,
+        shareBtnW,
+        shareBtnH,
         KeysetTheme.withAlpha(
-            genHov ? KeysetTheme.ACCENT : KeysetTheme.BORDER,
-            genDisabled ? screenAlpha * 0.5f : screenAlpha));
-    ctx.drawCenteredTextWithShadow(
-        textRenderer,
-        Text.literal("Generate Code"),
-        genBtnX + genBtnW / 2,
-        genBtnY + 5,
-        KeysetTheme.withAlpha(
-            genDisabled ? KeysetTheme.TEXT_DISABLED : KeysetTheme.TEXT_BODY, screenAlpha));
-    if (!genDisabled) shareTargets.add(new ShareTarget("gen", genBtnX, genBtnY, genBtnW, genBtnH));
-
-    int resultY = genBtnY + genBtnH + gap;
-
+            shareHov ? KeysetTheme.ACCENT : KeysetTheme.BORDER,
+            shareDisabled ? screenAlpha * 0.5f : screenAlpha));
     if (shareUploading) {
       String[] frames = {"|", "/", "─", "\\"};
       int frame = (int) ((System.currentTimeMillis() / 150) % frames.length);
       ctx.drawCenteredTextWithShadow(
           textRenderer,
           Text.literal(frames[frame]),
-          leftX + halfW / 2,
-          resultY + 4,
+          shareBtnX + shareBtnW / 2,
+          curY + 5,
           KeysetTheme.withAlpha(KeysetTheme.ACCENT, screenAlpha));
-    } else if (!shareResultCode.isEmpty()) {
-      int codeW = textRenderer.getWidth(shareResultCode) + 16;
-      int codeX = leftX + (halfW - codeW) / 2;
+    } else {
+      ctx.drawCenteredTextWithShadow(
+          textRenderer,
+          Text.translatable("keyset.share.generate"),
+          shareBtnX + shareBtnW / 2,
+          curY + 5,
+          KeysetTheme.withAlpha(
+              shareDisabled ? KeysetTheme.TEXT_DISABLED : KeysetTheme.TEXT_BODY, screenAlpha));
+    }
+    if (!shareDisabled)
+      shareTargets.add(new ShareTarget("gen", shareBtnX, curY, shareBtnW, shareBtnH));
+    curY += shareBtnH + gapSm;
+
+    // Code result (shown after successful upload)
+    if (!shareResultCode.isEmpty()) {
+      String displayCode =
+          shareResultCode.length() >= 8
+              ? shareResultCode.substring(0, 4) + "-" + shareResultCode.substring(4)
+              : shareResultCode;
+      int codeW = textRenderer.getWidth(displayCode) + 16;
       ctx.fill(
-          codeX,
-          resultY,
-          codeX + codeW,
-          resultY + 14,
+          contentX,
+          curY,
+          contentX + codeW,
+          curY + 14,
           KeysetTheme.withAlpha(KeysetTheme.CHIP_BG, screenAlpha));
       ctx.drawBorder(
-          codeX, resultY, codeW, 14, KeysetTheme.withAlpha(KeysetTheme.ACCENT, screenAlpha));
-      ctx.drawCenteredTextWithShadow(
+          contentX, curY, codeW, 14, KeysetTheme.withAlpha(KeysetTheme.ACCENT, screenAlpha));
+      ctx.drawTextWithShadow(
           textRenderer,
-          Text.literal(shareResultCode),
-          codeX + codeW / 2,
-          resultY + 3,
+          Text.literal(displayCode),
+          contentX + 8,
+          curY + 3,
           KeysetTheme.withAlpha(KeysetTheme.ACCENT, screenAlpha));
-
       long daysLeft = Math.max(0, (shareExpiresAt - System.currentTimeMillis()) / 86_400_000L);
-      ctx.drawCenteredTextWithShadow(
+      ctx.drawTextWithShadow(
           textRenderer,
-          Text.literal("Expires in " + daysLeft + " day" + (daysLeft == 1 ? "" : "s")),
-          leftX + halfW / 2,
-          resultY + 18,
+          Text.literal(Text.translatable("keyset.share.expires", daysLeft).getString()),
+          contentX + codeW + gap,
+          curY + 3,
           KeysetTheme.withAlpha(KeysetTheme.TEXT_MUTED, screenAlpha));
-
-      int copyW = 80, copyH = 16;
-      int copyX = leftX + (halfW - copyW) / 2;
-      int copyY = resultY + 32;
+      int copyW = 72, copyH = 14;
+      int copyX = contentX + contentW - copyW;
       boolean copyHov =
           !isOverTutorialPanel(mx, my)
               && mx >= copyX
               && mx < copyX + copyW
-              && my >= copyY
-              && my < copyY + copyH;
+              && my >= curY
+              && my < curY + copyH;
       ctx.fill(
           copyX,
-          copyY,
+          curY,
           copyX + copyW,
-          copyY + copyH,
+          curY + copyH,
           KeysetTheme.withAlpha(
               copyHov ? KeysetTheme.BG_TAB_ACTIVE : KeysetTheme.BG_SURFACE, screenAlpha));
       ctx.drawBorder(
           copyX,
-          copyY,
+          curY,
           copyW,
           copyH,
           KeysetTheme.withAlpha(copyHov ? KeysetTheme.ACCENT : KeysetTheme.BORDER, screenAlpha));
       ctx.drawCenteredTextWithShadow(
           textRenderer,
-          Text.literal("Copy Code"),
+          Text.translatable("keyset.share.copied"),
           copyX + copyW / 2,
-          copyY + 4,
+          curY + 3,
           KeysetTheme.withAlpha(KeysetTheme.TEXT_BODY, screenAlpha));
-      shareTargets.add(new ShareTarget("copy", copyX, copyY, copyW, copyH));
+      shareTargets.add(new ShareTarget("copy", copyX, curY, copyW, copyH));
+      curY += copyH + gap;
     }
 
-    // ── Import (right) ─────────────────────────────────────────────────────
+    // ── Section 2: Your Shared Profiles ────────────────────────────────────
+    curY += gapSm;
     ctx.drawTextWithShadow(
         textRenderer,
-        Text.literal("Import Profile"),
-        rightX,
-        topY,
+        Text.translatable("keyset.share.section.history"),
+        contentX,
+        curY,
         KeysetTheme.withAlpha(KeysetTheme.TEXT_MUTED, screenAlpha));
+    ctx.fill(
+        contentX + textRenderer.getWidth(Text.translatable("keyset.share.section.history")) + 4,
+        curY + 5,
+        contentX + contentW,
+        curY + 6,
+        KeysetTheme.withAlpha(KeysetTheme.BORDER, screenAlpha));
+    curY += 14;
 
-    int importBtnW = 56, importBtnH = 18;
-    int fieldY = topY + 16 + gapSm;
-    int fieldW = halfW - importBtnW - gapSm;
-    int importBtnX = rightX + fieldW + gapSm;
+    int historyBotLimit = mainY + mainH - gap - 18 - gap - 14 - gap; // stop above section 3
+    if (shareHistory.isEmpty()) {
+      ctx.drawTextWithShadow(
+          textRenderer,
+          Text.translatable("keyset.share.empty"),
+          contentX,
+          curY + 4,
+          KeysetTheme.withAlpha(KeysetTheme.TEXT_DISABLED, screenAlpha));
+      curY += 20;
+    } else {
+      int rowH = 20;
+      int delBtnW = 16, delBtnH = 14;
+      int codeColW = textRenderer.getWidth("ABCD-EFGH") + 12;
+      int expiresColW = textRenderer.getWidth("000 days left") + 8;
+      for (int i = 0; i < shareHistory.size() && curY + rowH <= historyBotLimit; i++) {
+        ShareHistoryStore.Entry entry = shareHistory.get(i);
+        boolean rowHov =
+            !isOverTutorialPanel(mx, my)
+                && mx >= contentX
+                && mx < contentX + contentW - delBtnW - gapSm
+                && my >= curY
+                && my < curY + rowH;
+        if (rowHov) {
+          ctx.fill(
+              contentX,
+              curY,
+              contentX + contentW,
+              curY + rowH,
+              KeysetTheme.withAlpha(KeysetTheme.BG_HOVER, screenAlpha));
+        }
+        int maxNameW = contentW - codeColW - expiresColW - delBtnW - gapSm * 3;
+        String nameStr = entry.profileName();
+        if (textRenderer.getWidth(nameStr) > maxNameW) {
+          nameStr = textRenderer.trimToWidth(nameStr, maxNameW - 6) + "…";
+        }
+        ctx.drawTextWithShadow(
+            textRenderer,
+            Text.literal(nameStr),
+            contentX,
+            curY + 5,
+            KeysetTheme.withAlpha(KeysetTheme.TEXT_BODY, screenAlpha));
+        String code = entry.code();
+        String dispCode =
+            code.length() >= 8 ? code.substring(0, 4) + "-" + code.substring(4) : code;
+        int chipX = contentX + maxNameW + gapSm;
+        ctx.fill(
+            chipX,
+            curY + 3,
+            chipX + codeColW,
+            curY + rowH - 3,
+            KeysetTheme.withAlpha(KeysetTheme.CHIP_BG, screenAlpha));
+        ctx.drawBorder(
+            chipX,
+            curY + 3,
+            codeColW,
+            rowH - 6,
+            KeysetTheme.withAlpha(KeysetTheme.BORDER, screenAlpha));
+        ctx.drawCenteredTextWithShadow(
+            textRenderer,
+            Text.literal(dispCode),
+            chipX + codeColW / 2,
+            curY + 6,
+            KeysetTheme.withAlpha(KeysetTheme.TEXT_BODY, screenAlpha));
+        long daysLeft = Math.max(0, (entry.expiresAt() - System.currentTimeMillis()) / 86_400_000L);
+        String daysStr =
+            daysLeft > 0
+                ? Text.translatable("keyset.share.expires", daysLeft).getString()
+                : Text.translatable("keyset.share.expired").getString();
+        ctx.drawTextWithShadow(
+            textRenderer,
+            Text.literal(daysStr),
+            chipX + codeColW + gapSm,
+            curY + 5,
+            KeysetTheme.withAlpha(
+                daysLeft > 0 ? KeysetTheme.TEXT_MUTED : KeysetTheme.ERROR, screenAlpha));
+        int delX = contentX + contentW - delBtnW;
+        int delY = curY + (rowH - delBtnH) / 2;
+        boolean delHov =
+            !isOverTutorialPanel(mx, my)
+                && mx >= delX
+                && mx < delX + delBtnW
+                && my >= delY
+                && my < delY + delBtnH;
+        ctx.fill(
+            delX,
+            delY,
+            delX + delBtnW,
+            delY + delBtnH,
+            KeysetTheme.withAlpha(
+                delHov ? KeysetTheme.CHIP_ERR_BG : KeysetTheme.BG_SURFACE, screenAlpha));
+        ctx.drawBorder(
+            delX,
+            delY,
+            delBtnW,
+            delBtnH,
+            KeysetTheme.withAlpha(
+                delHov ? KeysetTheme.CHIP_ERR_BR : KeysetTheme.BORDER, screenAlpha));
+        ctx.drawCenteredTextWithShadow(
+            textRenderer,
+            Text.literal("✕"),
+            delX + delBtnW / 2,
+            delY + 2,
+            KeysetTheme.withAlpha(KeysetTheme.ERROR, screenAlpha));
+        shareTargets.add(new ShareTarget("del-" + i, delX, delY, delBtnW, delBtnH));
+        curY += rowH;
+      }
+    }
+
+    // ── Section 3: Import (bottom-anchored, matches widget position) ──────────
+    int importRowY = mainY + mainH - gap - 18;
+    int sec3HeaderY = importRowY - gap - 14;
+    ctx.drawTextWithShadow(
+        textRenderer,
+        Text.translatable("keyset.share.section.import"),
+        contentX,
+        sec3HeaderY,
+        KeysetTheme.withAlpha(KeysetTheme.TEXT_MUTED, screenAlpha));
+    ctx.fill(
+        contentX + textRenderer.getWidth(Text.translatable("keyset.share.section.import")) + 4,
+        sec3HeaderY + 5,
+        contentX + contentW,
+        sec3HeaderY + 6,
+        KeysetTheme.withAlpha(KeysetTheme.BORDER, screenAlpha));
+
+    int importBtnW = 60, importBtnH = 18;
+    int importBtnX = contentX + contentW - importBtnW;
     boolean importDisabled = shareDownloading;
     boolean importHov =
         !importDisabled
             && !isOverTutorialPanel(mx, my)
             && mx >= importBtnX
             && mx < importBtnX + importBtnW
-            && my >= fieldY
-            && my < fieldY + importBtnH;
+            && my >= importRowY
+            && my < importRowY + importBtnH;
     ctx.fill(
         importBtnX,
-        fieldY,
+        importRowY,
         importBtnX + importBtnW,
-        fieldY + importBtnH,
+        importRowY + importBtnH,
         KeysetTheme.withAlpha(
             importHov ? KeysetTheme.BG_TAB_ACTIVE : KeysetTheme.BG_SURFACE,
             importDisabled ? screenAlpha * 0.5f : screenAlpha));
     ctx.drawBorder(
         importBtnX,
-        fieldY,
+        importRowY,
         importBtnW,
         importBtnH,
         KeysetTheme.withAlpha(
             importHov ? KeysetTheme.ACCENT : KeysetTheme.BORDER,
             importDisabled ? screenAlpha * 0.5f : screenAlpha));
-    ctx.drawCenteredTextWithShadow(
-        textRenderer,
-        Text.literal("Import"),
-        importBtnX + importBtnW / 2,
-        fieldY + 5,
-        KeysetTheme.withAlpha(
-            importDisabled ? KeysetTheme.TEXT_DISABLED : KeysetTheme.TEXT_BODY, screenAlpha));
-    if (!importDisabled)
-      shareTargets.add(new ShareTarget("import", importBtnX, fieldY, importBtnW, importBtnH));
-
     if (shareDownloading) {
       String[] frames = {"|", "/", "─", "\\"};
       int frame = (int) ((System.currentTimeMillis() / 150) % frames.length);
-      ctx.drawTextWithShadow(
+      ctx.drawCenteredTextWithShadow(
           textRenderer,
           Text.literal(frames[frame]),
-          rightX,
-          fieldY + importBtnH + gapSm,
+          importBtnX + importBtnW / 2,
+          importRowY + 5,
           KeysetTheme.withAlpha(KeysetTheme.ACCENT, screenAlpha));
+    } else {
+      ctx.drawCenteredTextWithShadow(
+          textRenderer,
+          Text.translatable("keyset.share.import"),
+          importBtnX + importBtnW / 2,
+          importRowY + 5,
+          KeysetTheme.withAlpha(
+              importDisabled ? KeysetTheme.TEXT_DISABLED : KeysetTheme.TEXT_BODY, screenAlpha));
     }
+    if (!importDisabled)
+      shareTargets.add(new ShareTarget("import", importBtnX, importRowY, importBtnW, importBtnH));
+  }
+
+  private Path shareHistoryPath() {
+    if (client == null) return Path.of("config", "keyset-share-history.json");
+    return client.runDirectory.toPath().resolve("config/keyset-share-history.json");
   }
 
   private void doShareUpload() {
     if (selectedProfileId == null || client == null) return;
     String json;
+    String profileName;
     try {
-      json = service.exportProfileJson(client, selectedProfileId);
+      json = service.exportShareProfileJson(client, selectedProfileId);
+      KeysetProfile prof = service.getConfig(client).getProfile(selectedProfileId);
+      profileName = prof != null ? prof.getName() : selectedProfileId;
     } catch (IOException | IllegalArgumentException e) {
       setStatus("Share: " + e.getMessage(), true);
       return;
     }
+    String username = client.getSession().getUsername();
+    String capturedProfileId = selectedProfileId;
+    String capturedProfileName = profileName;
     shareUploading = true;
     shareResultCode = "";
-    ShareApiClient.upload(json)
+    ShareApiClient.upload(json, username, profileName)
         .thenAcceptAsync(
             result -> {
               shareUploading = false;
               shareResultCode = result.code();
               shareExpiresAt = result.expiresAt();
+              shareHistory.add(
+                  new ShareHistoryStore.Entry(
+                      result.code(),
+                      capturedProfileName,
+                      capturedProfileId,
+                      System.currentTimeMillis(),
+                      result.expiresAt()));
+              ShareHistoryStore.save(shareHistoryPath(), shareHistory);
             },
             MinecraftClient.getInstance()::execute)
         .exceptionally(
@@ -1764,30 +1926,48 @@ public final class KeysetScreen extends Screen {
 
   private void doShareImport() {
     if (client == null || shareCodeField == null) return;
-    String code = shareCodeField.getText().trim().toUpperCase();
-    if (code.length() != 8) {
+    String rawCode = shareCodeField.getText().replaceAll("[\\s\\-]", "").toUpperCase();
+    if (rawCode.length() != 8) {
       setStatus("Enter a valid 8-character share code.", true);
       return;
     }
     shareDownloading = true;
-    ShareApiClient.download(code)
+    ShareApiClient.download(rawCode)
         .thenAcceptAsync(
             result -> {
-              try {
-                KeysetFabricService.ImportResult ir = service.importProfiles(client, result.data());
-                if (ir.getImportedCount() > 0) {
-                  selectedProfileId = ir.getLastImportedProfileId();
-                  setStatus(
-                      Text.translatable("keyset.status.imported", ir.getImportedCount())
-                          .getString(),
-                      false);
-                } else {
-                  setStatus("No profiles found in shared data.", true);
-                }
-              } catch (IOException | IllegalArgumentException e) {
-                setStatus("Import failed: " + e.getMessage(), true);
-              }
               shareDownloading = false;
+              Set<String> liveKeys =
+                  Arrays.stream(client.options.allKeys)
+                      .map(kb -> kb.getTranslationKey())
+                      .collect(Collectors.toSet());
+              List<String> missing =
+                  ShareApiClient.parseBindingKeys(result.data()).stream()
+                      .filter(k -> !liveKeys.contains(k))
+                      .collect(Collectors.toList());
+              KeysetScreen self = this;
+              client.setScreen(
+                  new ImportConfirmDialog(
+                      self,
+                      result.meta().username(),
+                      result.meta().profileName().isEmpty()
+                          ? "Unknown Profile"
+                          : result.meta().profileName(),
+                      missing,
+                      () -> {
+                        try {
+                          KeysetFabricService.ImportResult ir =
+                              service.importShareProfileJson(client, result.data());
+                          selectedProfileId = ir.getLastImportedProfileId();
+                          shareHistory = ShareHistoryStore.load(shareHistoryPath());
+                          setStatus(
+                              Text.translatable("keyset.status.imported", ir.getImportedCount())
+                                  .getString(),
+                              false);
+                        } catch (IOException | IllegalArgumentException e) {
+                          setStatus("Import failed: " + e.getMessage(), true);
+                        }
+                      },
+                      () -> {}));
             },
             MinecraftClient.getInstance()::execute)
         .exceptionally(

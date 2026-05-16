@@ -20,11 +20,22 @@ public final class ShareApiClient {
 
   public record UploadResult(String code, long expiresAt) {}
 
-  public record DownloadResult(String data) {}
+  public record ShareMeta(String username, String profileName) {
+    public static ShareMeta empty() {
+      return new ShareMeta("", "");
+    }
+  }
 
-  public static CompletableFuture<UploadResult> upload(String profileJson) {
+  public record DownloadResult(String data, ShareMeta meta, long expiresAt) {}
+
+  public static CompletableFuture<UploadResult> upload(
+      String profileJson, String username, String profileName) {
     var body = new JsonObject();
     body.addProperty("data", profileJson);
+    var meta = new JsonObject();
+    meta.addProperty("username", username);
+    meta.addProperty("profileName", profileName);
+    body.add("meta", meta);
     var req =
         HttpRequest.newBuilder()
             .uri(URI.create(BASE))
@@ -41,6 +52,19 @@ public final class ShareApiClient {
             });
   }
 
+  /** Returns the binding translation-key IDs stored in a single-profile share JSON. */
+  public static java.util.List<String> parseBindingKeys(String singleProfileJson) {
+    try {
+      var obj = GSON.fromJson(singleProfileJson, JsonObject.class);
+      if (!obj.has("bindings") || !obj.get("bindings").isJsonObject()) {
+        return java.util.List.of();
+      }
+      return new java.util.ArrayList<>(obj.getAsJsonObject("bindings").keySet());
+    } catch (Exception e) {
+      return java.util.List.of();
+    }
+  }
+
   public static CompletableFuture<DownloadResult> download(String code) {
     var req =
         HttpRequest.newBuilder()
@@ -54,7 +78,16 @@ public final class ShareApiClient {
               if (r.statusCode() == 404) throw new RuntimeException("not_found");
               if (r.statusCode() != 200) throw new RuntimeException("HTTP " + r.statusCode());
               var j = GSON.fromJson(r.body(), JsonObject.class);
-              return new DownloadResult(j.get("data").getAsString());
+              ShareMeta meta = ShareMeta.empty();
+              if (j.has("meta") && j.get("meta").isJsonObject()) {
+                var mj = j.getAsJsonObject("meta");
+                meta =
+                    new ShareMeta(
+                        mj.has("username") ? mj.get("username").getAsString() : "",
+                        mj.has("profileName") ? mj.get("profileName").getAsString() : "");
+              }
+              return new DownloadResult(
+                  j.get("data").getAsString(), meta, j.get("expires_at").getAsLong());
             });
   }
 }
