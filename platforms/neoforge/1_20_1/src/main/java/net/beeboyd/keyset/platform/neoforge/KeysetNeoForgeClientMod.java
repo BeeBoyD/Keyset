@@ -16,6 +16,7 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.common.MinecraftForge;
@@ -60,6 +61,7 @@ public final class KeysetNeoForgeClientMod {
       modBus.addListener(this::onRegisterKeyMappings);
       MinecraftForge.EVENT_BUS.addListener(this::onClientTick);
       MinecraftForge.EVENT_BUS.addListener(this::onScreenInit);
+      MinecraftForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
     }
 
     private void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
@@ -145,6 +147,13 @@ public final class KeysetNeoForgeClientMod {
           MinecraftClient::setScreen,
           parentScreen -> new KeysetScreen(parentScreen, SERVICE),
           ClientOnly::isKeysetScreen);
+    }
+
+    private void onPlayerLoggedIn(ClientPlayerNetworkEvent.LoggingIn event) {
+      MinecraftClient client = MinecraftClient.getInstance();
+      String address =
+          client.getCurrentServerEntry() != null ? client.getCurrentServerEntry().address : null;
+      SERVICE.handleServerJoin(client, address);
     }
 
     private void onScreenInit(ScreenEvent.Init.Post event) {
