@@ -51,6 +51,11 @@ public final class KeysetProfilesJson {
     return GSON.toJson(toElement(normalized));
   }
 
+  /** Serializes without normalization — caller guarantees no Default injection is desired. */
+  public String toJsonRaw(KeysetProfilesConfig config) {
+    return GSON.toJson(toElement(config));
+  }
+
   /**
    * Serializes a single profile to portable JSON for sharing. Does NOT wrap in a config object and
    * does NOT call normalize(), so no phantom "Default" profile is injected.
@@ -124,6 +129,7 @@ public final class KeysetProfilesJson {
             parent == null ? path.toAbsolutePath().getParent() : parent,
             path.getFileName().toString(),
             ".tmp");
+    boolean moved = false;
     try {
       try (Writer writer = Files.newBufferedWriter(tempFile, StandardCharsets.UTF_8)) {
         writer.write(toJson(config));
@@ -135,8 +141,11 @@ public final class KeysetProfilesJson {
       } catch (AtomicMoveNotSupportedException ignored) {
         Files.move(tempFile, path, StandardCopyOption.REPLACE_EXISTING);
       }
+      moved = true; // reached only when a move succeeded
     } finally {
-      Files.deleteIfExists(tempFile);
+      if (!moved) {
+        Files.deleteIfExists(tempFile); // clean up only on write/move failure
+      }
     }
   }
 

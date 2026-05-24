@@ -6,6 +6,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.option.ControlsListWidget;
 import net.minecraft.client.gui.screen.option.KeybindsScreen;
+import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.text.Text;
@@ -68,7 +69,20 @@ public final class KeysetKeybindsScreen extends KeybindsScreen {
   @Override
   public void render(DrawContext context, int mouseX, int mouseY, float delta) {
     super.render(context, mouseX, mouseY, delta);
+    renderFooterAboveList(context, mouseX, mouseY, delta);
     context.drawCenteredTextWithShadow(textRenderer, helperText, width / 2, 20, 0xFFB8C7D9);
+  }
+
+  private void renderFooterAboveList(DrawContext context, int mouseX, int mouseY, float delta) {
+    int footerTop = height - 32;
+    context.fill(0, footerTop - 2, width, height, 0xFF202124);
+    context.fill(0, footerTop - 2, width, footerTop - 1, 0xFF30343A);
+    for (Object child : children()) {
+      if (child instanceof ClickableWidget widget
+          && widget.getY() + widget.getHeight() > footerTop - 2) {
+        widget.render(context, mouseX, mouseY, delta);
+      }
+    }
   }
 
   private void focusTargetBinding() {

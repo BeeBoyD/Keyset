@@ -20,7 +20,11 @@ import net.beeboyd.keyset.platform.fabric.KeysetFabricService;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.option.VideoOptionsScreen;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.sound.PositionedSoundInstance;
+import net.minecraft.sound.SoundEvents;
+import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 
@@ -98,6 +102,8 @@ public final class KeysetScreen extends Screen {
 
   private record IntroAnim(float reveal, float alpha) {}
 
+  private record ToastEntry(String msg, boolean error, long createdMs, float slideProgress) {}
+
   enum TutorialStep {
     INTRO("keyset.tutorial.intro"),
     WELCOME("keyset.tutorial.welcome"),
@@ -108,6 +114,7 @@ public final class KeysetScreen extends Screen {
     FIX_CONFLICT("keyset.tutorial.fix"),
     SAVE_LIVE("keyset.tutorial.savelive"),
     AUTO_SWITCH("keyset.tutorial.autoswitch"),
+    SHARE("keyset.tutorial.share"),
     DONE("keyset.tutorial.done");
 
     private final String keyPrefix;
@@ -137,8 +144,7 @@ public final class KeysetScreen extends Screen {
   private float sidebarScrollTarget;
   private float sidebarScrollSmooth;
   private String selectedProfileId;
-  private String statusMsg = "";
-  private boolean statusError;
+  private final List<ToastEntry> toastQueue = new ArrayList<>();
 
   // Custom sidebar buttons (no vanilla widgets — fully custom-rendered)
   private final List<SidebarBtn> sidebarButtons = new ArrayList<>();
@@ -169,6 +175,16 @@ public final class KeysetScreen extends Screen {
   private long shareExpiresAt = 0;
   private KeysetTextFieldWidget shareCodeField;
   private List<ShareHistoryStore.Entry> shareHistory = new ArrayList<>();
+  private String shareTargetProfileId = null;
+  private boolean shareDropdownOpen = false;
+  private int shareDropdownRowX;
+  private int shareDropdownSelY;
+  private int shareDropdownElemW;
+  private boolean importCodeInvalid = false;
+  private boolean codesExpanded = false;
+
+  // Per-row hover animation state (profile id → alpha 0..1)
+  private final java.util.Map<String, Float> rowHoverAlphas = new java.util.HashMap<>();
 
   // Layout (computed in init)
   private int sidebarW;
@@ -198,12 +214,26 @@ public final class KeysetScreen extends Screen {
   // Interactive tutorial
   private boolean tutorialActive;
   private TutorialStep tutorialStep = TutorialStep.WELCOME;
+  private long introOpenedMs = -1;
+  private long introCloseMs = -1L;
+  private Runnable introOnClosed = null;
+  private float tutHlX = -1, tutHlY, tutHlW, tutHlH, tutDimAlpha;
+  private int tutPanelX = -1, tutPanelY = -1;
+  private int tutPanelW = -1, tutPanelH = -1;
+  private boolean tutPanelDragging, tutPanelMinimized, tutPanelResizing;
+  private int tutPanelDragOffX, tutPanelDragOffY;
+  private int tutPanelResizeStartX,
+      tutPanelResizeStartY,
+      tutPanelResizeStartW,
+      tutPanelResizeStartH,
+      tutPanelResizeStartPanelY;
   private boolean tutNextEnabled;
   private int profileCountAtStepStart;
   private String profileNameAtStepStart = "";
   private boolean didActivate;
   private boolean didSaveLive;
   private boolean didOpenConflictDialog;
+  private boolean lastStepComplete = false;
 
   public KeysetScreen(Screen parent, KeysetFabricService service) {
     super(Text.translatable("keyset.title"));
@@ -222,15 +252,52 @@ public final class KeysetScreen extends Screen {
       refreshConflicts();
     }
     if (tutorialActive) {
-      tutNextEnabled = isStepComplete();
+      boolean nowComplete = isStepComplete();
+      if (nowComplete && !lastStepComplete && tutorialStep != TutorialStep.INTRO) {
+        playStepCompleteSound();
+      }
+      lastStepComplete = nowComplete;
+      tutNextEnabled = nowComplete;
+    }
+    if (introCloseMs >= 0
+        && introOnClosed != null
+        && System.currentTimeMillis() - introCloseMs >= 300L) {
+      Runnable cb = introOnClosed;
+      introCloseMs = -1L;
+      introOnClosed = null;
+      cb.run();
     }
   }
 
   @Override
   protected void init() {
-    openedAtMs = System.currentTimeMillis();
+    if (openedAtMs == 0) openedAtMs = System.currentTimeMillis();
     lastFrameMs = 0;
     computeLayout();
+
+    if (width < 400 || height < 280) {
+      int btnW = 104, btnH = 20, gap = 12;
+      int btnY = height / 2 + 26;
+      int btnX1 = width / 2 - btnW - gap / 2;
+      int btnX2 = width / 2 + gap / 2;
+      addDrawableChild(
+          KeysetButtonWidget.create(
+              btnX1,
+              btnY,
+              btnW,
+              btnH,
+              Text.translatable("gui.back"),
+              b -> client.setScreen(parent)));
+      addDrawableChild(
+          KeysetButtonWidget.create(
+              btnX2,
+              btnY,
+              btnW,
+              btnH,
+              Text.translatable("options.video"),
+              b -> client.setScreen(new VideoOptionsScreen(this, client, client.options))));
+      return;
+    }
 
     if (selectedProfileId == null) {
       try {
@@ -336,16 +403,38 @@ public final class KeysetScreen extends Screen {
       conflictsSearch.setMaxLength(64);
       addDrawableChild(conflictsSearch);
     } else if (currentTab == Tab.SHARE) {
-      // Section 3 (import) is bottom-anchored; field Y matches renderShareTab
+      int pad = KeysetTheme.PAD;
       int gap = KeysetTheme.GAP;
-      int importBtnW = 60;
-      int fieldX = mainX + gap;
-      int fieldW = mainW - gap * 2 - importBtnW - KeysetTheme.GAP_SM;
-      int fieldY = mainY + mainH - gap - 18;
+      int gapSm = KeysetTheme.GAP_SM;
+      int sectionGap = gap * 2;
+      int tabContentX = mainX + pad;
+      int tabContentY = contentY + pad;
+      int tabContentW = mainW - pad * 2;
+      int tabContentH = mainY + mainH - tabContentY - pad;
+      int elemW = (int) (tabContentW * 0.55f);
+      int btnW = 90;
+      int rowH = 22;
+      int labelH = 9;
+      // Compute same shareH as renderShareTab (no code result at init time)
+      int shareH = labelH + gapSm + rowH;
+      int importH = labelH + gapSm + rowH;
+      int codesH = labelH;
+      if (codesExpanded && !shareHistory.isEmpty()) codesH += gapSm + shareHistory.size() * rowH;
+      int totalH =
+          shareH + sectionGap + 1 + sectionGap + importH + sectionGap + 1 + sectionGap + codesH;
+      int curY = tabContentY + Math.max(0, (tabContentH - totalH) / 2);
+      // Skip SHARE NEW section
+      curY += shareH + sectionGap + 1 + sectionGap;
+      // Skip IMPORT label
+      curY += labelH + gapSm;
+      int impTotalW = elemW + gap + btnW;
+      int impX = tabContentX + (tabContentW - impTotalW) / 2;
+      int importRowY = curY;
       shareCodeField =
-          new KeysetTextFieldWidget(textRenderer, fieldX, fieldY, fieldW, 18, Text.empty());
-      shareCodeField.setPlaceholder(Text.translatable("keyset.share.code.placeholder"));
-      shareCodeField.setMaxLength(9); // XXXX-XXXX with dash
+          new KeysetTextFieldWidget(textRenderer, impX, importRowY, elemW, rowH, Text.empty());
+      shareCodeField.setPlaceholder(Text.literal("XXXX-XXXX"));
+      shareCodeField.setMaxLength(9);
+      shareCodeField.setChangedListener(text -> importCodeInvalid = false);
       addDrawableChild(shareCodeField);
     }
   }
@@ -388,30 +477,82 @@ public final class KeysetScreen extends Screen {
           textRenderer,
           Text.literal("Please increase the window size"),
           width / 2,
-          height / 2 - 5,
+          height / 2 - 9,
           KeysetTheme.ACCENT);
       ctx.drawCenteredTextWithShadow(
           textRenderer,
-          Text.literal("Minimum: 400 × 280"),
+          Text.literal("or decrease the GUI scale in Options"),
           width / 2,
-          height / 2 + 8,
+          height / 2 + 4,
           KeysetTheme.TEXT_MUTED);
+      super.render(ctx, mouseX, mouseY, delta);
       return;
     }
 
+    boolean isIntro = tutorialActive && tutorialStep == TutorialStep.INTRO;
+    // During non-intro tutorial, suppress hover when mouse is in a darkened (non-lit) area
+    boolean inDark =
+        !isIntro
+            && tutorialActive
+            && tutorialStep != TutorialStep.DONE
+            && tutHlX >= 0
+            && !(mouseX >= (int) tutHlX
+                && mouseX < (int) (tutHlX + tutHlW)
+                && mouseY >= (int) tutHlY
+                && mouseY < (int) (tutHlY + tutHlH));
+    int hmx = (isIntro || inDark) ? -1 : mouseX;
+    int hmy = (isIntro || inDark) ? -1 : mouseY;
+
     ctx.fill(0, 0, width, height, KeysetTheme.scaleAlpha(KeysetTheme.BG_BACKDROP, screenAlpha));
     renderTopbar(ctx);
-    renderSidebar(ctx, mouseX, mouseY);
-    renderMain(ctx, mouseX, mouseY);
+    renderSidebar(ctx, hmx, hmy);
+    renderMain(ctx, hmx, hmy);
 
-    super.render(ctx, mouseX, mouseY, delta);
+    super.render(ctx, hmx, hmy, delta);
+    if (currentTab == Tab.SHARE && shareDropdownOpen) {
+      ctx.draw();
+      renderShareDropdownOverlay(ctx, hmx, hmy);
+    }
+    // Search field clear (✕) button overlay
+    KeysetTextFieldWidget activeSearch =
+        currentTab == Tab.BINDINGS
+            ? bindingsSearch
+            : currentTab == Tab.CONFLICTS ? conflictsSearch : null;
+    if (activeSearch != null && !activeSearch.getText().isEmpty()) {
+      int cx2 = activeSearch.getRight() - 10;
+      int cy2 = activeSearch.getY() + (activeSearch.getHeight() - 9) / 2;
+      boolean clearHov = hmx >= cx2 - 2 && hmx < cx2 + 9 && hmy >= cy2 - 1 && hmy < cy2 + 10;
+      ctx.fill(
+          activeSearch.getRight() - 14,
+          activeSearch.getY() + 1,
+          activeSearch.getRight() - 1,
+          activeSearch.getBottom() - 1,
+          KeysetTheme.scaleAlpha(KeysetTheme.BG_SURFACE, screenAlpha));
+      ctx.drawTextWithShadow(
+          textRenderer,
+          Text.literal("✕"),
+          cx2,
+          cy2,
+          KeysetTheme.withAlpha(
+              clearHov ? KeysetTheme.TEXT_BODY : KeysetTheme.TEXT_MUTED, screenAlpha));
+    }
+    if (importCodeInvalid && currentTab == Tab.SHARE && shareCodeField != null) {
+      ctx.drawTextWithShadow(
+          textRenderer,
+          Text.literal("⚠"),
+          shareCodeField.getX() - 14,
+          shareCodeField.getY() + (shareCodeField.getHeight() - 9) / 2,
+          KeysetTheme.withAlpha(KeysetTheme.ERROR, screenAlpha));
+    }
     ctx.enableScissor(sidebarX, sidebarY, sidebarX + sidebarW, sidebarY + mainH);
-    renderSidebarButtons(ctx, mouseX, mouseY);
+    renderSidebarButtons(ctx, hmx, hmy);
     ctx.disableScissor();
-    renderDoneButton(ctx, mouseX, mouseY);
+    ctx.draw(); // flush widget/text buffers so footer and done button render on top
     renderFooter(ctx);
+    // Done button: 2nd highest — below tutorial overlay
+    renderDoneButton(ctx, isIntro ? -1 : mouseX, isIntro ? -1 : mouseY);
     if (tutorialActive && tutorialStep != TutorialStep.DONE) {
-      renderTutorialOverlay(ctx, mouseX, mouseY);
+      renderTutorialOverlay(ctx, mouseX, mouseY); // always on top
     }
   }
 
@@ -523,14 +664,26 @@ public final class KeysetScreen extends Screen {
             rowY,
             sidebarX + sidebarW,
             rowY + rowH,
-            KeysetTheme.scaleAlpha(KeysetTheme.BG_TAB_ACTIVE, screenAlpha));
-      } else if (hovered) {
+            KeysetTheme.withAlpha(KeysetTheme.BG_SURFACE, screenAlpha * 0.55f));
         ctx.fill(
             sidebarX,
             rowY,
-            sidebarX + sidebarW,
+            sidebarX + 2,
             rowY + rowH,
-            KeysetTheme.withAlpha(KeysetTheme.BG_HOVER, screenAlpha));
+            KeysetTheme.withAlpha(KeysetTheme.ACCENT, screenAlpha));
+      } else {
+        String rowKey = "sidebar-" + profile.getId();
+        float ha = rowHoverAlphas.getOrDefault(rowKey, 0f);
+        ha = KeysetTheme.expLerp(ha, hovered ? 1f : 0f, frameDt, 20f);
+        rowHoverAlphas.put(rowKey, ha);
+        if (ha > 0.01f) {
+          ctx.fill(
+              sidebarX,
+              rowY,
+              sidebarX + sidebarW,
+              rowY + rowH,
+              KeysetTheme.withAlpha(KeysetTheme.BG_HOVER, screenAlpha * ha));
+        }
       }
 
       if (active) {
@@ -585,12 +738,13 @@ public final class KeysetScreen extends Screen {
               KeysetTheme.withAlpha(KeysetTheme.ERROR, screenAlpha));
         }
 
+        float livePulse = (float) (Math.sin(System.currentTimeMillis() / 1200.0) * 0.15 + 0.85);
         ctx.fill(
             cx2,
             cy2,
             cx2 + cw,
             cy2 + 12,
-            KeysetTheme.withAlpha(KeysetTheme.CHIP_OK_BG, screenAlpha));
+            KeysetTheme.withAlpha(KeysetTheme.CHIP_OK_BG, screenAlpha * livePulse));
         ctx.drawBorder(
             cx2, cy2, cw, 12, KeysetTheme.withAlpha(KeysetTheme.CHIP_OK_BR, screenAlpha));
         ctx.drawCenteredTextWithShadow(
@@ -635,18 +789,31 @@ public final class KeysetScreen extends Screen {
       ctx.fill(btn.x(), btn.y(), btn.x() + btn.w(), btn.y() + btn.h(), bg);
       ctx.drawBorder(btn.x(), btn.y(), btn.w(), btn.h(), border);
       Text btnLabel = Text.translatable(btn.labelKey());
-      if (hovered) {
+      drawSidebarButtonLabel(ctx, btnLabel, btn.x(), btn.y(), btn.w(), btn.h(), textCol, hovered);
+    }
+  }
+
+  private void drawSidebarButtonLabel(
+      DrawContext ctx, Text label, int x, int y, int w, int h, int color, boolean noShadow) {
+    int maxTextW = Math.max(0, w - 6);
+    String labelText = label.getString();
+    if (textRenderer.getWidth(labelText) > maxTextW) {
+      String ellipsis = "…";
+      int trimmedW = Math.max(0, maxTextW - textRenderer.getWidth(ellipsis));
+      labelText = trimmedW > 0 ? textRenderer.trimToWidth(labelText, trimmedW) + ellipsis : "";
+    }
+    int tx = x + (w - textRenderer.getWidth(labelText)) / 2;
+    int ty = y + (h - 9) / 2;
+    ctx.enableScissor(x + 1, y + 1, x + w - 1, y + h - 1);
+    try {
+      if (noShadow) {
         ctx.drawText(
-            textRenderer,
-            btnLabel,
-            btn.x() + btn.w() / 2 - textRenderer.getWidth(btnLabel) / 2,
-            btn.y() + (btn.h() - 9) / 2,
-            textCol,
-            false); // no shadow on amber bg
+            textRenderer, Text.literal(labelText), tx, ty, color, false); // no shadow on amber bg
       } else {
-        ctx.drawCenteredTextWithShadow(
-            textRenderer, btnLabel, btn.x() + btn.w() / 2, btn.y() + (btn.h() - 9) / 2, textCol);
+        ctx.drawCenteredTextWithShadow(textRenderer, Text.literal(labelText), x + w / 2, ty, color);
       }
+    } finally {
+      ctx.disableScissor();
     }
   }
 
@@ -691,13 +858,29 @@ public final class KeysetScreen extends Screen {
           tx + tabW / 2,
           tabBarY + 10,
           KeysetTheme.withAlpha(color, screenAlpha));
+      // Conflict count badge on Conflicts tab
+      if (tabs[i] == Tab.CONFLICTS && !conflictGroups.isEmpty()) {
+        String badge = String.valueOf(conflictGroups.size());
+        int bw = textRenderer.getWidth(badge) + 8;
+        int bx = tx + tabW / 2 + textRenderer.getWidth(names[i]) / 2 + 6;
+        int by = tabBarY + 7;
+        ctx.fill(bx, by, bx + bw, by + 10, KeysetTheme.WARNING);
+        ctx.drawText(
+            textRenderer,
+            Text.literal(badge),
+            bx + (bw - textRenderer.getWidth(badge)) / 2,
+            by + 1,
+            0xFF0A0C0E,
+            false);
+      }
     }
 
+    int GAP = 4;
     int ulX = (int) tabUnderlineX;
     ctx.fill(
-        ulX,
+        ulX + GAP,
         tabBarY + KeysetTheme.TAB_H - 2,
-        ulX + tabW,
+        ulX + tabW - GAP,
         tabBarY + KeysetTheme.TAB_H,
         KeysetTheme.withAlpha(KeysetTheme.ACCENT, screenAlpha));
     ctx.fill(
@@ -862,13 +1045,17 @@ public final class KeysetScreen extends Screen {
             && mx < x + w
             && my >= y
             && my < y + KeysetTheme.ROW_H;
-    if (hovered) {
+    String rowKey = "bind-" + row.id;
+    float ha = rowHoverAlphas.getOrDefault(rowKey, 0f);
+    ha = KeysetTheme.expLerp(ha, hovered ? 1f : 0f, frameDt, 20f);
+    rowHoverAlphas.put(rowKey, ha);
+    if (ha > 0.01f) {
       ctx.fill(
           x,
           y,
           x + w,
           y + KeysetTheme.ROW_H,
-          KeysetTheme.withAlpha(KeysetTheme.BG_HOVER, screenAlpha));
+          KeysetTheme.withAlpha(KeysetTheme.BG_HOVER, screenAlpha * ha));
     }
 
     String displayName = row.displayName;
@@ -936,7 +1123,7 @@ public final class KeysetScreen extends Screen {
 
       String displayName = Text.translatable(id).getString();
       String category = kb.getCategory();
-      String categoryName = Text.translatable(category).getString();
+      String categoryName = Text.translatable(kb.getCategory()).getString();
 
       // Rule 3: read live MC state, not profile snapshot
       String keyLabel = kb.getBoundKeyLocalizedText().getString();
@@ -1340,6 +1527,15 @@ public final class KeysetScreen extends Screen {
   @Override
   public boolean mouseScrolled(
       double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+    if (tutorialActive && tutorialStep == TutorialStep.INTRO) return true;
+    if (tutorialActive && tutorialStep != TutorialStep.DONE && tutHlX >= 0) {
+      boolean inLit =
+          mouseX >= tutHlX
+              && mouseX < tutHlX + tutHlW
+              && mouseY >= tutHlY
+              && mouseY < tutHlY + tutHlH;
+      if (!inLit) return true;
+    }
     if (mouseX >= sidebarX && mouseX < sidebarX + sidebarW) {
       sidebarScrollTarget -= (float) (verticalAmount * KeysetTheme.ROW_H);
       return true;
@@ -1360,9 +1556,62 @@ public final class KeysetScreen extends Screen {
   }
 
   @Override
+  public boolean mouseDragged(
+      double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+    int mx = (int) mouseX, my = (int) mouseY;
+    if (button == 0 && tutPanelResizing) {
+      // Top-right grip: right = wider, up = taller (bottom of panel stays fixed)
+      tutPanelW = MathHelper.clamp(tutPanelResizeStartW + (mx - tutPanelResizeStartX), 160, width);
+      int newH = MathHelper.clamp(tutPanelResizeStartH + (tutPanelResizeStartY - my), 80, height);
+      tutPanelY =
+          MathHelper.clamp(
+              tutPanelResizeStartPanelY - (newH - tutPanelResizeStartH), 0, height - newH);
+      tutPanelH = newH;
+      return true;
+    }
+    if (button == 0 && tutPanelDragging) {
+      tutPanelX =
+          MathHelper.clamp((int) mouseX - tutPanelDragOffX, 0, width - tutorialPanelWidth());
+      tutPanelY =
+          MathHelper.clamp((int) mouseY - tutPanelDragOffY, 0, height - tutorialPanelHeight());
+      return true;
+    }
+    return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+  }
+
+  @Override
+  public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    if (button == 0 && tutPanelResizing) {
+      tutPanelResizing = false;
+      return true;
+    }
+    if (button == 0 && tutPanelDragging) {
+      tutPanelDragging = false;
+      return true;
+    }
+    return super.mouseReleased(mouseX, mouseY, button);
+  }
+
+  @Override
   public boolean mouseClicked(double mouseX, double mouseY, int button) {
     int mx = (int) mouseX;
     int my = (int) mouseY;
+
+    // Search clear (✕) button
+    if (button == 0) {
+      KeysetTextFieldWidget activeSearch =
+          currentTab == Tab.BINDINGS
+              ? bindingsSearch
+              : currentTab == Tab.CONFLICTS ? conflictsSearch : null;
+      if (activeSearch != null && !activeSearch.getText().isEmpty()) {
+        int cx2 = activeSearch.getRight() - 10;
+        int cy2 = activeSearch.getY() + (activeSearch.getHeight() - 9) / 2;
+        if (mx >= cx2 - 2 && mx < cx2 + 9 && my >= cy2 - 1 && my < cy2 + 10) {
+          activeSearch.setText("");
+          return true;
+        }
+      }
+    }
 
     if (tutorialActive && tutorialStep != TutorialStep.DONE && button == 0) {
       if (tutorialStep == TutorialStep.INTRO) {
@@ -1370,35 +1619,78 @@ public final class KeysetScreen extends Screen {
         int startX = width / 2 - 128;
         int skipX = width / 2 + 8;
         if (mx >= startX && mx < startX + 120 && my >= buttonY && my < buttonY + 22) {
-          advanceTutorial();
+          if (introCloseMs < 0) {
+            introCloseMs = System.currentTimeMillis();
+            introOnClosed = this::advanceTutorial;
+          }
           return true;
         }
         if (mx >= skipX && mx < skipX + 120 && my >= buttonY && my < buttonY + 22) {
-          closeTutorial();
+          if (introCloseMs < 0) {
+            introCloseMs = System.currentTimeMillis();
+            introOnClosed = this::closeTutorial;
+          }
           return true;
         }
         return true;
       }
       int tpw = tutorialPanelWidth();
       int tph = tutorialPanelHeight();
-      int tpx = mainX + mainW - tpw - 10;
-      int tpy = mainY + mainH - tph - 10;
+      int tpx = tutorialPanelX();
+      int tpy = tutorialPanelY();
       if (mx >= tpx && mx < tpx + tpw && my >= tpy && my < tpy + tph) {
         if (mx >= tpx + 5 && mx < tpx + 15 && my >= tpy + 4 && my < tpy + 14) {
           closeTutorial();
           return true;
         }
-        int nbx = tpx + tpw - 76, nby = tpy + tph - 22;
-        if (mx >= nbx && mx < nbx + 70 && my >= nby && my < nby + 16 && tutNextEnabled) {
-          advanceTutorial();
+        if (mx >= tpx + 18 && mx < tpx + 28 && my >= tpy + 4 && my < tpy + 14) {
+          tutPanelMinimized = !tutPanelMinimized;
           return true;
         }
-        int sbx = tpx + 6, sby = tpy + tph - 22, sbw = 66;
-        if (mx >= sbx && mx < sbx + sbw && my >= sby && my < sby + 16) {
-          skipTutorialStep();
+        if (!tutPanelMinimized) {
+          int nbx = tpx + tpw - 76, nby = tpy + tph - 22;
+          if (mx >= nbx && mx < nbx + 70 && my >= nby && my < nby + 16 && tutNextEnabled) {
+            advanceTutorial();
+            return true;
+          }
+          int sbx = tpx + 6, sby = tpy + tph - 22, sbw = 66;
+          if (mx >= sbx && mx < sbx + sbw && my >= sby && my < sby + 16) {
+            skipTutorialStep();
+            return true;
+          }
+        }
+        // resize corner — top-right 12px of title bar
+        if (!tutPanelMinimized
+            && mx >= tpx + tpw - 12
+            && mx < tpx + tpw
+            && my >= tpy
+            && my < tpy + 18) {
+          tutPanelResizing = true;
+          tutPanelResizeStartX = mx;
+          tutPanelResizeStartY = my;
+          tutPanelResizeStartW = tutorialPanelWidth();
+          tutPanelResizeStartH = tutorialPanelHeight();
+          tutPanelResizeStartPanelY = tutorialPanelY();
           return true;
+        }
+        // drag start on title bar (exclude resize corner on right)
+        if (my >= tpy && my < tpy + 18 && !(mx >= tpx + tpw - 12 && mx < tpx + tpw)) {
+          tutPanelDragging = true;
+          tutPanelDragOffX = mx - tpx;
+          tutPanelDragOffY = my - tpy;
         }
         return true;
+      }
+      // Swallow clicks landing in darkened content areas (lit area passes through)
+      if (tutHlX >= 0) {
+        boolean inLit =
+            mx >= (int) tutHlX
+                && mx < (int) (tutHlX + tutHlW)
+                && my >= (int) tutHlY
+                && my < (int) (tutHlY + tutHlH);
+        boolean inContent =
+            mx >= sidebarX && mx < mainX + mainW && my >= sidebarY && my < sidebarY + mainH;
+        if (inContent && !inLit) return true;
       }
     }
 
@@ -1454,6 +1746,10 @@ public final class KeysetScreen extends Screen {
       bindingsScrollSmooth = 0;
       conflictsScrollTarget = 0;
       conflictsScrollSmooth = 0;
+      shareDropdownOpen = false;
+      if (currentTab == Tab.SHARE && shareTargetProfileId == null) {
+        shareTargetProfileId = selectedProfileId;
+      }
       rebuildTabWidgets();
       return true;
     }
@@ -1515,11 +1811,29 @@ public final class KeysetScreen extends Screen {
           if (tid.equals("gen")) doShareUpload();
           else if (tid.equals("copy")) doShareCopy();
           else if (tid.equals("import")) doShareImport();
-          else if (tid.startsWith("del-")) {
+          else if (tid.equals("selector")) shareDropdownOpen = !shareDropdownOpen;
+          else if (tid.startsWith("profile-")) {
+            String newId = tid.substring(8);
+            if (!newId.equals(shareTargetProfileId)) {
+              shareTargetProfileId = newId;
+              shareResultCode = "";
+              shareExpiresAt = 0L;
+              shareUploading = false;
+            }
+            shareDropdownOpen = false;
+          } else if (tid.equals("codes-header")) {
+            codesExpanded = !codesExpanded;
+            clearChildren();
+            init();
+          } else if (tid.startsWith("del-")) {
             int idx = Integer.parseInt(tid.substring(4));
             if (idx >= 0 && idx < shareHistory.size()) {
               shareHistory.remove(idx);
               ShareHistoryStore.save(shareHistoryPath(), shareHistory);
+              if (codesExpanded) {
+                clearChildren();
+                init();
+              }
             }
           }
           return true;
@@ -1535,69 +1849,119 @@ public final class KeysetScreen extends Screen {
   private void renderShareTab(DrawContext ctx, int mx, int my) {
     shareTargets.clear();
 
+    int pad = KeysetTheme.PAD;
     int gap = KeysetTheme.GAP;
     int gapSm = KeysetTheme.GAP_SM;
-    int contentX = mainX + gap;
-    int contentW = mainW - gap * 2;
-    int curY = contentY + gap;
+    int sectionGap = gap * 2;
+    int sep = 1;
 
-    // ── Section 1: Share a Profile ─────────────────────────────────────────
-    ctx.drawTextWithShadow(
+    int tabContentX = mainX + pad;
+    int tabContentY = contentY + pad;
+    int tabContentW = mainW - pad * 2;
+    int tabContentH = mainY + mainH - tabContentY - pad;
+
+    int elemW = (int) (tabContentW * 0.55f);
+    int btnW = 90;
+    int rowH = 22;
+    int labelH = 9;
+    int codeBoxH = 36;
+    int copyBtnH = 20;
+
+    // ── Content height ────────────────────────────────────────────────────────
+    int shareH = labelH + gapSm + rowH;
+    if (!shareResultCode.isEmpty()) {
+      shareH += gap + codeBoxH + gapSm + labelH + gapSm + copyBtnH;
+    }
+    int importH = labelH + gapSm + rowH;
+    int codesH = labelH;
+    if (codesExpanded && !shareHistory.isEmpty()) codesH += gapSm + shareHistory.size() * rowH;
+    int sepBlock = sectionGap + sep + sectionGap;
+    int totalH = shareH + sepBlock + importH + sepBlock + codesH;
+
+    // ── Vertical center ───────────────────────────────────────────────────────
+    int curY = tabContentY + Math.max(0, (tabContentH - totalH) / 2);
+    int cx = tabContentX + tabContentW / 2;
+
+    // ── SHARE NEW ─────────────────────────────────────────────────────────────
+    ctx.drawCenteredTextWithShadow(
         textRenderer,
         Text.translatable("keyset.share.section.share"),
-        contentX,
+        cx,
         curY,
         KeysetTheme.withAlpha(KeysetTheme.TEXT_MUTED, screenAlpha));
-    ctx.fill(
-        contentX + textRenderer.getWidth(Text.translatable("keyset.share.section.share")) + 4,
-        curY + 5,
-        contentX + contentW,
-        curY + 6,
-        KeysetTheme.withAlpha(KeysetTheme.BORDER, screenAlpha));
-    curY += 14;
+    curY += labelH + gapSm;
 
-    // Profile name + Share button (same row)
-    String profileName = "(no profile selected)";
-    if (selectedProfileId != null && client != null) {
+    if (shareTargetProfileId == null) shareTargetProfileId = selectedProfileId;
+    String profileDisplayName = "(select profile)";
+    boolean profileHasBindings = false;
+    if (shareTargetProfileId != null && client != null) {
       try {
-        KeysetProfile prof = service.getConfig(client).getProfile(selectedProfileId);
-        if (prof != null) profileName = prof.getName();
+        KeysetProfile prof = service.getConfig(client).getProfile(shareTargetProfileId);
+        if (prof != null) {
+          profileDisplayName = prof.getName();
+          profileHasBindings = prof.getBindings() != null && !prof.getBindings().isEmpty();
+        }
       } catch (IOException ignored) {
       }
     }
-    int shareBtnW = 64, shareBtnH = 18;
-    int shareBtnX = contentX + contentW - shareBtnW;
-    boolean shareDisabled = shareUploading || selectedProfileId == null;
-    boolean shareHov =
+
+    int rowTotalW = elemW + gap + btnW;
+    int rowX = tabContentX + (tabContentW - rowTotalW) / 2;
+    int selY = curY;
+    boolean selHov =
+        !isOverTutorialPanel(mx, my)
+            && mx >= rowX
+            && mx < rowX + elemW
+            && my >= selY
+            && my < selY + rowH;
+    ctx.fill(
+        rowX,
+        selY,
+        rowX + elemW,
+        selY + rowH,
+        KeysetTheme.withAlpha(selHov ? KeysetTheme.BG_HOVER : KeysetTheme.BG_SURFACE, screenAlpha));
+    ctx.drawBorder(
+        rowX,
+        selY,
+        elemW,
+        rowH,
+        KeysetTheme.withAlpha(
+            shareDropdownOpen ? KeysetTheme.ACCENT : KeysetTheme.BORDER, screenAlpha));
+    ctx.drawTextWithShadow(
+        textRenderer,
+        Text.literal("▾ " + profileDisplayName),
+        rowX + 4,
+        selY + 7,
+        KeysetTheme.withAlpha(KeysetTheme.TEXT_BODY, screenAlpha));
+    shareTargets.add(new ShareTarget("selector", rowX, selY, elemW, rowH));
+    shareDropdownRowX = rowX;
+    shareDropdownSelY = selY;
+    shareDropdownElemW = elemW;
+
+    int shareBtnX = rowX + elemW + gap;
+    boolean shareDisabled = shareUploading || shareTargetProfileId == null || !profileHasBindings;
+    boolean shareBtnHov =
         !shareDisabled
             && !isOverTutorialPanel(mx, my)
             && mx >= shareBtnX
-            && mx < shareBtnX + shareBtnW
-            && my >= curY
-            && my < curY + shareBtnH;
-    ctx.drawTextWithShadow(
-        textRenderer,
-        Text.literal(profileName),
-        contentX,
-        curY + 5,
-        KeysetTheme.withAlpha(
-            selectedProfileId == null ? KeysetTheme.TEXT_DISABLED : KeysetTheme.TEXT_BODY,
-            screenAlpha));
+            && mx < shareBtnX + btnW
+            && my >= selY
+            && my < selY + rowH;
     ctx.fill(
         shareBtnX,
-        curY,
-        shareBtnX + shareBtnW,
-        curY + shareBtnH,
+        selY,
+        shareBtnX + btnW,
+        selY + rowH,
         KeysetTheme.withAlpha(
-            shareHov ? KeysetTheme.BG_TAB_ACTIVE : KeysetTheme.BG_SURFACE,
+            shareBtnHov ? KeysetTheme.BG_TAB_ACTIVE : KeysetTheme.BG_SURFACE,
             shareDisabled ? screenAlpha * 0.5f : screenAlpha));
     ctx.drawBorder(
         shareBtnX,
-        curY,
-        shareBtnW,
-        shareBtnH,
+        selY,
+        btnW,
+        rowH,
         KeysetTheme.withAlpha(
-            shareHov ? KeysetTheme.ACCENT : KeysetTheme.BORDER,
+            shareBtnHov ? KeysetTheme.ACCENT : KeysetTheme.BORDER,
             shareDisabled ? screenAlpha * 0.5f : screenAlpha));
     if (shareUploading) {
       String[] frames = {"|", "/", "─", "\\"};
@@ -1605,244 +1969,150 @@ public final class KeysetScreen extends Screen {
       ctx.drawCenteredTextWithShadow(
           textRenderer,
           Text.literal(frames[frame]),
-          shareBtnX + shareBtnW / 2,
-          curY + 5,
+          shareBtnX + btnW / 2,
+          selY + 6,
           KeysetTheme.withAlpha(KeysetTheme.ACCENT, screenAlpha));
     } else {
       ctx.drawCenteredTextWithShadow(
           textRenderer,
           Text.translatable("keyset.share.generate"),
-          shareBtnX + shareBtnW / 2,
-          curY + 5,
+          shareBtnX + btnW / 2,
+          selY + 6,
           KeysetTheme.withAlpha(
               shareDisabled ? KeysetTheme.TEXT_DISABLED : KeysetTheme.TEXT_BODY, screenAlpha));
     }
-    if (!shareDisabled)
-      shareTargets.add(new ShareTarget("gen", shareBtnX, curY, shareBtnW, shareBtnH));
-    curY += shareBtnH + gapSm;
+    if (!shareDisabled) shareTargets.add(new ShareTarget("gen", shareBtnX, selY, btnW, rowH));
 
-    // Code result (shown after successful upload)
+    // Profile dropdown overlay — drawn after super.render() in render() to stay on top
+    if (shareDropdownOpen && client != null) {
+      java.util.List<KeysetProfile> profiles;
+      try {
+        profiles = new ArrayList<>(service.getConfig(client).getProfiles().values());
+      } catch (IOException e) {
+        profiles = Collections.emptyList();
+      }
+      int dropItemH = 18;
+      int dropY = shareDropdownSelY + 22;
+      for (int i = 0; i < profiles.size(); i++) {
+        KeysetProfile p = profiles.get(i);
+        int itemY = dropY + 2 + i * dropItemH;
+        shareTargets.add(new ShareTarget("profile-" + p.getId(), rowX, itemY, elemW, dropItemH));
+      }
+    }
+
+    curY += rowH;
+
+    // Code result box
     if (!shareResultCode.isEmpty()) {
+      curY += gap;
       String displayCode =
           shareResultCode.length() >= 8
               ? shareResultCode.substring(0, 4) + "-" + shareResultCode.substring(4)
               : shareResultCode;
-      int codeW = textRenderer.getWidth(displayCode) + 16;
+      int codeBoxW = Math.min(tabContentW - 80, 400);
+      int codeBoxX = tabContentX + (tabContentW - codeBoxW) / 2;
       ctx.fill(
-          contentX,
+          codeBoxX,
           curY,
-          contentX + codeW,
-          curY + 14,
+          codeBoxX + codeBoxW,
+          curY + codeBoxH,
           KeysetTheme.withAlpha(KeysetTheme.CHIP_BG, screenAlpha));
       ctx.drawBorder(
-          contentX, curY, codeW, 14, KeysetTheme.withAlpha(KeysetTheme.ACCENT, screenAlpha));
-      ctx.drawTextWithShadow(
+          codeBoxX,
+          curY,
+          codeBoxW,
+          codeBoxH,
+          KeysetTheme.withAlpha(KeysetTheme.ACCENT_DIM, screenAlpha));
+      ctx.drawCenteredTextWithShadow(
           textRenderer,
           Text.literal(displayCode),
-          contentX + 8,
-          curY + 3,
+          cx,
+          curY + (codeBoxH - 9) / 2,
           KeysetTheme.withAlpha(KeysetTheme.ACCENT, screenAlpha));
+      curY += codeBoxH + gapSm;
       long daysLeft = Math.max(0, (shareExpiresAt - System.currentTimeMillis()) / 86_400_000L);
-      ctx.drawTextWithShadow(
+      ctx.drawCenteredTextWithShadow(
           textRenderer,
-          Text.literal(Text.translatable("keyset.share.expires", daysLeft).getString()),
-          contentX + codeW + gap,
-          curY + 3,
+          Text.literal("Expires in " + daysLeft + " days"),
+          cx,
+          curY,
           KeysetTheme.withAlpha(KeysetTheme.TEXT_MUTED, screenAlpha));
-      int copyW = 72, copyH = 14;
-      int copyX = contentX + contentW - copyW;
+      curY += labelH + gapSm;
+      int copyW = 100;
+      int copyX = tabContentX + (tabContentW - copyW) / 2;
       boolean copyHov =
           !isOverTutorialPanel(mx, my)
               && mx >= copyX
               && mx < copyX + copyW
               && my >= curY
-              && my < curY + copyH;
+              && my < curY + copyBtnH;
       ctx.fill(
           copyX,
           curY,
           copyX + copyW,
-          curY + copyH,
+          curY + copyBtnH,
           KeysetTheme.withAlpha(
               copyHov ? KeysetTheme.BG_TAB_ACTIVE : KeysetTheme.BG_SURFACE, screenAlpha));
       ctx.drawBorder(
           copyX,
           curY,
           copyW,
-          copyH,
+          copyBtnH,
           KeysetTheme.withAlpha(copyHov ? KeysetTheme.ACCENT : KeysetTheme.BORDER, screenAlpha));
       ctx.drawCenteredTextWithShadow(
           textRenderer,
-          Text.translatable("keyset.share.copied"),
+          Text.literal("Copy"),
           copyX + copyW / 2,
-          curY + 3,
+          curY + 6,
           KeysetTheme.withAlpha(KeysetTheme.TEXT_BODY, screenAlpha));
-      shareTargets.add(new ShareTarget("copy", copyX, curY, copyW, copyH));
-      curY += copyH + gap;
+      shareTargets.add(new ShareTarget("copy", copyX, curY, copyW, copyBtnH));
+      curY += copyBtnH;
     }
 
-    // ── Section 2: Your Shared Profiles ────────────────────────────────────
-    curY += gapSm;
-    ctx.drawTextWithShadow(
-        textRenderer,
-        Text.translatable("keyset.share.section.history"),
-        contentX,
-        curY,
-        KeysetTheme.withAlpha(KeysetTheme.TEXT_MUTED, screenAlpha));
+    // ── Separator ─────────────────────────────────────────────────────────────
+    curY += sectionGap;
     ctx.fill(
-        contentX + textRenderer.getWidth(Text.translatable("keyset.share.section.history")) + 4,
-        curY + 5,
-        contentX + contentW,
-        curY + 6,
+        tabContentX + 40,
+        curY,
+        tabContentX + tabContentW - 40,
+        curY + sep,
         KeysetTheme.withAlpha(KeysetTheme.BORDER, screenAlpha));
-    curY += 14;
+    curY += sep + sectionGap;
 
-    int historyBotLimit = mainY + mainH - gap - 18 - gap - 14 - gap; // stop above section 3
-    if (shareHistory.isEmpty()) {
-      ctx.drawTextWithShadow(
-          textRenderer,
-          Text.translatable("keyset.share.empty"),
-          contentX,
-          curY + 4,
-          KeysetTheme.withAlpha(KeysetTheme.TEXT_DISABLED, screenAlpha));
-      curY += 20;
-    } else {
-      int rowH = 20;
-      int delBtnW = 16, delBtnH = 14;
-      int codeColW = textRenderer.getWidth("ABCD-EFGH") + 12;
-      int expiresColW = textRenderer.getWidth("000 days left") + 8;
-      for (int i = 0; i < shareHistory.size() && curY + rowH <= historyBotLimit; i++) {
-        ShareHistoryStore.Entry entry = shareHistory.get(i);
-        boolean rowHov =
-            !isOverTutorialPanel(mx, my)
-                && mx >= contentX
-                && mx < contentX + contentW - delBtnW - gapSm
-                && my >= curY
-                && my < curY + rowH;
-        if (rowHov) {
-          ctx.fill(
-              contentX,
-              curY,
-              contentX + contentW,
-              curY + rowH,
-              KeysetTheme.withAlpha(KeysetTheme.BG_HOVER, screenAlpha));
-        }
-        int maxNameW = contentW - codeColW - expiresColW - delBtnW - gapSm * 3;
-        String nameStr = entry.profileName();
-        if (textRenderer.getWidth(nameStr) > maxNameW) {
-          nameStr = textRenderer.trimToWidth(nameStr, maxNameW - 6) + "…";
-        }
-        ctx.drawTextWithShadow(
-            textRenderer,
-            Text.literal(nameStr),
-            contentX,
-            curY + 5,
-            KeysetTheme.withAlpha(KeysetTheme.TEXT_BODY, screenAlpha));
-        String code = entry.code();
-        String dispCode =
-            code.length() >= 8 ? code.substring(0, 4) + "-" + code.substring(4) : code;
-        int chipX = contentX + maxNameW + gapSm;
-        ctx.fill(
-            chipX,
-            curY + 3,
-            chipX + codeColW,
-            curY + rowH - 3,
-            KeysetTheme.withAlpha(KeysetTheme.CHIP_BG, screenAlpha));
-        ctx.drawBorder(
-            chipX,
-            curY + 3,
-            codeColW,
-            rowH - 6,
-            KeysetTheme.withAlpha(KeysetTheme.BORDER, screenAlpha));
-        ctx.drawCenteredTextWithShadow(
-            textRenderer,
-            Text.literal(dispCode),
-            chipX + codeColW / 2,
-            curY + 6,
-            KeysetTheme.withAlpha(KeysetTheme.TEXT_BODY, screenAlpha));
-        long daysLeft = Math.max(0, (entry.expiresAt() - System.currentTimeMillis()) / 86_400_000L);
-        String daysStr =
-            daysLeft > 0
-                ? Text.translatable("keyset.share.expires", daysLeft).getString()
-                : Text.translatable("keyset.share.expired").getString();
-        ctx.drawTextWithShadow(
-            textRenderer,
-            Text.literal(daysStr),
-            chipX + codeColW + gapSm,
-            curY + 5,
-            KeysetTheme.withAlpha(
-                daysLeft > 0 ? KeysetTheme.TEXT_MUTED : KeysetTheme.ERROR, screenAlpha));
-        int delX = contentX + contentW - delBtnW;
-        int delY = curY + (rowH - delBtnH) / 2;
-        boolean delHov =
-            !isOverTutorialPanel(mx, my)
-                && mx >= delX
-                && mx < delX + delBtnW
-                && my >= delY
-                && my < delY + delBtnH;
-        ctx.fill(
-            delX,
-            delY,
-            delX + delBtnW,
-            delY + delBtnH,
-            KeysetTheme.withAlpha(
-                delHov ? KeysetTheme.CHIP_ERR_BG : KeysetTheme.BG_SURFACE, screenAlpha));
-        ctx.drawBorder(
-            delX,
-            delY,
-            delBtnW,
-            delBtnH,
-            KeysetTheme.withAlpha(
-                delHov ? KeysetTheme.CHIP_ERR_BR : KeysetTheme.BORDER, screenAlpha));
-        ctx.drawCenteredTextWithShadow(
-            textRenderer,
-            Text.literal("✕"),
-            delX + delBtnW / 2,
-            delY + 2,
-            KeysetTheme.withAlpha(KeysetTheme.ERROR, screenAlpha));
-        shareTargets.add(new ShareTarget("del-" + i, delX, delY, delBtnW, delBtnH));
-        curY += rowH;
-      }
-    }
-
-    // ── Section 3: Import (bottom-anchored, matches widget position) ──────────
-    int importRowY = mainY + mainH - gap - 18;
-    int sec3HeaderY = importRowY - gap - 14;
-    ctx.drawTextWithShadow(
+    // ── IMPORT ────────────────────────────────────────────────────────────────
+    ctx.drawCenteredTextWithShadow(
         textRenderer,
         Text.translatable("keyset.share.section.import"),
-        contentX,
-        sec3HeaderY,
+        cx,
+        curY,
         KeysetTheme.withAlpha(KeysetTheme.TEXT_MUTED, screenAlpha));
-    ctx.fill(
-        contentX + textRenderer.getWidth(Text.translatable("keyset.share.section.import")) + 4,
-        sec3HeaderY + 5,
-        contentX + contentW,
-        sec3HeaderY + 6,
-        KeysetTheme.withAlpha(KeysetTheme.BORDER, screenAlpha));
+    curY += labelH + gapSm;
 
-    int importBtnW = 60, importBtnH = 18;
-    int importBtnX = contentX + contentW - importBtnW;
+    int impTotalW = elemW + gap + btnW;
+    int impX = tabContentX + (tabContentW - impTotalW) / 2;
+    int importRowY = curY;
+    int importBtnX = impX + elemW + gap;
     boolean importDisabled = shareDownloading;
     boolean importHov =
         !importDisabled
             && !isOverTutorialPanel(mx, my)
             && mx >= importBtnX
-            && mx < importBtnX + importBtnW
+            && mx < importBtnX + btnW
             && my >= importRowY
-            && my < importRowY + importBtnH;
+            && my < importRowY + rowH;
     ctx.fill(
         importBtnX,
         importRowY,
-        importBtnX + importBtnW,
-        importRowY + importBtnH,
+        importBtnX + btnW,
+        importRowY + rowH,
         KeysetTheme.withAlpha(
             importHov ? KeysetTheme.BG_TAB_ACTIVE : KeysetTheme.BG_SURFACE,
             importDisabled ? screenAlpha * 0.5f : screenAlpha));
     ctx.drawBorder(
         importBtnX,
         importRowY,
-        importBtnW,
-        importBtnH,
+        btnW,
+        rowH,
         KeysetTheme.withAlpha(
             importHov ? KeysetTheme.ACCENT : KeysetTheme.BORDER,
             importDisabled ? screenAlpha * 0.5f : screenAlpha));
@@ -1852,20 +2122,217 @@ public final class KeysetScreen extends Screen {
       ctx.drawCenteredTextWithShadow(
           textRenderer,
           Text.literal(frames[frame]),
-          importBtnX + importBtnW / 2,
-          importRowY + 5,
+          importBtnX + btnW / 2,
+          importRowY + (rowH - 9) / 2,
           KeysetTheme.withAlpha(KeysetTheme.ACCENT, screenAlpha));
     } else {
       ctx.drawCenteredTextWithShadow(
           textRenderer,
           Text.translatable("keyset.share.import"),
-          importBtnX + importBtnW / 2,
-          importRowY + 5,
+          importBtnX + btnW / 2,
+          importRowY + (rowH - 9) / 2,
           KeysetTheme.withAlpha(
               importDisabled ? KeysetTheme.TEXT_DISABLED : KeysetTheme.TEXT_BODY, screenAlpha));
     }
     if (!importDisabled)
-      shareTargets.add(new ShareTarget("import", importBtnX, importRowY, importBtnW, importBtnH));
+      shareTargets.add(new ShareTarget("import", importBtnX, importRowY, btnW, rowH));
+    curY += rowH;
+
+    // ── Separator ─────────────────────────────────────────────────────────────
+    curY += sectionGap;
+    ctx.fill(
+        tabContentX + 40,
+        curY,
+        tabContentX + tabContentW - 40,
+        curY + sep,
+        KeysetTheme.withAlpha(KeysetTheme.BORDER, screenAlpha));
+    curY += sep + sectionGap;
+
+    // ── YOUR CODES ────────────────────────────────────────────────────────────
+    String codesLabel = "YOUR CODES " + (codesExpanded ? "▾" : "▸");
+    boolean codesHeaderHov =
+        !isOverTutorialPanel(mx, my)
+            && mx >= tabContentX
+            && mx < tabContentX + tabContentW
+            && my >= curY
+            && my < curY + labelH;
+    ctx.drawCenteredTextWithShadow(
+        textRenderer,
+        Text.literal(codesLabel),
+        cx,
+        curY,
+        KeysetTheme.withAlpha(
+            codesHeaderHov ? KeysetTheme.TEXT_BODY : KeysetTheme.TEXT_MUTED, screenAlpha));
+    shareTargets.add(new ShareTarget("codes-header", tabContentX, curY, tabContentW, labelH));
+    curY += labelH;
+
+    if (codesExpanded) {
+      if (shareHistory.isEmpty()) {
+        ctx.drawCenteredTextWithShadow(
+            textRenderer,
+            Text.literal("No shared profiles yet."),
+            cx,
+            curY + gapSm + 3,
+            KeysetTheme.withAlpha(KeysetTheme.TEXT_DISABLED, screenAlpha));
+      } else {
+        curY += gapSm;
+        int delBtnW = 12, delBtnH = 12;
+        int codeColW = textRenderer.getWidth("ABCD-EFGH") + 10;
+        int expiresColW = textRenderer.getWidth("000d") + 6;
+        for (int i = 0; i < shareHistory.size(); i++) {
+          ShareHistoryStore.Entry entry = shareHistory.get(i);
+          boolean rowHov =
+              !isOverTutorialPanel(mx, my)
+                  && mx >= tabContentX
+                  && mx < tabContentX + tabContentW - delBtnW - gapSm
+                  && my >= curY
+                  && my < curY + rowH;
+          if (rowHov) {
+            ctx.fill(
+                tabContentX,
+                curY,
+                tabContentX + tabContentW,
+                curY + rowH,
+                KeysetTheme.withAlpha(KeysetTheme.BG_HOVER, screenAlpha));
+          }
+          long daysLeft =
+              Math.max(0, (entry.expiresAt() - System.currentTimeMillis()) / 86_400_000L);
+          int maxNameW = tabContentW - codeColW - expiresColW - delBtnW - gapSm * 3;
+          String nameStr = entry.profileName();
+          if (textRenderer.getWidth(nameStr) > maxNameW)
+            nameStr = textRenderer.trimToWidth(nameStr, maxNameW - 6) + "…";
+          ctx.drawTextWithShadow(
+              textRenderer,
+              Text.literal(nameStr),
+              tabContentX,
+              curY + 6,
+              KeysetTheme.withAlpha(KeysetTheme.TEXT_BODY, screenAlpha));
+          String code = entry.code();
+          String dispCode =
+              code.length() >= 8 ? code.substring(0, 4) + "-" + code.substring(4) : code;
+          int chipX = tabContentX + maxNameW + gapSm;
+          ctx.fill(
+              chipX,
+              curY + 4,
+              chipX + codeColW,
+              curY + rowH - 4,
+              KeysetTheme.withAlpha(KeysetTheme.CHIP_BG, screenAlpha));
+          ctx.drawBorder(
+              chipX,
+              curY + 4,
+              codeColW,
+              rowH - 8,
+              KeysetTheme.withAlpha(KeysetTheme.BORDER, screenAlpha));
+          ctx.drawCenteredTextWithShadow(
+              textRenderer,
+              Text.literal(dispCode),
+              chipX + codeColW / 2,
+              curY + 7,
+              KeysetTheme.withAlpha(KeysetTheme.TEXT_BODY, screenAlpha));
+          int exColX = chipX + codeColW + gapSm;
+          int dayColor =
+              daysLeft > 30
+                  ? KeysetTheme.SUCCESS
+                  : daysLeft > 10 ? KeysetTheme.WARNING : KeysetTheme.ERROR;
+          ctx.drawTextWithShadow(
+              textRenderer,
+              Text.literal(daysLeft > 0 ? daysLeft + "d" : "exp"),
+              exColX,
+              curY + 6,
+              KeysetTheme.withAlpha(dayColor, screenAlpha));
+          int delX = tabContentX + tabContentW - delBtnW;
+          int delY = curY + (rowH - delBtnH) / 2;
+          boolean delHov =
+              !isOverTutorialPanel(mx, my)
+                  && mx >= delX
+                  && mx < delX + delBtnW
+                  && my >= delY
+                  && my < delY + delBtnH;
+          ctx.fill(
+              delX,
+              delY,
+              delX + delBtnW,
+              delY + delBtnH,
+              KeysetTheme.withAlpha(
+                  delHov ? KeysetTheme.CHIP_ERR_BG : KeysetTheme.BG_SURFACE, screenAlpha));
+          ctx.drawBorder(
+              delX,
+              delY,
+              delBtnW,
+              delBtnH,
+              KeysetTheme.withAlpha(
+                  delHov ? KeysetTheme.CHIP_ERR_BR : KeysetTheme.BORDER, screenAlpha));
+          ctx.drawCenteredTextWithShadow(
+              textRenderer,
+              Text.literal("✕"),
+              delX + delBtnW / 2,
+              delY + 1,
+              KeysetTheme.withAlpha(KeysetTheme.ERROR, screenAlpha));
+          shareTargets.add(new ShareTarget("del-" + i, delX, delY, delBtnW, delBtnH));
+          curY += rowH;
+        }
+      }
+    }
+  }
+
+  private void renderShareDropdownOverlay(DrawContext ctx, int mx, int my) {
+    if (!shareDropdownOpen || client == null) return;
+    java.util.List<KeysetProfile> profiles;
+    try {
+      profiles = new ArrayList<>(service.getConfig(client).getProfiles().values());
+    } catch (IOException e) {
+      profiles = Collections.emptyList();
+    }
+    int rowX = shareDropdownRowX;
+    int selY = shareDropdownSelY;
+    int elemW = shareDropdownElemW;
+    int dropItemH = 18;
+    int dropH = profiles.size() * dropItemH + 4;
+    int dropY = selY + 22;
+    ctx.fill(
+        mainX + KeysetTheme.PAD,
+        dropY,
+        mainX + mainW - KeysetTheme.PAD,
+        mainY + mainH - KeysetTheme.PAD,
+        KeysetTheme.withAlpha(KeysetTheme.BG_SURFACE, screenAlpha));
+    ctx.fill(
+        rowX,
+        dropY,
+        rowX + elemW,
+        dropY + dropH,
+        KeysetTheme.withAlpha(KeysetTheme.BG_SURFACE, screenAlpha));
+    ctx.drawBorder(
+        rowX, dropY, elemW, dropH, KeysetTheme.withAlpha(KeysetTheme.ACCENT, screenAlpha));
+    for (int i = 0; i < profiles.size(); i++) {
+      KeysetProfile p = profiles.get(i);
+      int itemY = dropY + 2 + i * dropItemH;
+      boolean itemHov =
+          !isOverTutorialPanel(mx, my)
+              && mx >= rowX
+              && mx < rowX + elemW
+              && my >= itemY
+              && my < itemY + dropItemH;
+      if (itemHov) {
+        ctx.fill(
+            rowX + 1,
+            itemY,
+            rowX + elemW - 1,
+            itemY + dropItemH,
+            KeysetTheme.withAlpha(KeysetTheme.BG_HOVER, screenAlpha));
+      }
+      boolean isSel = p.getId().equals(shareTargetProfileId);
+      boolean pCanShare = p.getBindings() != null && !p.getBindings().isEmpty();
+      int itemColor =
+          isSel
+              ? KeysetTheme.ACCENT
+              : (pCanShare ? KeysetTheme.TEXT_BODY : KeysetTheme.TEXT_DISABLED);
+      ctx.drawTextWithShadow(
+          textRenderer,
+          Text.literal((isSel ? "✓ " : "  ") + p.getName() + (pCanShare ? "" : " (empty)")),
+          rowX + 6,
+          itemY + 5,
+          KeysetTheme.withAlpha(itemColor, screenAlpha));
+    }
   }
 
   private Path shareHistoryPath() {
@@ -1874,19 +2341,23 @@ public final class KeysetScreen extends Screen {
   }
 
   private void doShareUpload() {
-    if (selectedProfileId == null || client == null) return;
+    if (shareTargetProfileId == null || client == null) return;
     String json;
     String profileName;
     try {
-      json = service.exportShareProfileJson(client, selectedProfileId);
-      KeysetProfile prof = service.getConfig(client).getProfile(selectedProfileId);
-      profileName = prof != null ? prof.getName() : selectedProfileId;
+      KeysetProfile prof = service.getConfig(client).getProfile(shareTargetProfileId);
+      if (prof == null || prof.getBindings() == null || prof.getBindings().isEmpty()) {
+        setStatus(Text.translatable("keyset.share.error.empty_profile").getString(), true);
+        return;
+      }
+      json = service.exportShareProfileJson(client, shareTargetProfileId);
+      profileName = prof.getName();
     } catch (IOException | IllegalArgumentException e) {
       setStatus("Share: " + e.getMessage(), true);
       return;
     }
     String username = client.getSession().getUsername();
-    String capturedProfileId = selectedProfileId;
+    String capturedProfileId = shareTargetProfileId;
     String capturedProfileName = profileName;
     shareUploading = true;
     shareResultCode = "";
@@ -1904,6 +2375,8 @@ public final class KeysetScreen extends Screen {
                       System.currentTimeMillis(),
                       result.expiresAt()));
               ShareHistoryStore.save(shareHistoryPath(), shareHistory);
+              clearChildren();
+              init();
             },
             MinecraftClient.getInstance()::execute)
         .exceptionally(
@@ -1927,8 +2400,8 @@ public final class KeysetScreen extends Screen {
   private void doShareImport() {
     if (client == null || shareCodeField == null) return;
     String rawCode = shareCodeField.getText().replaceAll("[\\s\\-]", "").toUpperCase();
-    if (rawCode.length() != 8) {
-      setStatus("Enter a valid 8-character share code.", true);
+    if (rawCode.length() != 8 || !rawCode.matches("[A-Z0-9]+")) {
+      importCodeInvalid = true;
       return;
     }
     shareDownloading = true;
@@ -2060,16 +2533,75 @@ public final class KeysetScreen extends Screen {
     } else {
       ctx.drawCenteredTextWithShadow(textRenderer, doneText, bx + bw / 2, by + 5, doneCol);
     }
+    Text escHint = Text.literal("[Esc]");
+    ctx.drawTextWithShadow(
+        textRenderer,
+        escHint,
+        bx - textRenderer.getWidth(escHint) - KeysetTheme.GAP_SM,
+        by + 5,
+        KeysetTheme.withAlpha(KeysetTheme.TEXT_MUTED, screenAlpha * 0.7f));
   }
 
   private void renderFooter(DrawContext ctx) {
-    if (statusMsg.isEmpty()) return;
-    ctx.drawTextWithShadow(
-        textRenderer,
-        Text.literal(statusMsg),
+    // Separator line at bottom of content area
+    int sepY = sidebarY + mainH;
+    ctx.fill(
         KeysetTheme.PAD,
-        height - KeysetTheme.FOOTER_H / 2 - 4,
-        statusError ? KeysetTheme.ERROR : KeysetTheme.SUCCESS);
+        sepY,
+        width - KeysetTheme.PAD,
+        sepY + 1,
+        KeysetTheme.withAlpha(KeysetTheme.BORDER, screenAlpha * 0.6f));
+
+    long now = System.currentTimeMillis();
+    toastQueue.removeIf(e -> now - e.createdMs() > 6_300L);
+    if (toastQueue.isEmpty()) return;
+
+    int toastW = 220;
+    int toastH = 18;
+    int toastGap = 4;
+    int baseX = KeysetTheme.PAD;
+    int baseY = height - toastH - KeysetTheme.PAD; // aligned with done button
+
+    for (int i = toastQueue.size() - 1; i >= 0; i--) {
+      ToastEntry e = toastQueue.get(i);
+      long age = now - e.createdMs();
+
+      float target;
+      if (age < 200L) {
+        float t = (float) age / 200f;
+        target = 1f - (1f - t) * (1f - t); // ease-out quad slide in
+      } else if (age > 5_800L) {
+        target = 1f - Math.min(1f, (float) (age - 5_800L) / 300f);
+      } else {
+        target = 1f;
+      }
+
+      float smooth = KeysetTheme.expLerp(e.slideProgress(), target, frameDt, 30f);
+      toastQueue.set(i, new ToastEntry(e.msg(), e.error(), e.createdMs(), smooth));
+
+      int rowOffset = (toastQueue.size() - 1 - i) * (toastH + toastGap);
+      int slideOffset = (int) ((1f - smooth) * (toastH + 20));
+      int ty = baseY - rowOffset + slideOffset;
+      if (ty > height) continue;
+
+      int bg = e.error() ? 0xFF2A1010 : 0xFF0E2018;
+      int border = e.error() ? KeysetTheme.ERROR : KeysetTheme.SUCCESS;
+
+      ctx.fill(baseX, ty, baseX + toastW, ty + toastH, KeysetTheme.withAlpha(bg, smooth));
+      ctx.drawBorder(baseX, ty, toastW, toastH, KeysetTheme.withAlpha(border, smooth));
+      ctx.fill(baseX, ty, baseX + 2, ty + toastH, KeysetTheme.withAlpha(border, smooth));
+
+      String msgStr = e.msg();
+      if (textRenderer.getWidth(msgStr) > toastW - 14) {
+        msgStr = textRenderer.trimToWidth(msgStr, toastW - 20) + "…";
+      }
+      ctx.drawTextWithShadow(
+          textRenderer,
+          Text.literal(msgStr),
+          baseX + 7,
+          ty + (toastH - 9) / 2,
+          KeysetTheme.withAlpha(e.error() ? KeysetTheme.ERROR : KeysetTheme.SUCCESS, smooth));
+    }
   }
 
   // ── Profile actions ───────────────────────────────────────────────────────────
@@ -2273,6 +2805,8 @@ public final class KeysetScreen extends Screen {
         return didSaveLive;
       case AUTO_SWITCH:
         return currentTab == Tab.AUTO_SWITCH;
+      case SHARE:
+        return true;
       default:
         return true;
     }
@@ -2281,6 +2815,7 @@ public final class KeysetScreen extends Screen {
   private void advanceTutorial() {
     TutorialStep[] steps = TutorialStep.values();
     tutorialStep = steps[tutorialStep.ordinal() + 1];
+    lastStepComplete = false;
     if (tutorialStep == TutorialStep.INTRO) {
       // No setup needed.
     } else if (tutorialStep == TutorialStep.CREATE) {
@@ -2294,6 +2829,7 @@ public final class KeysetScreen extends Screen {
     } else if (tutorialStep == TutorialStep.SAVE_LIVE) {
       didSaveLive = false;
     } else if (tutorialStep == TutorialStep.DONE) {
+      playTutorialCompleteSound();
       tutorialActive = false;
       service.setTutorialComplete(client, true);
     }
@@ -2305,7 +2841,30 @@ public final class KeysetScreen extends Screen {
     advanceTutorial();
   }
 
+  private void playStepCompleteSound() {
+    if (client == null) return;
+    client
+        .getSoundManager()
+        .play(PositionedSoundInstance.master(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 1.4f, 0.6f));
+  }
+
+  private void playTutorialCompleteSound() {
+    if (client == null) return;
+    client
+        .getSoundManager()
+        .play(PositionedSoundInstance.master(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 1.2f, 1.0f));
+  }
+
   private void closeTutorial() {
+    introOpenedMs = -1;
+    tutHlX = -1;
+    tutPanelX = -1;
+    tutPanelY = -1;
+    tutPanelW = -1;
+    tutPanelH = -1;
+    tutPanelDragging = false;
+    tutPanelMinimized = false;
+    tutPanelResizing = false;
     tutorialActive = false;
     service.setTutorialComplete(client, true);
     clearChildren();
@@ -2315,15 +2874,32 @@ public final class KeysetScreen extends Screen {
   private void renderTutorialPanel(DrawContext ctx, int mx, int my) {
     int pw = tutorialPanelWidth();
     int ph = tutorialPanelHeight();
-    int px = mainX + mainW - pw - 10;
-    int py = mainY + mainH - ph - 10;
+    int px = tutorialPanelX();
+    int py = tutorialPanelY();
 
-    ctx.fill(px + 3, py + 3, px + pw + 3, py + ph + 3, 0x60000000);
-    ctx.fill(px, py, px + pw, py + ph, 0xFF1E2125); // fully opaque — nothing bleeds through
+    if (!tutPanelMinimized) {
+      ctx.fill(px + 3, py + 3, px + pw + 3, py + ph + 3, 0x60000000);
+    }
+    ctx.fill(px, py, px + pw, py + ph, 0xFF1E2125);
     ctx.drawBorder(px, py, pw, ph, KeysetTheme.ACCENT);
     ctx.fill(px, py, px + pw, py + 18, KeysetTheme.BG_SIDEBAR);
     ctx.fill(px, py + 18, px + pw, py + 19, KeysetTheme.ACCENT_DIM);
     renderTutorialCloseButton(ctx, mx, my, px, py);
+    renderTutorialMinimizeButton(ctx, mx, my, px, py);
+    // Resize grip — top-right corner of title bar (3 diagonal dots)
+    if (!tutPanelMinimized) {
+      int gx = px + pw - 9, gy = py + 5;
+      ctx.fill(gx + 6, gy, gx + 8, gy + 2, KeysetTheme.BORDER);
+      ctx.fill(gx + 3, gy + 3, gx + 5, gy + 5, KeysetTheme.BORDER);
+      ctx.fill(gx, gy + 6, gx + 2, gy + 8, KeysetTheme.BORDER);
+    }
+
+    if (tutPanelMinimized) {
+      ctx.enableScissor(px, py, px + pw, py + 19);
+      renderTutorialStepContent(ctx, px, py, pw, ph);
+      ctx.disableScissor();
+      return;
+    }
 
     renderTutorialStepContent(ctx, px, py, pw, ph);
 
@@ -2384,16 +2960,38 @@ public final class KeysetScreen extends Screen {
     boolean closeHov = mx >= px + 5 && mx < px + 15 && my >= py + 4 && my < py + 14;
     ctx.drawCenteredTextWithShadow(
         textRenderer,
-        Text.literal("x"),
+        Text.literal("×"),
         px + 10,
         py + 5,
         closeHov ? KeysetTheme.ERROR : KeysetTheme.TEXT_MUTED);
   }
 
-  private void renderTutorialIntroPage(DrawContext ctx, int mx, int my) {
-    ctx.fill(0, 0, width, height, 0xF20B0D10);
+  private void renderTutorialMinimizeButton(DrawContext ctx, int mx, int my, int px, int py) {
+    boolean minHov = mx >= px + 18 && mx < px + 28 && my >= py + 4 && my < py + 14;
+    ctx.drawCenteredTextWithShadow(
+        textRenderer,
+        Text.literal(tutPanelMinimized ? "+" : "−"),
+        px + 23,
+        py + 5,
+        minHov ? KeysetTheme.TEXT_TITLE : KeysetTheme.TEXT_MUTED);
+  }
 
+  private void renderTutorialIntroPage(DrawContext ctx, int mx, int my) {
+    if (introOpenedMs < 0) {
+      introOpenedMs = System.currentTimeMillis();
+    }
     long now = System.currentTimeMillis();
+    long elapsed = now - introOpenedMs;
+
+    int bgAlpha = (int) (0xF2 * KeysetTheme.easeOutQuart(Math.min(1f, elapsed / 500f)));
+    ctx.fill(0, 0, width, height, (bgAlpha << 24) | 0x0B0D10);
+
+    float titleProg = KeysetTheme.easeOutQuart(Math.min(1f, elapsed / 300f));
+    float subProg = KeysetTheme.easeOutQuart(Math.min(1f, Math.max(0f, elapsed - 80L) / 300f));
+    float bodyProg = KeysetTheme.easeOutQuart(Math.min(1f, Math.max(0f, elapsed - 160L) / 300f));
+    float creditProg = KeysetTheme.easeOutQuart(Math.min(1f, Math.max(0f, elapsed - 200L) / 300f));
+    float btnProg = KeysetTheme.easeOutQuart(Math.min(1f, Math.max(0f, elapsed - 240L) / 300f));
+
     int centerX = width / 2;
     int centerY = height / 2;
     int titleY = centerY - 84;
@@ -2401,32 +2999,37 @@ public final class KeysetScreen extends Screen {
     renderIntroKeycapBackground(ctx, now);
     float titlePulse = (float) (Math.sin(now / 520.0) * 0.04 + 1.0);
     int titleColor =
-        KeysetTheme.withAlpha(KeysetTheme.ACCENT, (float) (0.88 + Math.sin(now / 700.0) * 0.12));
+        KeysetTheme.withAlpha(
+            KeysetTheme.ACCENT, (float) (0.88 + Math.sin(now / 700.0) * 0.12) * titleProg);
     renderScaledCenteredText(
         ctx,
         Text.literal("Keyset").styled(style -> style.withBold(true)),
         centerX,
-        titleY + 38,
+        titleY + 38 + (int) ((1f - titleProg) * 40),
         2.4f * titlePulse,
         titleColor);
     ctx.drawCenteredTextWithShadow(
         textRenderer,
         Text.literal("Profiles for every way you play"),
         centerX,
-        centerY - 24,
-        KeysetTheme.TEXT_TITLE);
+        centerY - 24 + (int) ((1f - subProg) * 40),
+        KeysetTheme.withAlpha(KeysetTheme.TEXT_TITLE, subProg));
 
     var lines =
         textRenderer.wrapLines(
             Text.translatable("keyset.tutorial.intro.body"), Math.min(360, width - 48));
     for (int i = 0; i < Math.min(lines.size(), 3); i++) {
       ctx.drawCenteredTextWithShadow(
-          textRenderer, lines.get(i), centerX, centerY - 4 + i * 12, KeysetTheme.TEXT_BODY);
+          textRenderer,
+          lines.get(i),
+          centerX,
+          centerY - 4 + i * 12 + (int) ((1f - bodyProg) * 40),
+          KeysetTheme.withAlpha(KeysetTheme.TEXT_BODY, bodyProg));
     }
 
-    renderIntroCredit(ctx, centerX, centerY + 36);
+    renderIntroCredit(ctx, centerX, centerY + 36 + (int) ((1f - creditProg) * 40));
 
-    int buttonY = centerY + 56;
+    int buttonY = centerY + 56 + (int) ((1f - btnProg) * 40);
     renderIntroButton(
         ctx,
         Text.translatable("keyset.tutorial.start_tutorial"),
@@ -2445,6 +3048,14 @@ public final class KeysetScreen extends Screen {
         mx,
         my,
         false);
+    if (btnProg < 1f) {
+      int oa = (int) ((1f - btnProg) * 0xF2);
+      ctx.fill(centerX - 130, buttonY - 2, centerX + 130, buttonY + 24, (oa << 24) | 0x0B0D10);
+    }
+    if (introCloseMs >= 0) {
+      int closeAlpha = (int) (0xF2 * Math.min(1f, (now - introCloseMs) / 300f));
+      ctx.fill(0, 0, width, height, (closeAlpha << 24) | 0x0B0D10);
+    }
   }
 
   private void renderIntroKeycapBackground(DrawContext ctx, long now) {
@@ -2689,7 +3300,11 @@ public final class KeysetScreen extends Screen {
   }
 
   private void renderTutorialStepContent(DrawContext ctx, int px, int py, int pw, int ph) {
-    // Step dots (excluding INTRO, WELCOME, and DONE)
+    // Scale text down at small panel sizes so content fits without clipping
+    float ts = MathHelper.clamp(Math.min(pw / 240.0f, ph / 140.0f), 0.6f, 1.0f);
+    int lh = Math.max(7, (int) (11 * ts)); // scaled line height
+
+    // Step dots in title bar — always native scale
     TutorialStep[] steps = TutorialStep.values();
     int totalSteps = steps.length - 3;
     int activeDotIdx = tutorialStep.ordinal() - 2;
@@ -2701,38 +3316,61 @@ public final class KeysetScreen extends Screen {
       int dx = px + pw - (totalSteps - i) * 10 - 5;
       ctx.fill(dx, py + 5, dx + 6, py + 11, col);
     }
+    ctx.drawTextWithShadow(
+        textRenderer, Text.literal("TUTORIAL"), px + 34, py + 5, KeysetTheme.TEXT_MUTED);
 
-    ctx.drawTextWithShadow(
-        textRenderer, Text.literal("TUTORIAL"), px + 18, py + 5, KeysetTheme.TEXT_MUTED);
-    ctx.drawTextWithShadow(
-        textRenderer,
+    // Title (scaled)
+    panelText(
+        ctx,
         Text.translatable(tutorialStep.titleKey()),
         px + 6,
         py + 24,
+        ts,
         KeysetTheme.TEXT_TITLE);
 
-    var lines = textRenderer.wrapLines(Text.translatable(tutorialStep.bodyKey()), pw - 12);
-    int bodyLineLimit =
-        tutorialStep == TutorialStep.WELCOME
-            ? Math.max(3, (ph - 60) / 11)
-            : Math.max(3, (ph - 86) / 11);
+    // Body (scaled, wrapping accounts for text scale)
+    int effW = (int) ((pw - 12) / ts);
+    var lines = textRenderer.wrapLines(Text.translatable(tutorialStep.bodyKey()), effW);
+    int bodyStart = py + 36;
+    int bodyEnd = tutorialStep == TutorialStep.WELCOME ? py + ph - 26 : py + ph - 42;
+    int bodyLineLimit = Math.max(0, (bodyEnd - bodyStart) / lh);
     for (int i = 0; i < Math.min(lines.size(), bodyLineLimit); i++) {
-      ctx.drawTextWithShadow(
-          textRenderer, lines.get(i), px + 6, py + 36 + i * 11, KeysetTheme.TEXT_BODY);
+      panelOrderedText(ctx, lines.get(i), px + 6, bodyStart + i * lh, ts, KeysetTheme.TEXT_BODY);
     }
 
-    boolean complete = isStepComplete();
-    if (complete && tutorialStep != TutorialStep.WELCOME) {
-      ctx.drawTextWithShadow(
-          textRenderer, Text.literal("✓ Done!"), px + 6, py + ph - 38, KeysetTheme.SUCCESS);
-    } else if (tutorialStep != TutorialStep.WELCOME) {
-      ctx.drawTextWithShadow(
-          textRenderer,
-          Text.translatable(tutorialStep.hintKey()),
-          px + 6,
-          py + ph - 38,
-          KeysetTheme.TEXT_MUTED);
+    // Hint / done marker (scaled)
+    if (tutorialStep != TutorialStep.WELCOME) {
+      boolean complete = isStepComplete();
+      Text hintText =
+          complete ? Text.literal("✓ Done!") : Text.translatable(tutorialStep.hintKey());
+      int hintCol = complete ? KeysetTheme.SUCCESS : KeysetTheme.TEXT_MUTED;
+      panelText(ctx, hintText, px + 6, py + ph - 38, ts, hintCol);
     }
+  }
+
+  private void panelText(DrawContext ctx, Text text, int x, int y, float scale, int color) {
+    if (scale >= 0.99f) {
+      ctx.drawTextWithShadow(textRenderer, text, x, y, color);
+      return;
+    }
+    ctx.getMatrices().push();
+    ctx.getMatrices().translate(x, y, 0);
+    ctx.getMatrices().scale(scale, scale, 1f);
+    ctx.drawTextWithShadow(textRenderer, text, 0, 0, color);
+    ctx.getMatrices().pop();
+  }
+
+  private void panelOrderedText(
+      DrawContext ctx, OrderedText text, int x, int y, float scale, int color) {
+    if (scale >= 0.99f) {
+      ctx.drawTextWithShadow(textRenderer, text, x, y, color);
+      return;
+    }
+    ctx.getMatrices().push();
+    ctx.getMatrices().translate(x, y, 0);
+    ctx.getMatrices().scale(scale, scale, 1f);
+    ctx.drawTextWithShadow(textRenderer, text, 0, 0, color);
+    ctx.getMatrices().pop();
   }
 
   private void renderTutorialArrow(DrawContext ctx) {
@@ -2776,62 +3414,90 @@ public final class KeysetScreen extends Screen {
       int tabW = mainW / 4;
       int tx = mainX + Tab.AUTO_SWITCH.ordinal() * tabW;
       ctx.drawTextWithShadow(textRenderer, downArrow, tx + tabW / 2 - 3, tabBarY - 12, arrowCol);
+    } else if (tutorialStep == TutorialStep.SHARE) {
+      int tabW = mainW / 4;
+      int tx = mainX + Tab.SHARE.ordinal() * tabW;
+      ctx.drawTextWithShadow(textRenderer, downArrow, tx + tabW / 2 - 3, tabBarY - 12, arrowCol);
     }
   }
 
   private void renderTutorialDarkening(DrawContext ctx) {
     if (!tutorialActive || tutorialStep == null) return;
-    int dim = 0x99000000;
-    int fx, fy, fw, fh;
-    if (tutorialStep == TutorialStep.CREATE
-        || tutorialStep == TutorialStep.RENAME
-        || tutorialStep == TutorialStep.ACTIVATE
-        || tutorialStep == TutorialStep.SAVE_LIVE) {
-      fx = sidebarX;
-      fy = sidebarY;
-      fw = sidebarW;
-      fh = mainH;
-    } else if (tutorialStep == TutorialStep.CONFLICTS
-        || tutorialStep == TutorialStep.FIX_CONFLICT) {
-      fx = mainX;
-      fy = tabBarY;
-      fw = mainW;
-      fh = mainH;
-    } else if (tutorialStep == TutorialStep.AUTO_SWITCH) {
-      fx = mainX;
-      fy = tabBarY;
-      fw = mainW;
-      fh = KeysetTheme.TAB_H + 4;
+
+    float[] t = tutorialHighlightTarget();
+    if (tutHlX < 0) {
+      tutHlX = t[0];
+      tutHlY = t[1];
+      tutHlW = t[2];
+      tutHlH = t[3];
+      tutDimAlpha = t[4];
     } else {
-      ctx.fill(0, 0, width, height, 0x55000000);
-      return;
+      tutHlX = KeysetTheme.expLerp(tutHlX, t[0], frameDt, 18f);
+      tutHlY = KeysetTheme.expLerp(tutHlY, t[1], frameDt, 18f);
+      tutHlW = KeysetTheme.expLerp(tutHlW, t[2], frameDt, 18f);
+      tutHlH = KeysetTheme.expLerp(tutHlH, t[3], frameDt, 18f);
+      tutDimAlpha = KeysetTheme.expLerp(tutDimAlpha, t[4], frameDt, 18f);
     }
+
+    int dim = ((int) tutDimAlpha) << 24;
+    int fx = (int) tutHlX, fy = (int) tutHlY, fw = (int) tutHlW, fh = (int) tutHlH;
     if (fy > 0) ctx.fill(0, 0, width, fy, dim);
     if (fy + fh < height) ctx.fill(0, fy + fh, width, height, dim);
     if (fx > 0) ctx.fill(0, fy, fx, fy + fh, dim);
     if (fx + fw < width) ctx.fill(fx + fw, fy, width, fy + fh, dim);
   }
 
+  private float[] tutorialHighlightTarget() {
+    if (tutorialStep == TutorialStep.CREATE
+        || tutorialStep == TutorialStep.RENAME
+        || tutorialStep == TutorialStep.ACTIVATE
+        || tutorialStep == TutorialStep.SAVE_LIVE) {
+      return new float[] {sidebarX, sidebarY, sidebarW, mainH, 0x99};
+    } else if (tutorialStep == TutorialStep.CONFLICTS
+        || tutorialStep == TutorialStep.FIX_CONFLICT) {
+      return new float[] {mainX, tabBarY, mainW, mainH, 0x99};
+    } else if (tutorialStep == TutorialStep.AUTO_SWITCH || tutorialStep == TutorialStep.SHARE) {
+      return new float[] {mainX, tabBarY, mainW, KeysetTheme.TAB_H + 4, 0x99};
+    } else {
+      return new float[] {sidebarX, sidebarY, sidebarW + mainW + KeysetTheme.GAP, mainH, 0x33};
+    }
+  }
+
   private boolean isOverTutorialPanel(int mx, int my) {
     if (!tutorialActive || tutorialStep == TutorialStep.DONE) return false;
     int pw = tutorialPanelWidth();
     int ph = tutorialPanelHeight();
-    int px = mainX + mainW - pw - 10;
-    int py = mainY + mainH - ph - 10;
+    int px = tutorialPanelX();
+    int py = tutorialPanelY();
     return mx >= px && mx < px + pw && my >= py && my < py + ph;
   }
 
   private int tutorialPanelWidth() {
-    return Math.min(TUTORIAL_PANEL_WIDTH, Math.max(260, mainW - 20));
+    if (tutPanelW > 0) return MathHelper.clamp(tutPanelW, 160, width);
+    return MathHelper.clamp((int) (mainW * 0.40f), 160, TUTORIAL_PANEL_WIDTH);
   }
 
   private int tutorialPanelHeight() {
-    return Math.min(TUTORIAL_PANEL_HEIGHT, Math.max(130, mainH - 20));
+    if (tutPanelMinimized) return 19;
+    if (tutPanelH > 0) return MathHelper.clamp(tutPanelH, 80, height);
+    return MathHelper.clamp((int) (mainH * 0.38f), 100, TUTORIAL_PANEL_HEIGHT);
+  }
+
+  private int tutorialPanelX() {
+    int pw = tutorialPanelWidth();
+    if (tutPanelX < 0) return mainX + mainW - pw - 10;
+    return MathHelper.clamp(tutPanelX, 0, Math.max(0, width - pw));
+  }
+
+  private int tutorialPanelY() {
+    int ph = tutorialPanelHeight();
+    if (tutPanelY < 0) return mainY + mainH - ph - 10;
+    return MathHelper.clamp(tutPanelY, 0, Math.max(0, height - ph));
   }
 
   private void setStatus(String msg, boolean error) {
-    statusMsg = msg == null ? "" : msg;
-    statusError = error;
+    if (msg == null || msg.isEmpty()) return;
+    toastQueue.add(new ToastEntry(msg, error, System.currentTimeMillis(), 0f));
   }
 
   @Override

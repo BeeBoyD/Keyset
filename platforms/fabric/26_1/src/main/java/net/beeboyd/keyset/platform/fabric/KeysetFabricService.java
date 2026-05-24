@@ -18,6 +18,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
+import net.beeboyd.keyset.core.autoswitch.AutoSwitchMatcher;
+import net.beeboyd.keyset.core.autoswitch.AutoSwitchRule;
 import net.beeboyd.keyset.core.binding.KeysetBindingDescriptor;
 import net.beeboyd.keyset.core.conflict.KeysetConflict;
 import net.beeboyd.keyset.core.conflict.KeysetConflictReport;
@@ -117,6 +119,10 @@ public final class KeysetFabricService {
   private final ArrayDeque<UndoState> undoStack = new ArrayDeque<UndoState>();
   private final ArrayDeque<UndoState> redoStack = new ArrayDeque<UndoState>();
   private KeysetConflictReport cachedConflictReport;
+  private KeysetAutoSwitchStore autoSwitchStore;
+  private List<AutoSwitchRule> autoSwitchRules;
+  private boolean tutorialComplete;
+  private boolean tutorialLoaded;
 
   public void onClientStarted(Minecraft client) throws IOException {
     ensureLoaded(client);
@@ -240,6 +246,12 @@ public final class KeysetFabricService {
     return codec.toJson(new KeysetProfilesConfig(config.getSchemaVersion(), profileId, profiles));
   }
 
+  /** Exports a single profile as portable share JSON. */
+  public String exportShareProfileJson(Minecraft client, String profileId) throws IOException {
+    ensureLoaded(client);
+    return codec.singleProfileToJson(requireProfile(config, profileId));
+  }
+
   public void clearActiveBinding(Minecraft client, String bindingId) throws IOException {
     ensureLoaded(client);
     requireLiveBinding(client.options, bindingId);
@@ -310,6 +322,20 @@ public final class KeysetFabricService {
     }
 
     return new ImportResult(importedCount, lastImportedProfileId);
+  }
+
+  /** Imports a single profile from portable share JSON. */
+  public ImportResult importShareProfileJson(Minecraft client, String json) throws IOException {
+    ensureLoaded(client);
+    KeysetProfile importedProfile = codec.singleProfileFromJson(json, "temp");
+    KeysetProfilesConfig previousConfig = config;
+    config = KeysetProfiles.createProfile(config, importedProfile.getName());
+    String importedProfileId = findAddedProfileId(previousConfig, config);
+    config =
+        replaceProfileBindings(config, importedProfileId, importedProfile.getBindings(), false);
+    cachedConflictReport = null;
+    save(client);
+    return new ImportResult(1, importedProfileId);
   }
 
   public AutoResolvePlan previewAutoResolve(Minecraft client) throws IOException {
@@ -539,6 +565,115 @@ public final class KeysetFabricService {
       return null;
     }
     return activateProfile(client, profileIds.get(slotIndex));
+  }
+
+  public List<AutoSwitchRule> getAutoSwitchRules(Minecraft client) throws IOException {
+    if (autoSwitchRules == null) {
+      autoSwitchStore = new KeysetAutoSwitchStore(autoSwitchPath(client));
+      autoSwitchRules = autoSwitchStore.load();
+    }
+    return autoSwitchRules;
+  }
+
+  public void addAutoSwitchRule(Minecraft client, AutoSwitchRule rule) throws IOException {
+    getAutoSwitchRules(client).add(rule);
+    autoSwitchStore.save(autoSwitchRules);
+  }
+
+  public void deleteAutoSwitchRule(Minecraft client, int index) throws IOException {
+    List<AutoSwitchRule> rules = getAutoSwitchRules(client);
+    if (index >= 0 && index < rules.size()) {
+      rules.remove(index);
+      autoSwitchStore.save(rules);
+    }
+  }
+
+  public void handleServerJoin(Minecraft client, String serverAddress) {
+    if (serverAddress == null || serverAddress.isEmpty()) {
+      return;
+    }
+    List<AutoSwitchRule> rules;
+    try {
+      rules = getAutoSwitchRules(client);
+    } catch (IOException exception) {
+      LOGGER.warn("Keyset auto-switch: failed to load rules", exception);
+      return;
+    }
+    for (AutoSwitchRule rule : rules) {
+      if (AutoSwitchMatcher.matchesGlob(rule.getPattern(), serverAddress)) {
+        try {
+          ActivationResult result = activateProfile(client, rule.getProfileId());
+          reportStatusNotice(
+              Component.translatable("keyset.status.profile_cycled", result.getProfileName())
+                  .getString(),
+              result.hasConflicts());
+        } catch (IOException | IllegalArgumentException exception) {
+          LOGGER.warn(
+              "Keyset auto-switch: failed to activate profile {} for {}",
+              rule.getProfileId(),
+              serverAddress,
+              exception);
+        }
+        break;
+      }
+    }
+  }
+
+  private Path autoSwitchPath(Minecraft client) {
+    return client.gameDirectory.toPath().resolve("config").resolve("keyset-autoswitch.json");
+  }
+
+  public boolean isTutorialComplete(Minecraft client) {
+    if (!tutorialLoaded) {
+      loadTutorialPrefs(client);
+    }
+    return tutorialComplete;
+  }
+
+  public void setTutorialComplete(Minecraft client, boolean complete) {
+    tutorialComplete = complete;
+    tutorialLoaded = true;
+    saveTutorialPrefs(client);
+  }
+
+  private void loadTutorialPrefs(Minecraft client) {
+    tutorialLoaded = true;
+    Path path = tutorialPrefsPath(client);
+    if (!Files.exists(path)) {
+      return;
+    }
+    try (java.io.Reader reader =
+        Files.newBufferedReader(path, java.nio.charset.StandardCharsets.UTF_8)) {
+      com.google.gson.JsonObject obj =
+          com.google.gson.JsonParser.parseReader(reader).getAsJsonObject();
+      if (obj.has("tutorialComplete")) {
+        tutorialComplete = obj.get("tutorialComplete").getAsBoolean();
+      }
+    } catch (Exception exception) {
+      LOGGER.warn("Keyset: could not read tutorial prefs", exception);
+    }
+  }
+
+  private void saveTutorialPrefs(Minecraft client) {
+    Path path = tutorialPrefsPath(client);
+    try {
+      Path parent = path.getParent();
+      if (parent != null) {
+        Files.createDirectories(parent);
+      }
+      com.google.gson.JsonObject obj = new com.google.gson.JsonObject();
+      obj.addProperty("tutorialComplete", tutorialComplete);
+      try (java.io.Writer writer =
+          Files.newBufferedWriter(path, java.nio.charset.StandardCharsets.UTF_8)) {
+        writer.write(new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(obj));
+      }
+    } catch (IOException exception) {
+      LOGGER.warn("Keyset: could not save tutorial prefs", exception);
+    }
+  }
+
+  private Path tutorialPrefsPath(Minecraft client) {
+    return client.gameDirectory.toPath().resolve("config").resolve("keyset-prefs.json");
   }
 
   public void moveProfileUp(Minecraft client, String profileId) throws IOException {

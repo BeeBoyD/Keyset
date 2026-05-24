@@ -245,7 +245,10 @@ public final class KeysetFabricService {
     KeysetProfile profile = requireProfile(config, profileId);
     Map<String, KeysetProfile> profiles = new LinkedHashMap<String, KeysetProfile>();
     profiles.put(profileId, profile);
-    return codec.toJson(new KeysetProfilesConfig(config.getSchemaVersion(), profileId, profiles));
+    // Use toJsonRaw to avoid normalize() injecting a phantom empty Default profile,
+    // which would corrupt the real Default when this JSON is later imported.
+    return codec.toJsonRaw(
+        new KeysetProfilesConfig(config.getSchemaVersion(), profileId, profiles));
   }
 
   /** Exports a single profile as portable share JSON (no config wrapper, no normalization). */
@@ -709,6 +712,13 @@ public final class KeysetFabricService {
       if (fileExists) {
         archiveConfigCopy(path, "broken");
       }
+      config = recoverConfigAfterLoadFailure(client);
+      loaded = true;
+      return;
+    } catch (IOException exception) {
+      // IO failure (permissions, disk error) — recover with defaults so the service
+      // remains usable rather than retrying and failing on every subsequent call.
+      LOGGER.error("Keyset: IO error reading config, starting with defaults", exception);
       config = recoverConfigAfterLoadFailure(client);
       loaded = true;
       return;

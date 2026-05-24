@@ -2,6 +2,7 @@ package net.beeboyd.keyset.platform.fabric;
 
 import java.util.List;
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
+import net.beeboyd.keyset.platform.fabric.screen.KeysetButtonWidget;
 import net.beeboyd.keyset.platform.fabric.screen.KeysetKeybindsScreen;
 import net.beeboyd.keyset.platform.fabric.screen.KeysetScreen;
 import net.beeboyd.keyset.shim.client.KeysetClientHooks;
@@ -11,12 +12,12 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.option.ControlsOptionsScreen;
 import net.minecraft.client.gui.tooltip.Tooltip;
-import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
@@ -30,6 +31,7 @@ public final class KeysetFabricClient implements ClientModInitializer {
   private static final int CONTROLS_BUTTON_MARGIN = 8;
   private static final Logger LOGGER = LoggerFactory.getLogger(KeysetCoreMetadata.MOD_ID);
   private static final KeysetFabricService SERVICE = new KeysetFabricService();
+
   private static final KeyBinding.Category KEYSET_CATEGORY =
       new KeyBinding.Category(net.minecraft.util.Identifier.of("keyset", "keyset"));
 
@@ -40,7 +42,6 @@ public final class KeysetFabricClient implements ClientModInitializer {
   private final KeysetClientHooks<net.minecraft.client.MinecraftClient, Screen> clientHooks =
       new KeysetClientHooks<net.minecraft.client.MinecraftClient, Screen>();
 
-  // Single-slot injection tracking — only one ControlsOptionsScreen open at a time.
   private Screen lastInjectedScreen;
   private ClickableWidget lastInjectedButton;
 
@@ -53,23 +54,17 @@ public final class KeysetFabricClient implements ClientModInitializer {
     openScreenKeyBinding =
         KeyBindingHelper.registerKeyBinding(
             new KeyBinding(
-                "keyset.key.open_screen",
-                InputUtil.UNKNOWN_KEY.getCode(),
-                KEYSET_CATEGORY));
+                "keyset.key.open_screen", InputUtil.UNKNOWN_KEY.getCode(), KEYSET_CATEGORY));
 
     cycleNextKeyBinding =
         KeyBindingHelper.registerKeyBinding(
             new KeyBinding(
-                "keyset.key.cycle_profile_next",
-                InputUtil.UNKNOWN_KEY.getCode(),
-                KEYSET_CATEGORY));
+                "keyset.key.cycle_profile_next", InputUtil.UNKNOWN_KEY.getCode(), KEYSET_CATEGORY));
 
     cyclePrevKeyBinding =
         KeyBindingHelper.registerKeyBinding(
             new KeyBinding(
-                "keyset.key.cycle_profile_prev",
-                InputUtil.UNKNOWN_KEY.getCode(),
-                KEYSET_CATEGORY));
+                "keyset.key.cycle_profile_prev", InputUtil.UNKNOWN_KEY.getCode(), KEYSET_CATEGORY));
 
     for (int i = 0; i < 5; i++) {
       slotKeyBindings[i] =
@@ -135,21 +130,28 @@ public final class KeysetFabricClient implements ClientModInitializer {
               KeysetFabricClient::isKeysetScreen);
         });
 
+    ClientPlayConnectionEvents.JOIN.register(
+        (handler, sender, client) -> {
+          String address =
+              client.getCurrentServerEntry() != null
+                  ? client.getCurrentServerEntry().address
+                  : null;
+          SERVICE.handleServerJoin(client, address);
+        });
+
     ScreenEvents.AFTER_INIT.register(
         (client, screen, scaledWidth, scaledHeight) -> {
           if (!(screen instanceof ControlsOptionsScreen)) {
-            // If we're navigating to a non-Controls screen, clear the injection slot.
-            lastInjectedScreen = null;
-            lastInjectedButton = null;
             return;
           }
 
           List<ClickableWidget> buttons = Screens.getButtons(screen);
 
-          // Remove stale button from previous screen (same object reused after resize, etc.).
           if (lastInjectedScreen == screen && lastInjectedButton != null) {
             buttons.remove(lastInjectedButton);
           }
+          lastInjectedScreen = null;
+          lastInjectedButton = null;
 
           int[] placement =
               KeysetControlsButtonPlacement.findPlacement(
@@ -180,15 +182,16 @@ public final class KeysetFabricClient implements ClientModInitializer {
                       return widget.getHeight();
                     }
                   });
-          ButtonWidget keysetButton =
-              ButtonWidget.builder(
-                      Text.translatable("keyset.open"), button -> requestOpenScreen(screen))
-                  .dimensions(
-                      placement[0], placement[1], CONTROLS_BUTTON_WIDTH, CONTROLS_BUTTON_HEIGHT)
-                  .build();
+          KeysetButtonWidget keysetButton =
+              KeysetButtonWidget.primary(
+                  placement[0],
+                  placement[1],
+                  CONTROLS_BUTTON_WIDTH,
+                  CONTROLS_BUTTON_HEIGHT,
+                  Text.translatable("keyset.open"),
+                  button -> requestOpenScreen(screen));
           keysetButton.setTooltip(Tooltip.of(Text.translatable("keyset.subtitle")));
           buttons.add(keysetButton);
-
           lastInjectedScreen = screen;
           lastInjectedButton = keysetButton;
         });

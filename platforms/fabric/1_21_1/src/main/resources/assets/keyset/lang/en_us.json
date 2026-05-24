@@ -207,6 +207,9 @@
   "keyset.tutorial.autoswitch.title": "Step 7 — Auto-Switch",
   "keyset.tutorial.autoswitch.body": "Keyset can automatically switch profiles when you join a server. Set a rule like 'hypixel.net → PvP profile' and it switches the moment you connect. Open the Auto-Switch tab to set this up.",
   "keyset.tutorial.autoswitch.hint": "→ Click the Auto-Switch tab above",
+  "keyset.tutorial.share.title": "Step 8 — Share a Profile",
+  "keyset.tutorial.share.body": "The Share tab lets you export any profile as an 8-character code. Send it to a friend or import someone else's layout instantly. Codes expire after 90 days.",
+  "keyset.tutorial.share.hint": "",
   "keyset.tutorial.done.title": "You're ready!",
   "keyset.tutorial.done.body": "You know how to create, activate, and save profiles, fix conflicts, and set up auto-switch. Use the ? button any time to revisit this guide. Go build your perfect layout.",
   "keyset.tutorial.done.hint": "",
@@ -237,5 +240,6 @@
   "keyset.share.dialog.title": "Import Profile",
   "keyset.share.dialog.accept": "Accept",
   "keyset.share.dialog.decline": "Decline",
-  "keyset.share.compat.ok": "✓ All keybinds compatible."
+  "keyset.share.compat.ok": "✓ All keybinds compatible.",
+  "keyset.share.error.empty_profile": "Save Live first before sharing this profile."
 }

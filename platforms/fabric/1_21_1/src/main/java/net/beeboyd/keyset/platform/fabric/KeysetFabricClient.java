@@ -2,6 +2,7 @@ package net.beeboyd.keyset.platform.fabric;
 
 import java.util.List;
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
+import net.beeboyd.keyset.platform.fabric.screen.KeysetButtonWidget;
 import net.beeboyd.keyset.platform.fabric.screen.KeysetKeybindsScreen;
 import net.beeboyd.keyset.platform.fabric.screen.KeysetScreen;
 import net.beeboyd.keyset.shim.client.KeysetClientHooks;
@@ -17,7 +18,6 @@ import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.option.ControlsOptionsScreen;
 import net.minecraft.client.gui.tooltip.Tooltip;
-import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
@@ -38,6 +38,9 @@ public final class KeysetFabricClient implements ClientModInitializer {
   private final KeyBinding[] slotKeyBindings = new KeyBinding[5];
   private final KeysetClientHooks<net.minecraft.client.MinecraftClient, Screen> clientHooks =
       new KeysetClientHooks<net.minecraft.client.MinecraftClient, Screen>();
+
+  private Screen lastInjectedScreen;
+  private ClickableWidget lastInjectedButton;
 
   public static KeysetFabricService getService() {
     return SERVICE;
@@ -147,12 +150,11 @@ public final class KeysetFabricClient implements ClientModInitializer {
 
           List<ClickableWidget> buttons = Screens.getButtons(screen);
 
-          // Remove any previously-injected button by label — stateless, always correct.
-          String keysetLabel = Text.translatable("keyset.open").getString();
-          buttons.removeIf(
-              b ->
-                  b instanceof ButtonWidget
-                      && ((ButtonWidget) b).getMessage().getString().equals(keysetLabel));
+          if (lastInjectedScreen == screen && lastInjectedButton != null) {
+            buttons.remove(lastInjectedButton);
+          }
+          lastInjectedScreen = null;
+          lastInjectedButton = null;
 
           int[] placement =
               KeysetControlsButtonPlacement.findPlacement(
@@ -183,14 +185,18 @@ public final class KeysetFabricClient implements ClientModInitializer {
                       return widget.getHeight();
                     }
                   });
-          ButtonWidget keysetButton =
-              ButtonWidget.builder(
-                      Text.translatable("keyset.open"), button -> requestOpenScreen(screen))
-                  .dimensions(
-                      placement[0], placement[1], CONTROLS_BUTTON_WIDTH, CONTROLS_BUTTON_HEIGHT)
-                  .build();
+          KeysetButtonWidget keysetButton =
+              KeysetButtonWidget.primary(
+                  placement[0],
+                  placement[1],
+                  CONTROLS_BUTTON_WIDTH,
+                  CONTROLS_BUTTON_HEIGHT,
+                  Text.translatable("keyset.open"),
+                  button -> requestOpenScreen(screen));
           keysetButton.setTooltip(Tooltip.of(Text.translatable("keyset.subtitle")));
           buttons.add(keysetButton);
+          lastInjectedScreen = screen;
+          lastInjectedButton = keysetButton;
         });
   }
 

@@ -116,6 +116,14 @@ public final class KeysetConflictListWidget
     this.hidden = hidden;
   }
 
+  @Override
+  public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    if (hidden) {
+      return;
+    }
+    super.render(context, mouseX, mouseY, delta);
+  }
+
   public void selectBinding(String bindingId) {
     if (bindingId == null) {
       setSelected(null);
@@ -147,27 +155,21 @@ public final class KeysetConflictListWidget
   }
 
   @Override
-  public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-    if (hidden) {
-      return;
-    }
-    super.render(context, mouseX, mouseY, delta);
-  }
-
-  @Override
-  public boolean mouseClicked(double mouseX, double mouseY, int button) {
-    return !hidden && super.mouseClicked(mouseX, mouseY, button);
-  }
-
-  @Override
-  public boolean mouseReleased(double mouseX, double mouseY, int button) {
-    return !hidden && super.mouseReleased(mouseX, mouseY, button);
-  }
-
-  @Override
   protected int getScrollbarPositionX() {
-    return right - 6;
+    return getRowRight() - 6;
   }
+
+  protected void drawMenuListBackground(DrawContext context) {}
+
+  protected void drawHeaderAndFooterSeparators(DrawContext context) {}
+
+  protected void drawSelectionHighlight(
+      DrawContext context,
+      int y,
+      int entryWidth,
+      int entryHeight,
+      int borderColor,
+      int fillColor) {}
 
   private Text fitText(Text text, int maxWidth) {
     return Text.literal(ellipsize(text.getString(), maxWidth));

@@ -1,0 +1,139 @@
+package net.beeboyd.keyset.platform.fabric.screen;
+
+import java.util.List;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+
+/** Modal popup shown when the user clicks a conflict binding row. */
+public final class ConflictDialog extends Screen {
+
+  private static final int DW = 300;
+  private static final int DH = 148;
+
+  private final Screen parent;
+  private final String keyLabel;
+  private final String actionName;
+  private final List<String> otherActions;
+  private final Runnable onClear;
+  private final Runnable onJump;
+
+  public ConflictDialog(
+      Screen parent,
+      String keyLabel,
+      String actionName,
+      List<String> otherActions,
+      Runnable onClear,
+      Runnable onJump) {
+    super(Component.empty());
+    this.parent = parent;
+    this.keyLabel = keyLabel;
+    this.actionName = actionName;
+    this.otherActions = otherActions;
+    this.onClear = onClear;
+    this.onJump = onJump;
+  }
+
+  @Override
+  protected void init() {
+    int dx = (width - DW) / 2;
+    int dy = (height - DH) / 2;
+    int btnW = 84;
+    int btnY = dy + DH - 26;
+
+    addRenderableWidget(
+        KeysetButtonWidget.create(
+            dx + 8,
+            btnY,
+            btnW,
+            20,
+            Component.translatable("keyset.binding.jump"),
+            b -> onJump.run()));
+
+    addRenderableWidget(
+        KeysetButtonWidget.create(
+            dx + 8 + btnW + 6,
+            btnY,
+            btnW,
+            20,
+            Component.translatable("keyset.binding.clear"),
+            b -> {
+              onClear.run();
+              onClose();
+            }));
+
+    addRenderableWidget(
+        KeysetButtonWidget.primary(
+            dx + DW - 8 - btnW,
+            btnY,
+            btnW,
+            20,
+            Component.translatable("keyset.action.done"),
+            b -> onClose()));
+  }
+
+  @Override
+  public void extractBackground(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    // Full-screen dim so panel is visible over the parent screen.
+    ctx.fill(0, 0, width, height, 0xCC000000);
+  }
+
+  @Override
+  public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
+    extractBackground(ctx, mouseX, mouseY, delta);
+
+    int dx = (width - DW) / 2;
+    int dy = (height - DH) / 2;
+
+    // Shadow
+    ctx.fill(dx + 4, dy + 4, dx + DW + 4, dy + DH + 4, 0x60000000);
+    // Panel
+    ctx.fill(dx, dy, dx + DW, dy + DH, KeysetTheme.BG_SURFACE);
+    ctx.outline(dx, dy, DW, DH, KeysetTheme.ACCENT);
+    // Header stripe
+    ctx.fill(dx, dy, dx + DW, dy + 22, KeysetTheme.BG_SIDEBAR);
+    ctx.fill(dx, dy + 22, dx + DW, dy + 23, KeysetTheme.ACCENT_DIM);
+
+    // Header: "Conflict — <key>"
+    String header = "Conflict — " + keyLabel;
+    ctx.text(font, Component.literal(header), dx + 8, dy + 7, KeysetTheme.TEXT_MUTED, true);
+
+    // Action name
+    ctx.text(font, Component.literal(actionName), dx + 8, dy + 30, KeysetTheme.TEXT_TITLE, true);
+
+    // "Also bound to:" label
+    ctx.text(
+        font, Component.literal("Also bound to:"), dx + 8, dy + 46, KeysetTheme.TEXT_MUTED, true);
+
+    // Other action chips
+    int chipX = dx + 8;
+    int chipY = dy + 58;
+    for (String other : otherActions) {
+      int cw = font.width(other) + 10;
+      if (chipX + cw > dx + DW - 8) {
+        chipX = dx + 8;
+        chipY += 18;
+      }
+      ctx.fill(chipX, chipY, chipX + cw, chipY + 14, KeysetTheme.CHIP_BG);
+      ctx.outline(chipX, chipY, cw, 14, KeysetTheme.BORDER);
+      ctx.text(font, Component.literal(other), chipX + 5, chipY + 3, KeysetTheme.TEXT_BODY, true);
+      chipX += cw + 4;
+    }
+
+    // Divider above buttons
+    ctx.fill(dx + 8, dy + DH - 32, dx + DW - 8, dy + DH - 31, KeysetTheme.BORDER);
+
+    // Buttons drawn by super
+    super.extractRenderState(ctx, mouseX, mouseY, delta);
+  }
+
+  @Override
+  public boolean shouldCloseOnEsc() {
+    return true;
+  }
+
+  @Override
+  public void onClose() {
+    minecraft.setScreen(parent);
+  }
+}
