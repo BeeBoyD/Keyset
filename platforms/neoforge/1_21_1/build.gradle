@@ -76,6 +76,12 @@ processResources {
     filesMatching("META-INF/neoforge.mods.toml") {
         expand(expandProps)
     }
+    doLast {
+        def manifest = new File(destinationDir, "META-INF/MANIFEST.MF")
+        if (!manifest.exists()) {
+            manifest.text = "Manifest-Version: 1.0\n"
+        }
+    }
 }
 
 jar {

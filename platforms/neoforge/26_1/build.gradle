@@ -1,6 +1,18 @@
 plugins {
-    id "dev.architectury.loom-no-remap"
     id "com.diffplug.spotless"
+}
+
+apply plugin: "java-library"
+
+def requestedPlatformTasks = gradle.startParameter.taskNames.findAll {
+    it.startsWith(":platform-")
+}
+def configureLoom = requestedPlatformTasks.isEmpty() || requestedPlatformTasks.any {
+    it == project.path || it.startsWith("${project.path}:")
+}
+
+if (configureLoom) {
+    apply plugin: "dev.architectury.loom-no-remap"
 }
 
 java {
@@ -30,8 +42,12 @@ sourceSets {
 }
 
 dependencies {
-    minecraft "com.mojang:minecraft:${project.property('minecraftVersion_26_1')}"
-    neoForge "net.neoforged:neoforge:${project.property('neoforgeVersion_26_1')}"
+    implementation project(":common-v26_1")
+
+    if (configureLoom) {
+        minecraft "com.mojang:minecraft:${project.property('minecraftVersion_26_1')}"
+        neoForge "net.neoforged:neoforge:${project.property('neoforgeVersion_26_1')}"
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {
