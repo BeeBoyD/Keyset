@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Keyset" width="180" />
+  <img src="../../assets/logo.png" alt="Keyset" width="180" />
 </p>
 
 <h1 align="center">Keyset</h1>
@@ -7,11 +7,8 @@
 <p align="center"><em>Profiles for every way you play.</em></p>
 
 <p align="center">
-  <a href="https://modrinth.com/project/keyset"><img src="https://img.shields.io/modrinth/dt/keyset?logo=modrinth&label=Downloads&color=1bd96a" alt="Modrinth Downloads" /></a>
-  <a href="https://legacy.curseforge.com/minecraft/mc-mods/keyset"><img src="https://img.shields.io/badge/CurseForge-Keyset-f16436?logo=curseforge" alt="CurseForge" /></a>
-  <a href="https://github.com/BeeBoyD/Keyset"><img src="https://img.shields.io/badge/source-GitHub-24292f?logo=github" alt="GitHub" /></a>
-  <a href="https://github.com/BeeBoyD/Keyset/blob/main/LICENSE"><img src="https://img.shields.io/github/license/BeeBoyD/Keyset?color=blue" alt="License" /></a>
-  <img src="https://img.shields.io/badge/side-client--only-4caf50" alt="Client-Side" />
+  <a href="../../README.md">Back to root</a> ·
+  <a href="README-developer.md">Developer Docs</a>
 </p>
 
 ---
@@ -66,14 +63,6 @@
 
 ---
 
-## 📥 Downloads
-
-- [Modrinth](https://modrinth.com/project/keyset)
-- [CurseForge](https://legacy.curseforge.com/minecraft/mc-mods/keyset)
-- [GitHub Releases](https://github.com/BeeBoyD/Keyset/releases)
-
----
-
 ## 🔒 Privacy
 
 Profiles are stored **locally** at `config/keybindprofiles.json`. Keyset collects no analytics and sends no telemetry.
@@ -82,12 +71,4 @@ The **Share** feature uploads your profile data to `share.beeboyd.com` only when
 
 ---
 
-## 📦 Modpack Authors
-
-Keyset is client-side only. It does not change gameplay rules, world data, or server requirements.
-
----
-
-## ❤️ Support
-
-If Keyset saves you time, [buying me a coffee](https://www.buymeacoffee.com/beeboyd) helps keep it going.
+<p align="center">Made with ♥ by <a href="https://github.com/BeeBoyD">BeeBoyD</a></p>
