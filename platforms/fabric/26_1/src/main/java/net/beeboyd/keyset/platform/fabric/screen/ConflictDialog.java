@@ -108,16 +108,26 @@ public final class ConflictDialog extends Screen {
     // Other action chips
     int chipX = dx + 8;
     int chipY = dy + 58;
+    int shown = 0;
     for (String other : otherActions) {
-      int cw = font.width(other) + 10;
+      if (shown >= 6 || chipY > dy + DH - 54) break;
+      String label = font.plainSubstrByWidth(other, DW - 28);
+      if (!label.equals(other)) label += "…";
+      int cw = font.width(label) + 10;
       if (chipX + cw > dx + DW - 8) {
         chipX = dx + 8;
         chipY += 18;
       }
       ctx.fill(chipX, chipY, chipX + cw, chipY + 14, KeysetTheme.CHIP_BG);
       ctx.outline(chipX, chipY, cw, 14, KeysetTheme.BORDER);
-      ctx.text(font, Component.literal(other), chipX + 5, chipY + 3, KeysetTheme.TEXT_BODY, true);
+      ctx.text(font, Component.literal(label), chipX + 5, chipY + 3, KeysetTheme.TEXT_BODY, true);
       chipX += cw + 4;
+      shown++;
+    }
+    if (otherActions.size() > shown) {
+      String more = "+" + (otherActions.size() - shown) + " more";
+      ctx.text(
+          font, Component.literal(more), dx + 8, dy + DH - 48, KeysetTheme.TEXT_DISABLED, true);
     }
 
     // Divider above buttons

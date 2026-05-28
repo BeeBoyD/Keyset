@@ -24,15 +24,17 @@ public final class KeysetConfirmDialog extends Screen {
 
   @Override
   protected void init() {
-    int dx = (width - DW) / 2;
-    int dy = (height - DH) / 2;
-    int btnY = dy + DH - 28;
+    int dw = panelW();
+    int dh = panelH();
+    int dx = (width - dw) / 2;
+    int dy = (height - dh) / 2;
+    int btnY = dy + dh - 28;
     addDrawableChild(
         KeysetButtonWidget.create(
             dx + 8, btnY, 84, 20, Text.translatable("keyset.action.cancel"), b -> close()));
     addDrawableChild(
         KeysetButtonWidget.primary(
-            dx + DW - 92,
+            dx + dw - 92,
             btnY,
             84,
             20,
@@ -51,22 +53,24 @@ public final class KeysetConfirmDialog extends Screen {
   @Override
   public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
     renderBackground(ctx, mouseX, mouseY, delta);
-    int dx = (width - DW) / 2;
-    int dy = (height - DH) / 2;
+    int dw = panelW();
+    int dh = panelH();
+    int dx = (width - dw) / 2;
+    int dy = (height - dh) / 2;
 
-    ctx.fill(dx + 4, dy + 4, dx + DW + 4, dy + DH + 4, 0x60000000);
-    ctx.fill(dx, dy, dx + DW, dy + DH, KeysetTheme.BG_SURFACE);
-    ctx.drawBorder(dx, dy, DW, DH, KeysetTheme.ACCENT);
-    ctx.fill(dx, dy, dx + DW, dy + 22, KeysetTheme.BG_SIDEBAR);
-    ctx.fill(dx, dy + 22, dx + DW, dy + 23, KeysetTheme.ACCENT_DIM);
+    ctx.fill(dx + 4, dy + 4, dx + dw + 4, dy + dh + 4, 0x60000000);
+    ctx.fill(dx, dy, dx + dw, dy + dh, KeysetTheme.BG_SURFACE);
+    ctx.drawBorder(dx, dy, dw, dh, KeysetTheme.ACCENT);
+    ctx.fill(dx, dy, dx + dw, dy + 22, KeysetTheme.BG_SIDEBAR);
+    ctx.fill(dx, dy + 22, dx + dw, dy + 23, KeysetTheme.ACCENT_DIM);
 
     ctx.drawTextWithShadow(textRenderer, title, dx + 8, dy + 7, KeysetTheme.TEXT_TITLE);
-    var lines = textRenderer.wrapLines(body, DW - 16);
+    var lines = textRenderer.wrapLines(body, dw - 16);
     for (int i = 0; i < Math.min(lines.size(), 4); i++) {
       ctx.drawTextWithShadow(
           textRenderer, lines.get(i), dx + 8, dy + 34 + i * 12, KeysetTheme.TEXT_BODY);
     }
-    ctx.fill(dx + 8, dy + DH - 34, dx + DW - 8, dy + DH - 33, KeysetTheme.BORDER);
+    ctx.fill(dx + 8, dy + dh - 34, dx + dw - 8, dy + dh - 33, KeysetTheme.BORDER);
     super.render(ctx, mouseX, mouseY, delta);
   }
 
@@ -78,5 +82,13 @@ public final class KeysetConfirmDialog extends Screen {
   @Override
   public void close() {
     client.setScreen(parent);
+  }
+
+  private int panelW() {
+    return Math.max(1, Math.min(DW, width - 8));
+  }
+
+  private int panelH() {
+    return Math.max(1, Math.min(DH, height - 8));
   }
 }

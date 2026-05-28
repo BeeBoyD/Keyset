@@ -36,10 +36,12 @@ public final class ConflictDialog extends Screen {
 
   @Override
   protected void init() {
-    int dx = (width - DW) / 2;
-    int dy = (height - DH) / 2;
+    int dw = panelW();
+    int dh = panelH();
+    int dx = (width - dw) / 2;
+    int dy = (height - dh) / 2;
     int btnW = 84;
-    int btnY = dy + DH - 26;
+    int btnY = dy + dh - 26;
 
     addDrawableChild(
         KeysetButtonWidget.create(
@@ -59,7 +61,7 @@ public final class ConflictDialog extends Screen {
 
     addDrawableChild(
         KeysetButtonWidget.primary(
-            dx + DW - 8 - btnW,
+            dx + dw - 8 - btnW,
             btnY,
             btnW,
             20,
@@ -77,17 +79,19 @@ public final class ConflictDialog extends Screen {
   public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
     renderBackground(ctx, mouseX, mouseY, delta);
 
-    int dx = (width - DW) / 2;
-    int dy = (height - DH) / 2;
+    int dw = panelW();
+    int dh = panelH();
+    int dx = (width - dw) / 2;
+    int dy = (height - dh) / 2;
 
     // Shadow
-    ctx.fill(dx + 4, dy + 4, dx + DW + 4, dy + DH + 4, 0x60000000);
+    ctx.fill(dx + 4, dy + 4, dx + dw + 4, dy + dh + 4, 0x60000000);
     // Panel
-    ctx.fill(dx, dy, dx + DW, dy + DH, KeysetTheme.BG_SURFACE);
-    ctx.drawBorder(dx, dy, DW, DH, KeysetTheme.ACCENT);
+    ctx.fill(dx, dy, dx + dw, dy + dh, KeysetTheme.BG_SURFACE);
+    ctx.drawBorder(dx, dy, dw, dh, KeysetTheme.ACCENT);
     // Header stripe
-    ctx.fill(dx, dy, dx + DW, dy + 22, KeysetTheme.BG_SIDEBAR);
-    ctx.fill(dx, dy + 22, dx + DW, dy + 23, KeysetTheme.ACCENT_DIM);
+    ctx.fill(dx, dy, dx + dw, dy + 22, KeysetTheme.BG_SIDEBAR);
+    ctx.fill(dx, dy + 22, dx + dw, dy + 23, KeysetTheme.ACCENT_DIM);
 
     // Header: "Conflict — <key>"
     String header = "Conflict — " + keyLabel;
@@ -105,21 +109,31 @@ public final class ConflictDialog extends Screen {
     // Other action chips
     int chipX = dx + 8;
     int chipY = dy + 58;
+    int shown = 0;
     for (String other : otherActions) {
-      int cw = textRenderer.getWidth(other) + 10;
-      if (chipX + cw > dx + DW - 8) {
+      if (shown >= 6 || chipY > dy + dh - 54) break;
+      String label = textRenderer.trimToWidth(other, dw - 28);
+      if (!label.equals(other)) label += "…";
+      int cw = textRenderer.getWidth(label) + 10;
+      if (chipX + cw > dx + dw - 8) {
         chipX = dx + 8;
         chipY += 18;
       }
       ctx.fill(chipX, chipY, chipX + cw, chipY + 14, KeysetTheme.CHIP_BG);
       ctx.drawBorder(chipX, chipY, cw, 14, KeysetTheme.BORDER);
       ctx.drawTextWithShadow(
-          textRenderer, Text.literal(other), chipX + 5, chipY + 3, KeysetTheme.TEXT_BODY);
+          textRenderer, Text.literal(label), chipX + 5, chipY + 3, KeysetTheme.TEXT_BODY);
       chipX += cw + 4;
+      shown++;
+    }
+    if (otherActions.size() > shown) {
+      String more = "+" + (otherActions.size() - shown) + " more";
+      ctx.drawTextWithShadow(
+          textRenderer, Text.literal(more), dx + 8, dy + dh - 48, KeysetTheme.TEXT_DISABLED);
     }
 
     // Divider above buttons
-    ctx.fill(dx + 8, dy + DH - 32, dx + DW - 8, dy + DH - 31, KeysetTheme.BORDER);
+    ctx.fill(dx + 8, dy + dh - 32, dx + dw - 8, dy + dh - 31, KeysetTheme.BORDER);
 
     // Buttons drawn by super
     super.render(ctx, mouseX, mouseY, delta);
@@ -133,5 +147,13 @@ public final class ConflictDialog extends Screen {
   @Override
   public void close() {
     client.setScreen(parent);
+  }
+
+  private int panelW() {
+    return Math.max(1, Math.min(DW, width - 8));
+  }
+
+  private int panelH() {
+    return Math.max(1, Math.min(DH, height - 8));
   }
 }

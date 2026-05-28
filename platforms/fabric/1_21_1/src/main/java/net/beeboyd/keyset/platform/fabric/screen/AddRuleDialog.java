@@ -27,6 +27,7 @@ public final class AddRuleDialog extends Screen {
   private final List<String> profileIds = new ArrayList<>();
   private final List<String> profileNames = new ArrayList<>();
   private String selectedProfileId;
+  private String errorMsg;
 
   public AddRuleDialog(Screen parent, KeysetFabricService service) {
     super(Text.empty());
@@ -36,18 +37,22 @@ public final class AddRuleDialog extends Screen {
 
   @Override
   protected void init() {
-    int dx = (width - DW) / 2;
-    int dy = (height - DH) / 2;
+    int dw = panelW();
+    int dh = panelH();
+    int dx = (width - dw) / 2;
+    int dy = (height - dh) / 2;
 
     profileIds.clear();
     profileNames.clear();
+    errorMsg = null;
     try {
       KeysetProfilesConfig cfg = service.getConfig(client);
       for (Map.Entry<String, KeysetProfile> e : cfg.getProfiles().entrySet()) {
         profileIds.add(e.getKey());
         profileNames.add(e.getValue().getName());
       }
-    } catch (IOException ignored) {
+    } catch (IOException e) {
+      errorMsg = "Could not load profiles: " + e.getMessage();
     }
     if (selectedProfileId == null || !profileIds.contains(selectedProfileId)) {
       selectedProfileId = profileIds.isEmpty() ? null : profileIds.get(0);
@@ -55,29 +60,24 @@ public final class AddRuleDialog extends Screen {
 
     int startY = dy + 30;
     patternField =
-        new KeysetTextFieldWidget(textRenderer, dx + 8, startY + 15, DW - 16, 18, Text.empty());
+        new KeysetTextFieldWidget(textRenderer, dx + 8, startY + 15, dw - 16, 18, Text.empty());
     patternField.setPlaceholder(Text.literal("e.g. hypixel.net or *.server.com"));
     patternField.setMaxLength(128);
     addDrawableChild(patternField);
 
     profileCycleBtn =
         KeysetButtonWidget.create(
-            dx + 8,
-            startY + 57,
-            DW - 16,
-            18,
-            Text.literal(currentProfileName()),
-            b -> cycleProfile());
+            dx + 8, startY + 57, dw - 16, 18, Text.literal(trimProfileName()), b -> cycleProfile());
     addDrawableChild(profileCycleBtn);
 
     addDrawableChild(
         KeysetButtonWidget.create(
-            dx + 8, dy + DH - 28, 84, 20, Text.translatable("keyset.action.cancel"), b -> close()));
+            dx + 8, dy + dh - 28, 84, 20, Text.translatable("keyset.action.cancel"), b -> close()));
 
     addDrawableChild(
         KeysetButtonWidget.primary(
-            dx + DW - 8 - 84,
-            dy + DH - 28,
+            dx + dw - 8 - 84,
+            dy + dh - 28,
             84,
             20,
             Text.translatable("keyset.action.save"),
@@ -90,22 +90,30 @@ public final class AddRuleDialog extends Screen {
     return idx >= 0 ? profileNames.get(idx) : profileNames.get(0);
   }
 
+  private String trimProfileName() {
+    return textRenderer.trimToWidth(currentProfileName(), panelW() - 30);
+  }
+
   private void cycleProfile() {
     if (profileIds.isEmpty()) return;
     int idx = profileIds.indexOf(selectedProfileId);
     selectedProfileId = profileIds.get((idx + 1) % profileIds.size());
-    profileCycleBtn.setMessage(Text.literal(currentProfileName()));
+    profileCycleBtn.setMessage(Text.literal(trimProfileName()));
   }
 
   private void saveAndClose() {
     String pattern = patternField != null ? patternField.getText().trim() : "";
     if (pattern.isEmpty() || selectedProfileId == null) {
-      close();
+      if (errorMsg == null || errorMsg.isEmpty()) {
+        errorMsg = pattern.isEmpty() ? "Server pattern is required." : "No profile is available.";
+      }
       return;
     }
     try {
       service.addAutoSwitchRule(client, new AutoSwitchRule(pattern, selectedProfileId));
-    } catch (IOException | IllegalArgumentException ignored) {
+    } catch (IOException | IllegalArgumentException exception) {
+      errorMsg = exception.getMessage();
+      return;
     }
     close();
   }
@@ -119,14 +127,16 @@ public final class AddRuleDialog extends Screen {
   public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
     renderBackground(ctx, mouseX, mouseY, delta);
 
-    int dx = (width - DW) / 2;
-    int dy = (height - DH) / 2;
+    int dw = panelW();
+    int dh = panelH();
+    int dx = (width - dw) / 2;
+    int dy = (height - dh) / 2;
 
-    ctx.fill(dx + 4, dy + 4, dx + DW + 4, dy + DH + 4, 0x60000000);
-    ctx.fill(dx, dy, dx + DW, dy + DH, KeysetTheme.BG_SURFACE);
-    ctx.drawBorder(dx, dy, DW, DH, KeysetTheme.ACCENT);
-    ctx.fill(dx, dy, dx + DW, dy + 22, KeysetTheme.BG_SIDEBAR);
-    ctx.fill(dx, dy + 22, dx + DW, dy + 23, KeysetTheme.ACCENT_DIM);
+    ctx.fill(dx + 4, dy + 4, dx + dw + 4, dy + dh + 4, 0x60000000);
+    ctx.fill(dx, dy, dx + dw, dy + dh, KeysetTheme.BG_SURFACE);
+    ctx.drawBorder(dx, dy, dw, dh, KeysetTheme.ACCENT);
+    ctx.fill(dx, dy, dx + dw, dy + 22, KeysetTheme.BG_SIDEBAR);
+    ctx.fill(dx, dy + 22, dx + dw, dy + 23, KeysetTheme.ACCENT_DIM);
 
     ctx.drawTextWithShadow(
         textRenderer, Text.literal("Add Auto-Switch Rule"), dx + 8, dy + 7, KeysetTheme.TEXT_MUTED);
@@ -136,7 +146,16 @@ public final class AddRuleDialog extends Screen {
     ctx.drawTextWithShadow(
         textRenderer, Text.literal("Switch to profile"), dx + 8, sY + 47, KeysetTheme.TEXT_BODY);
 
-    ctx.fill(dx + 8, dy + DH - 34, dx + DW - 8, dy + DH - 33, KeysetTheme.BORDER);
+    if (errorMsg != null && !errorMsg.isEmpty()) {
+      ctx.drawTextWithShadow(
+          textRenderer,
+          Text.literal(textRenderer.trimToWidth(errorMsg, dw - 20)),
+          dx + 8,
+          dy + dh - 45,
+          KeysetTheme.ERROR);
+    }
+
+    ctx.fill(dx + 8, dy + dh - 34, dx + dw - 8, dy + dh - 33, KeysetTheme.BORDER);
 
     super.render(ctx, mouseX, mouseY, delta);
   }
@@ -149,5 +168,13 @@ public final class AddRuleDialog extends Screen {
   @Override
   public void close() {
     client.setScreen(parent);
+  }
+
+  private int panelW() {
+    return Math.max(1, Math.min(DW, width - 8));
+  }
+
+  private int panelH() {
+    return Math.max(1, Math.min(DH, height - 8));
   }
 }

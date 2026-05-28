@@ -15,6 +15,7 @@ public final class RenameProfileDialog extends Screen {
   private final KeysetFabricService service;
   private final String profileId;
   private KeysetTextFieldWidget nameField;
+  private String errorMsg;
 
   public RenameProfileDialog(
       Screen parent, KeysetFabricService service, String profileId, String currentName) {
@@ -30,11 +31,13 @@ public final class RenameProfileDialog extends Screen {
 
   @Override
   protected void init() {
-    int px = (width - PW) / 2;
-    int py = (height - PH) / 2;
+    int pw = panelW();
+    int ph = panelH();
+    int px = (width - pw) / 2;
+    int py = (height - ph) / 2;
 
     nameField =
-        new KeysetTextFieldWidget(textRenderer, px + 10, py + 34, PW - 20, 18, Text.empty());
+        new KeysetTextFieldWidget(textRenderer, px + 10, py + 34, pw - 20, 18, Text.empty());
     nameField.setMaxLength(64);
     nameField.setText(pendingName);
     nameField.setFocused(true);
@@ -42,8 +45,8 @@ public final class RenameProfileDialog extends Screen {
 
     addDrawableChild(
         KeysetButtonWidget.primary(
-            px + PW - 90,
-            py + PH - 26,
+            px + pw - 90,
+            py + ph - 26,
             80,
             18,
             Text.translatable("keyset.action.save"),
@@ -51,7 +54,7 @@ public final class RenameProfileDialog extends Screen {
     addDrawableChild(
         KeysetButtonWidget.create(
             px + 10,
-            py + PH - 26,
+            py + ph - 26,
             70,
             18,
             Text.translatable("keyset.action.cancel"),
@@ -64,30 +67,41 @@ public final class RenameProfileDialog extends Screen {
     try {
       service.renameProfile(client, profileId, name);
     } catch (IOException | IllegalArgumentException e) {
-      // silently close — parent screen shows status
+      errorMsg = e.getMessage();
+      return;
     }
     client.setScreen(parent);
   }
 
   @Override
   public void render(DrawContext ctx, int mx, int my, float delta) {
-    int px = (width - PW) / 2;
-    int py = (height - PH) / 2;
-    ctx.fill(px + 3, py + 3, px + PW + 3, py + PH + 3, 0x60000000);
-    ctx.fill(px, py, px + PW, py + PH, KeysetTheme.BG_SURFACE);
-    ctx.drawBorder(px, py, PW, PH, KeysetTheme.ACCENT);
-    ctx.fill(px, py, px + PW, py + 18, KeysetTheme.BG_SIDEBAR);
+    renderBackground(ctx, mx, my, delta);
+    int pw = panelW();
+    int ph = panelH();
+    int px = (width - pw) / 2;
+    int py = (height - ph) / 2;
+    ctx.fill(px + 3, py + 3, px + pw + 3, py + ph + 3, 0x60000000);
+    ctx.fill(px, py, px + pw, py + ph, KeysetTheme.BG_SURFACE);
+    ctx.drawBorder(px, py, pw, ph, KeysetTheme.ACCENT);
+    ctx.fill(px, py, px + pw, py + 18, KeysetTheme.BG_SIDEBAR);
     ctx.drawTextWithShadow(
         textRenderer,
         Text.translatable("keyset.profile.rename"),
         px + 8,
         py + 5,
         KeysetTheme.TEXT_TITLE);
+    if (errorMsg != null && !errorMsg.isEmpty()) {
+      ctx.drawTextWithShadow(
+          textRenderer,
+          Text.literal(textRenderer.trimToWidth(errorMsg, pw - 20)),
+          px + 10,
+          py + 55,
+          KeysetTheme.ERROR);
+    }
     super.render(ctx, mx, my, delta);
   }
 
-  @Override
-  public void renderBackground(DrawContext ctx) {
+  public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
     ctx.fill(0, 0, width, height, 0xCC000000);
   }
 
@@ -108,5 +122,13 @@ public final class RenameProfileDialog extends Screen {
   @Override
   public void close() {
     client.setScreen(parent);
+  }
+
+  private int panelW() {
+    return Math.max(1, Math.min(PW, width - 8));
+  }
+
+  private int panelH() {
+    return Math.max(1, Math.min(PH, height - 8));
   }
 }

@@ -36,11 +36,13 @@ public final class ImportConfirmDialog extends Screen {
 
   @Override
   protected void init() {
-    int px = (width - PW) / 2;
-    int py = (height - PH) / 2;
+    int pw = panelW();
+    int ph = panelH();
+    int px = (width - pw) / 2;
+    int py = (height - ph) / 2;
     addRenderableWidget(
         KeysetButtonWidget.create(
-            px + PW - 20,
+            px + pw - 20,
             py + 4,
             14,
             14,
@@ -51,8 +53,8 @@ public final class ImportConfirmDialog extends Screen {
             }));
     addRenderableWidget(
         KeysetButtonWidget.primary(
-            px + PW - 110,
-            py + PH - 38,
+            px + pw - 110,
+            py + ph - 38,
             100,
             20,
             Component.translatable("keyset.share.dialog.accept"),
@@ -63,7 +65,7 @@ public final class ImportConfirmDialog extends Screen {
     addRenderableWidget(
         KeysetButtonWidget.create(
             px + 8,
-            py + PH - 38,
+            py + ph - 38,
             100,
             20,
             Component.translatable("keyset.share.dialog.decline"),
@@ -80,17 +82,20 @@ public final class ImportConfirmDialog extends Screen {
 
   @Override
   public void extractRenderState(GuiGraphicsExtractor ctx, int mx, int my, float delta) {
-    int px = (width - PW) / 2;
-    int py = (height - PH) / 2;
-    int cx = px + PW / 2;
+    extractBackground(ctx, mx, my, delta);
+    int pw = panelW();
+    int ph = panelH();
+    int px = (width - pw) / 2;
+    int py = (height - ph) / 2;
+    int cx = px + pw / 2;
     // Shadow
-    ctx.fill(px + 3, py + 3, px + PW + 3, py + PH + 3, 0x60000000);
+    ctx.fill(px + 3, py + 3, px + pw + 3, py + ph + 3, 0x60000000);
     // Panel body
-    ctx.fill(px, py, px + PW, py + PH, KeysetTheme.BG_SURFACE);
-    ctx.outline(px, py, PW, PH, KeysetTheme.ACCENT);
+    ctx.fill(px, py, px + pw, py + ph, KeysetTheme.BG_SURFACE);
+    ctx.outline(px, py, pw, ph, KeysetTheme.ACCENT);
     // Title bar
-    ctx.fill(px, py, px + PW, py + 22, KeysetTheme.BG_TAB_ACTIVE);
-    ctx.fill(px, py + 22, px + PW, py + 23, KeysetTheme.ACCENT_DIM);
+    ctx.fill(px, py, px + pw, py + 22, KeysetTheme.BG_TAB_ACTIVE);
+    ctx.fill(px, py + 22, px + pw, py + 23, KeysetTheme.ACCENT_DIM);
 
     ctx.centeredText(
         font,
@@ -100,24 +105,27 @@ public final class ImportConfirmDialog extends Screen {
         KeysetTheme.TEXT_MUTED);
 
     String sender = (senderName == null || senderName.isEmpty()) ? "Someone" : senderName;
-    ctx.centeredText(
-        font, Component.literal(sender + " shared:"), cx, py + 30, KeysetTheme.TEXT_MUTED);
+    sender = font.plainSubstrByWidth(sender + " shared:", pw - 20);
+    ctx.centeredText(font, Component.literal(sender), cx, py + 30, KeysetTheme.TEXT_MUTED);
 
     // Profile name — pseudo-bold
-    Component profileText = Component.literal(profileName);
+    String profile =
+        (profileName == null || profileName.isEmpty()) ? "Unknown Profile" : profileName;
+    profile = font.plainSubstrByWidth(profile, pw - 20);
+    Component profileText = Component.literal(profile);
     ctx.centeredText(font, profileText, cx + 1, py + 48, 0xFF222222);
     ctx.centeredText(font, profileText, cx, py + 49, 0xFF222222);
     ctx.centeredText(font, profileText, cx, py + 48, KeysetTheme.TEXT_TITLE);
 
     // Separator
-    ctx.fill(px + 8, py + 70, px + PW - 8, py + 71, KeysetTheme.ACCENT_DIM);
+    ctx.fill(px + 8, py + 70, px + pw - 8, py + 71, KeysetTheme.ACCENT_DIM);
 
     if (!missingBindings.isEmpty()) {
       int listed = Math.min(missingBindings.size(), 3);
       int warningY = py + 76;
       int warningH = 16 + listed * 11 + (missingBindings.size() > 3 ? 11 : 0) + 6;
-      ctx.fill(px + 8, warningY, px + PW - 8, warningY + warningH, KeysetTheme.CHIP_ERR_BG);
-      ctx.outline(px + 8, warningY, PW - 16, warningH, KeysetTheme.CHIP_ERR_BR);
+      ctx.fill(px + 8, warningY, px + pw - 8, warningY + warningH, KeysetTheme.CHIP_ERR_BG);
+      ctx.outline(px + 8, warningY, pw - 16, warningH, KeysetTheme.CHIP_ERR_BR);
       ctx.centeredText(
           font,
           Component.literal("⚠ " + missingBindings.size() + " keybind(s) not installed:"),
@@ -125,9 +133,11 @@ public final class ImportConfirmDialog extends Screen {
           py + 80,
           KeysetTheme.WARNING);
       for (int i = 0; i < listed; i++) {
+        String missing = font.plainSubstrByWidth(missingBindings.get(i), pw - 48);
+        if (!missing.equals(missingBindings.get(i))) missing += "…";
         ctx.text(
             font,
-            Component.literal("  • " + missingBindings.get(i)),
+            Component.literal("  • " + missing),
             px + 16,
             py + 94 + i * 11,
             KeysetTheme.TEXT_MUTED,
@@ -158,5 +168,13 @@ public final class ImportConfirmDialog extends Screen {
   @Override
   public boolean isPauseScreen() {
     return false;
+  }
+
+  private int panelW() {
+    return Math.max(1, Math.min(PW, width - 8));
+  }
+
+  private int panelH() {
+    return Math.max(1, Math.min(PH, height - 8));
   }
 }
