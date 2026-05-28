@@ -142,6 +142,7 @@
   "keyset.status.config_recovered_default": "Reset Keyset profiles to defaults after a broken config was found.",
   "keyset.status.config_backup_warning": "Saved Keyset, but could not refresh the recovery backup file.",
   "keyset.status.config_archive_warning": "Keyset continued loading, but could not archive the broken config copy.",
+  "keyset.status.autoswitch_missing_profile": "Removed an auto-switch rule for a missing profile.",
   "keyset.error.import_empty": "Clipboard JSON did not contain any profiles.",
   "keyset.error.no_preview": "Generate a Safe Fix preview before applying it.",
   "keyset.error.no_undo": "There is no Safe Fix change to undo.",
@@ -241,5 +242,11 @@
   "keyset.share.dialog.accept": "Accept",
   "keyset.share.dialog.decline": "Decline",
   "keyset.share.compat.ok": "✓ All keybinds compatible.",
-  "keyset.share.error.empty_profile": "Save Live first before sharing this profile."
+  "keyset.share.error.empty_profile": "Save Live first before sharing this profile.",
+  "keyset.share.error.rate_limited": "Too many requests. Try again later.",
+  "keyset.share.error.not_found": "Code not found or expired.",
+  "keyset.share.error.server_error": "Server error. Try again later.",
+  "keyset.share.error.malformed_response": "Share server returned invalid data.",
+  "keyset.share.error.unknown": "Share failed. Check your connection.",
+  "keyset.share.error.invalid_data": "Invalid profile data."
 }
