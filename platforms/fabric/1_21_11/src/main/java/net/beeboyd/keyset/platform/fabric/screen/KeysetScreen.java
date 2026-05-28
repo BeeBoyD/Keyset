@@ -25,6 +25,7 @@ import net.minecraft.client.gui.screen.option.VideoOptionsScreen;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.sound.SoundInstance;
+import net.minecraft.client.util.InputUtil;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.OrderedText;
@@ -167,6 +168,8 @@ public final class KeysetScreen extends Screen {
 
   // Auto-switch tab
   private final List<AutoSwitchTarget> autoSwitchTargets = new ArrayList<>();
+  private float autoSwitchScrollTarget;
+  private float autoSwitchScrollSmooth;
 
   // Share tab
   private record ShareTarget(String id, int x, int y, int w, int h) {}
@@ -185,6 +188,9 @@ public final class KeysetScreen extends Screen {
   private int shareDropdownElemW;
   private boolean importCodeInvalid = false;
   private boolean codesExpanded = false;
+  private float shareHistoryScrollTarget;
+  private float shareHistoryScrollSmooth;
+  private int shareHistoryScrollX, shareHistoryScrollY, shareHistoryScrollW, shareHistoryScrollH;
 
   // Per-row hover animation state (profile id → alpha 0..1)
   private final java.util.Map<String, Float> rowHoverAlphas = new java.util.HashMap<>();
@@ -236,6 +242,7 @@ public final class KeysetScreen extends Screen {
   private boolean didActivate;
   private boolean didSaveLive;
   private boolean didOpenConflictDialog;
+  private boolean didUseShareTab;
   private boolean lastStepComplete = false;
 
   public KeysetScreen(Screen parent, KeysetFabricService service) {
@@ -1063,8 +1070,13 @@ public final class KeysetScreen extends Screen {
     }
 
     String displayName = row.displayName;
-    int chipW = textRenderer.getWidth(row.keyLabel) + 10;
-    int maxNameW = w - chipW - 22;
+    String keyLabel = row.keyLabel;
+    int chipMaxW = Math.max(32, Math.min(w / 2, w - 32));
+    if (textRenderer.getWidth(keyLabel) + 10 > chipMaxW) {
+      keyLabel = textRenderer.trimToWidth(keyLabel, Math.max(0, chipMaxW - 16)) + "…";
+    }
+    int chipW = Math.min(chipMaxW, textRenderer.getWidth(keyLabel) + 10);
+    int maxNameW = Math.max(20, w - chipW - 22);
     while (textRenderer.getWidth(displayName) > maxNameW && displayName.length() > 1) {
       displayName = displayName.substring(0, displayName.length() - 1);
     }
@@ -1086,14 +1098,15 @@ public final class KeysetScreen extends Screen {
     ctx.drawStrokedRectangle(chipX, chipY, chipW, 14, KeysetTheme.withAlpha(chipBr, screenAlpha));
     ctx.drawCenteredTextWithShadow(
         textRenderer,
-        Text.literal(row.keyLabel),
+        Text.literal(keyLabel),
         chipX + chipW / 2,
         chipY + 3,
         KeysetTheme.withAlpha(chipText, screenAlpha));
   }
 
   private List<BindingRow> buildBindingRows(MinecraftClient mc) {
-    if (selectedProfileId == null || mc == null) return Collections.emptyList();
+    if (selectedProfileId == null || mc == null || mc.options == null || mc.options.allKeys == null)
+      return Collections.emptyList();
     KeysetProfilesConfig cfg;
     try {
       cfg = service.getConfig(mc);
@@ -1129,8 +1142,7 @@ public final class KeysetScreen extends Screen {
       String category = kb.getCategory().id().toString();
       String categoryName = kb.getCategory().getLabel().getString();
 
-      // Rule 3: read live MC state, not profile snapshot
-      String keyLabel = kb.getBoundKeyLocalizedText().getString();
+      String keyLabel = keyDisplayName(snap.getKeyStroke().getKeyToken());
 
       boolean conflict =
           !snap.getKeyStroke().isUnbound()
@@ -1200,11 +1212,14 @@ public final class KeysetScreen extends Screen {
       boolean expanded = expandedConflictGroups.contains(g.boundKey());
       String keyLabel = g.bindings().get(0).getBoundKeyLocalizedText().getString();
 
-      conflictTargets.add(
-          new ConflictTarget(
-              true, g.boundKey(), rowX, curY, rowW, 28, null, null, null, null, null));
-
       if (curY + 28 > listTop && curY < listBot) {
+        int targetY = Math.max(curY, listTop);
+        int targetH = Math.min(curY + 28, listBot) - targetY;
+        if (targetH > 0) {
+          conflictTargets.add(
+              new ConflictTarget(
+                  true, g.boundKey(), rowX, targetY, rowW, targetH, null, null, null, null, null));
+        }
         renderConflictGroup(ctx, keyLabel, g.bindings().size(), expanded, rowX, curY, rowW, mx, my);
       }
       curY += 28;
@@ -1219,20 +1234,24 @@ public final class KeysetScreen extends Screen {
               others.add(Text.translatable(other.getId()).getString());
             }
           }
-          conflictTargets.add(
-              new ConflictTarget(
-                  false,
-                  g.boundKey(),
-                  rowX,
-                  curY,
-                  rowW,
-                  KeysetTheme.ROW_H,
-                  kb.getId(),
-                  actionName,
-                  keyLabel,
-                  categoryName,
-                  others));
           if (curY + KeysetTheme.ROW_H > listTop && curY < listBot) {
+            int targetY = Math.max(curY, listTop);
+            int targetH = Math.min(curY + KeysetTheme.ROW_H, listBot) - targetY;
+            if (targetH > 0) {
+              conflictTargets.add(
+                  new ConflictTarget(
+                      false,
+                      g.boundKey(),
+                      rowX,
+                      targetY,
+                      rowW,
+                      targetH,
+                      kb.getId(),
+                      actionName,
+                      keyLabel,
+                      categoryName,
+                      others));
+            }
             renderConflictBinding(ctx, actionName, categoryName, rowX, curY, rowW, mx, my);
           }
           curY += KeysetTheme.ROW_H;
@@ -1308,6 +1327,19 @@ public final class KeysetScreen extends Screen {
   private void renderConflictBinding(
       DrawContext ctx, String actionName, String category, int x, int y, int w, int mx, int my) {
     int indent = 16;
+    int gap = KeysetTheme.GAP_SM;
+    int categoryMaxW = Math.max(40, Math.min(w / 3, textRenderer.getWidth(category)));
+    if (textRenderer.getWidth(category) > categoryMaxW) {
+      category =
+          textRenderer.trimToWidth(category, Math.max(0, categoryMaxW - textRenderer.getWidth("…")))
+              + "…";
+    }
+    int actionMaxW = Math.max(20, w - indent - categoryMaxW - gap - 8);
+    if (textRenderer.getWidth(actionName) > actionMaxW) {
+      actionName =
+          textRenderer.trimToWidth(actionName, Math.max(0, actionMaxW - textRenderer.getWidth("…")))
+              + "…";
+    }
     boolean hov =
         !isOverTutorialPanel(mx, my)
             && mx >= x + indent
@@ -1349,6 +1381,9 @@ public final class KeysetScreen extends Screen {
   }
 
   private boolean profileDiffersFromLive(KeysetProfile profile, MinecraftClient mc) {
+    if (profile == null || mc == null || mc.options == null || mc.options.allKeys == null) {
+      return false;
+    }
     Map<String, KeysetBindingSnapshot> bindings = profile.getBindings();
     for (KeyBinding kb : mc.options.allKeys) {
       KeysetBindingSnapshot snap = bindings.get(kb.getId());
@@ -1360,6 +1395,17 @@ public final class KeysetScreen extends Screen {
         return true;
     }
     return false;
+  }
+
+  private String keyDisplayName(String keyToken) {
+    if (keyToken == null || keyToken.equals("key.keyboard.unknown")) {
+      return Text.translatable("key.keyboard.unknown").getString();
+    }
+    try {
+      return InputUtil.fromTranslationKey(keyToken).getLocalizedText().getString();
+    } catch (IllegalArgumentException exception) {
+      return keyToken;
+    }
   }
 
   // ── Auto-switch tab ───────────────────────────────────────────────────────────
@@ -1427,12 +1473,21 @@ public final class KeysetScreen extends Screen {
     } catch (IOException ignored) {
     }
 
-    ctx.enableScissor(mainX + 1, listTop, mainX + mainW - 1, listBot);
-    int curY = listTop;
     int rowH = 28;
+    int maxScroll = Math.max(0, rules.size() * rowH - (listBot - listTop));
+    autoSwitchScrollTarget = MathHelper.clamp(autoSwitchScrollTarget, 0, maxScroll);
+    autoSwitchScrollSmooth =
+        KeysetTheme.expLerp(autoSwitchScrollSmooth, autoSwitchScrollTarget, frameDt, 22f);
+
+    ctx.enableScissor(mainX + 1, listTop, mainX + mainW - 1, listBot);
+    int curY = listTop - (int) autoSwitchScrollSmooth;
     for (int i = 0; i < rules.size(); i++) {
       AutoSwitchRule rule = rules.get(i);
-      if (curY + rowH > listBot) break;
+      if (curY + rowH <= listTop) {
+        curY += rowH;
+        continue;
+      }
+      if (curY >= listBot) break;
 
       boolean rowHov =
           !isOverTutorialPanel(mx, my)
@@ -1449,8 +1504,18 @@ public final class KeysetScreen extends Screen {
             KeysetTheme.withAlpha(KeysetTheme.BG_HOVER, screenAlpha));
       }
 
+      // Delete button [✕]
+      int delW = 16;
+      int delX = rowX + rowW - delW - 4;
+      int delY = curY + (rowH - 14) / 2;
+
       // Pattern chip
-      int patW = textRenderer.getWidth(rule.getPattern()) + 10;
+      String pattern = rule.getPattern();
+      int patMaxW = Math.max(32, Math.min(textRenderer.getWidth(pattern) + 10, rowW / 2));
+      if (textRenderer.getWidth(pattern) > patMaxW - 10) {
+        pattern = textRenderer.trimToWidth(pattern, Math.max(0, patMaxW - 16)) + "…";
+      }
+      int patW = Math.min(patMaxW, textRenderer.getWidth(pattern) + 10);
       int patY = curY + (rowH - 14) / 2;
       ctx.fill(
           rowX + 6,
@@ -1462,7 +1527,7 @@ public final class KeysetScreen extends Screen {
           rowX + 6, patY, patW, 14, KeysetTheme.withAlpha(KeysetTheme.BORDER, screenAlpha));
       ctx.drawCenteredTextWithShadow(
           textRenderer,
-          Text.literal(rule.getPattern()),
+          Text.literal(pattern),
           rowX + 6 + patW / 2,
           patY + 3,
           KeysetTheme.withAlpha(KeysetTheme.TEXT_BODY, screenAlpha));
@@ -1471,19 +1536,22 @@ public final class KeysetScreen extends Screen {
       String profileName =
           cfg != null && cfg.getProfile(rule.getProfileId()) != null
               ? cfg.getProfile(rule.getProfileId()).getName()
-              : rule.getProfileId();
+              : "⚠ [Deleted]";
+      boolean invalidRule = cfg == null || cfg.getProfile(rule.getProfileId()) == null;
       String arrow = "→ " + profileName;
+      int arrowX = rowX + 6 + patW + 8;
+      int arrowMaxW = Math.max(0, delX - arrowX - 6);
+      if (textRenderer.getWidth(arrow) > arrowMaxW) {
+        arrow = textRenderer.trimToWidth(arrow, Math.max(0, arrowMaxW - 6)) + "…";
+      }
       ctx.drawTextWithShadow(
           textRenderer,
           Text.literal(arrow),
-          rowX + 6 + patW + 8,
+          arrowX,
           curY + (rowH - 9) / 2,
-          KeysetTheme.withAlpha(KeysetTheme.TEXT_MUTED, screenAlpha));
+          KeysetTheme.withAlpha(
+              invalidRule ? KeysetTheme.TEXT_DISABLED : KeysetTheme.TEXT_MUTED, screenAlpha));
 
-      // Delete button [✕]
-      int delW = 16;
-      int delX = rowX + rowW - delW - 4;
-      int delY = curY + (rowH - 14) / 2;
       boolean delHov =
           !isOverTutorialPanel(mx, my)
               && mx >= delX
@@ -1510,7 +1578,11 @@ public final class KeysetScreen extends Screen {
           delX + delW / 2,
           delY + 3,
           KeysetTheme.withAlpha(delHov ? KeysetTheme.ERROR : KeysetTheme.TEXT_MUTED, screenAlpha));
-      autoSwitchTargets.add(new AutoSwitchTarget(false, i, delX, delY, delW, 14));
+      int targetY = Math.max(delY, listTop);
+      int targetH = Math.min(delY + 14, listBot) - targetY;
+      if (targetH > 0) {
+        autoSwitchTargets.add(new AutoSwitchTarget(false, i, delX, targetY, delW, targetH));
+      }
 
       // Row divider
       ctx.fill(
@@ -1543,6 +1615,21 @@ public final class KeysetScreen extends Screen {
       return true;
     }
     if (mouseX >= mainX && mouseX < mainX + mainW) {
+      if (currentTab == Tab.AUTO_SWITCH) {
+        int listTop = contentY + KeysetTheme.GAP + 18 + KeysetTheme.GAP_SM;
+        int listBot = mainY + mainH - KeysetTheme.GAP_SM;
+        if (mouseY >= listTop && mouseY < listBot) {
+          autoSwitchScrollTarget -= (float) (verticalAmount * KeysetTheme.ROW_H);
+          return true;
+        }
+      }
+      if (currentTab == Tab.SHARE
+          && codesExpanded
+          && !shareHistory.isEmpty()
+          && mouseInShareHistory(mouseX, mouseY)) {
+        shareHistoryScrollTarget -= (float) (verticalAmount * KeysetTheme.ROW_H);
+        return true;
+      }
       int listTop = contentY + KeysetTheme.GAP + 18 + KeysetTheme.GAP_SM;
       int listBot = mainY + mainH - KeysetTheme.GAP_SM;
       if (mouseY >= listTop && mouseY < listBot) {
@@ -1758,6 +1845,9 @@ public final class KeysetScreen extends Screen {
       if (currentTab == Tab.SHARE && shareTargetProfileId == null) {
         shareTargetProfileId = selectedProfileId;
       }
+      if (currentTab == Tab.SHARE) {
+        didUseShareTab = true;
+      }
       rebuildTabWidgets();
       return true;
     }
@@ -1856,6 +1946,10 @@ public final class KeysetScreen extends Screen {
 
   private void renderShareTab(DrawContext ctx, int mx, int my) {
     shareTargets.clear();
+    shareHistoryScrollX = 0;
+    shareHistoryScrollY = 0;
+    shareHistoryScrollW = 0;
+    shareHistoryScrollH = 0;
 
     int pad = KeysetTheme.PAD;
     int gap = KeysetTheme.GAP;
@@ -2184,23 +2278,35 @@ public final class KeysetScreen extends Screen {
             KeysetTheme.withAlpha(KeysetTheme.TEXT_DISABLED, screenAlpha));
       } else {
         curY += gapSm;
+        int histBottom = tabContentY + tabContentH;
+        shareHistoryScrollX = tabContentX;
+        shareHistoryScrollY = curY;
+        shareHistoryScrollW = tabContentW;
+        shareHistoryScrollH = Math.max(0, histBottom - curY);
+        int histViewportH = Math.max(0, histBottom - curY);
+        int maxScroll = Math.max(0, shareHistory.size() * rowH - histViewportH);
+        shareHistoryScrollTarget = MathHelper.clamp(shareHistoryScrollTarget, 0, maxScroll);
+        shareHistoryScrollSmooth =
+            KeysetTheme.expLerp(shareHistoryScrollSmooth, shareHistoryScrollTarget, frameDt, 22f);
+        ctx.enableScissor(tabContentX, curY, tabContentX + tabContentW, histBottom);
         int delBtnW = 12, delBtnH = 12;
         int codeColW = textRenderer.getWidth("ABCD-EFGH") + 10;
         int expiresColW = textRenderer.getWidth("000d") + 6;
         for (int i = 0; i < shareHistory.size(); i++) {
           ShareHistoryStore.Entry entry = shareHistory.get(i);
+          int rowY = curY + i * rowH - (int) shareHistoryScrollSmooth;
           boolean rowHov =
               !isOverTutorialPanel(mx, my)
                   && mx >= tabContentX
                   && mx < tabContentX + tabContentW - delBtnW - gapSm
-                  && my >= curY
-                  && my < curY + rowH;
+                  && my >= rowY
+                  && my < rowY + rowH;
           if (rowHov) {
             ctx.fill(
                 tabContentX,
-                curY,
+                rowY,
                 tabContentX + tabContentW,
-                curY + rowH,
+                rowY + rowH,
                 KeysetTheme.withAlpha(KeysetTheme.BG_HOVER, screenAlpha));
           }
           long daysLeft =
@@ -2213,7 +2319,7 @@ public final class KeysetScreen extends Screen {
               textRenderer,
               Text.literal(nameStr),
               tabContentX,
-              curY + 6,
+              rowY + 6,
               KeysetTheme.withAlpha(KeysetTheme.TEXT_BODY, screenAlpha));
           String code = entry.code();
           String dispCode =
@@ -2221,13 +2327,13 @@ public final class KeysetScreen extends Screen {
           int chipX = tabContentX + maxNameW + gapSm;
           ctx.fill(
               chipX,
-              curY + 4,
+              rowY + 4,
               chipX + codeColW,
-              curY + rowH - 4,
+              rowY + rowH - 4,
               KeysetTheme.withAlpha(KeysetTheme.CHIP_BG, screenAlpha));
           ctx.drawStrokedRectangle(
               chipX,
-              curY + 4,
+              rowY + 4,
               codeColW,
               rowH - 8,
               KeysetTheme.withAlpha(KeysetTheme.BORDER, screenAlpha));
@@ -2235,7 +2341,7 @@ public final class KeysetScreen extends Screen {
               textRenderer,
               Text.literal(dispCode),
               chipX + codeColW / 2,
-              curY + 7,
+              rowY + 7,
               KeysetTheme.withAlpha(KeysetTheme.TEXT_BODY, screenAlpha));
           int exColX = chipX + codeColW + gapSm;
           int dayColor =
@@ -2246,10 +2352,10 @@ public final class KeysetScreen extends Screen {
               textRenderer,
               Text.literal(daysLeft > 0 ? daysLeft + "d" : "exp"),
               exColX,
-              curY + 6,
+              rowY + 6,
               KeysetTheme.withAlpha(dayColor, screenAlpha));
           int delX = tabContentX + tabContentW - delBtnW;
-          int delY = curY + (rowH - delBtnH) / 2;
+          int delY = rowY + (rowH - delBtnH) / 2;
           boolean delHov =
               !isOverTutorialPanel(mx, my)
                   && mx >= delX
@@ -2276,9 +2382,15 @@ public final class KeysetScreen extends Screen {
               delX + delBtnW / 2,
               delY + 1,
               KeysetTheme.withAlpha(KeysetTheme.ERROR, screenAlpha));
-          shareTargets.add(new ShareTarget("del-" + i, delX, delY, delBtnW, delBtnH));
-          curY += rowH;
+          if (rowY + rowH > curY && rowY < histBottom) {
+            int targetY = Math.max(delY, curY);
+            int targetH = Math.min(delY + delBtnH, histBottom) - targetY;
+            if (targetH > 0) {
+              shareTargets.add(new ShareTarget("del-" + i, delX, targetY, delBtnW, targetH));
+            }
+          }
         }
+        ctx.disableScissor();
       }
     }
   }
@@ -2348,6 +2460,15 @@ public final class KeysetScreen extends Screen {
     return client.runDirectory.toPath().resolve("config/keyset-share-history.json");
   }
 
+  private boolean mouseInShareHistory(double mouseX, double mouseY) {
+    return shareHistoryScrollW > 0
+        && shareHistoryScrollH > 0
+        && mouseX >= shareHistoryScrollX
+        && mouseX < shareHistoryScrollX + shareHistoryScrollW
+        && mouseY >= shareHistoryScrollY
+        && mouseY < shareHistoryScrollY + shareHistoryScrollH;
+  }
+
   private void doShareUpload() {
     if (shareTargetProfileId == null || client == null) return;
     String json;
@@ -2368,6 +2489,7 @@ public final class KeysetScreen extends Screen {
     String capturedProfileId = shareTargetProfileId;
     String capturedProfileName = profileName;
     shareUploading = true;
+    didUseShareTab = true;
     shareResultCode = "";
     ShareApiClient.upload(json, username, profileName)
         .thenAcceptAsync(
@@ -2413,6 +2535,7 @@ public final class KeysetScreen extends Screen {
       return;
     }
     shareDownloading = true;
+    didUseShareTab = true;
     ShareApiClient.download(rawCode)
         .thenAcceptAsync(
             result -> {
@@ -2811,7 +2934,7 @@ public final class KeysetScreen extends Screen {
       case AUTO_SWITCH:
         return currentTab == Tab.AUTO_SWITCH;
       case SHARE:
-        return true;
+        return currentTab == Tab.SHARE || didUseShareTab;
       default:
         return true;
     }
@@ -2833,6 +2956,8 @@ public final class KeysetScreen extends Screen {
       didOpenConflictDialog = false;
     } else if (tutorialStep == TutorialStep.SAVE_LIVE) {
       didSaveLive = false;
+    } else if (tutorialStep == TutorialStep.SHARE) {
+      didUseShareTab = false;
     } else if (tutorialStep == TutorialStep.DONE) {
       playTutorialCompleteSound();
       tutorialActive = false;
