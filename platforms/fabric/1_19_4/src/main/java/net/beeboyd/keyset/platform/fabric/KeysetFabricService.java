@@ -216,7 +216,7 @@ public final class KeysetFabricService {
     if (json == null || json.trim().isEmpty()) {
       throw new IllegalArgumentException("Clipboard JSON did not contain any profiles.");
     }
-    KeysetProfilesConfig importedConfig = codec.fromJson(json);
+    KeysetProfilesConfig importedConfig = readImportedConfig(json);
     int importedCount = 0;
     String lastImportedProfileId = null;
     for (KeysetProfile importedProfile : importedConfig.getProfiles().values()) {
@@ -370,7 +370,6 @@ public final class KeysetFabricService {
       config = seedStarterProfiles(client.options, config);
       save(client);
       loaded = true;
-      applyProfile(client.options, requireProfile(config, config.getActiveProfileId()));
       return;
     }
 
@@ -380,7 +379,17 @@ public final class KeysetFabricService {
     }
 
     loaded = true;
-    applyProfile(client.options, requireProfile(config, config.getActiveProfileId()));
+  }
+
+  private KeysetProfilesConfig readImportedConfig(String json) {
+    try {
+      return codec.fromJson(json);
+    } catch (RuntimeException exception) {
+      String message = exception.getMessage();
+      throw new IllegalArgumentException(
+          "Invalid profile data" + (message == null || message.isEmpty() ? "" : ": " + message),
+          exception);
+    }
   }
 
   private KeysetProfilesConfig seedStarterProfiles(
@@ -532,7 +541,7 @@ public final class KeysetFabricService {
   }
 
   private static void applyStrokes(GameOptions options, Map<String, KeysetKeyStroke> strokes) {
-    if (strokes.isEmpty()) {
+    if (options == null || strokes.isEmpty()) {
       return;
     }
 
