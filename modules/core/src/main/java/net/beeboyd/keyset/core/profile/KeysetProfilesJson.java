@@ -33,7 +33,11 @@ public final class KeysetProfilesJson {
       return KeysetProfiles.createDefaultConfig();
     }
 
-    return fromElement(new JsonParser().parse(json));
+    try {
+      return fromElement(new JsonParser().parse(json));
+    } catch (RuntimeException exception) {
+      throw invalidProfileData(exception);
+    }
   }
 
   /** Reads a config document from a reader. */
@@ -42,7 +46,11 @@ public final class KeysetProfilesJson {
       return KeysetProfiles.createDefaultConfig();
     }
 
-    return fromElement(new JsonParser().parse(reader));
+    try {
+      return fromElement(new JsonParser().parse(reader));
+    } catch (RuntimeException exception) {
+      throw invalidProfileData(exception);
+    }
   }
 
   /** Serializes a config document into stable pretty-printed JSON. */
@@ -90,12 +98,30 @@ public final class KeysetProfilesJson {
    * caller supplies the profileId that will be assigned to the new profile.
    */
   public KeysetProfile singleProfileFromJson(String json, String profileId) {
-    JsonObject obj = new JsonParser().parse(json).getAsJsonObject();
-    return new KeysetProfile(
-        profileId,
-        fallbackProfileName(readString(obj, "name"), profileId),
-        false,
-        readBindings(obj));
+    try {
+      JsonElement root = new JsonParser().parse(json);
+      if (root == null || root.isJsonNull() || !root.isJsonObject()) {
+        throw new IllegalArgumentException("Expected profile JSON object");
+      }
+      JsonObject obj = root.getAsJsonObject();
+      if (!obj.has("bindings") || !obj.get("bindings").isJsonObject()) {
+        throw new IllegalArgumentException("Missing required profile bindings");
+      }
+      return new KeysetProfile(
+          profileId,
+          fallbackProfileName(readString(obj, "name"), profileId),
+          false,
+          readBindings(obj));
+    } catch (RuntimeException exception) {
+      throw invalidProfileData(exception);
+    }
+  }
+
+  private IllegalArgumentException invalidProfileData(RuntimeException exception) {
+    String message = exception.getMessage();
+    return new IllegalArgumentException(
+        "Invalid profile data" + (message == null || message.isEmpty() ? "" : ": " + message),
+        exception);
   }
 
   /** Reads the config file, returning a starter document when the file does not exist yet. */
