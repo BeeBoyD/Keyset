@@ -66,6 +66,7 @@ public final class KeysetNeoForgeClientMod {
       NeoForge.EVENT_BUS.addListener(this::onClientTick);
       NeoForge.EVENT_BUS.addListener(this::onScreenInit);
       NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
+      NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedOut);
     }
 
     private void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
@@ -150,6 +151,10 @@ public final class KeysetNeoForgeClientMod {
       Minecraft client = Minecraft.getInstance();
       String address = client.getCurrentServer() != null ? client.getCurrentServer().ip : null;
       SERVICE.handleServerJoin(client, address);
+    }
+
+    private void onPlayerLoggedOut(ClientPlayerNetworkEvent.LoggingOut event) {
+      SERVICE.handleServerDisconnect(Minecraft.getInstance());
     }
 
     private void onScreenInit(ScreenEvent.Init.Post event) {

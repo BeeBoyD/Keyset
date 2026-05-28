@@ -138,6 +138,8 @@ public final class KeysetFabricClient implements ClientModInitializer {
                   : null;
           SERVICE.handleServerJoin(client, address);
         });
+    ClientPlayConnectionEvents.DISCONNECT.register(
+        (handler, client) -> SERVICE.handleServerDisconnect(client));
 
     ScreenEvents.AFTER_INIT.register(
         (client, screen, scaledWidth, scaledHeight) -> {

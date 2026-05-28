@@ -33,23 +33,55 @@ final class KeysetAutoSwitchStore {
     if (!Files.exists(path)) return new ArrayList<AutoSwitchRule>();
     try (Reader r = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
       JsonElement root = new JsonParser().parse(r);
-      if (!root.isJsonArray()) return new ArrayList<AutoSwitchRule>();
+      if (root == null || root.isJsonNull() || !root.isJsonArray()) {
+        archiveBrokenRules();
+        return new ArrayList<AutoSwitchRule>();
+      }
       List<AutoSwitchRule> rules = new ArrayList<AutoSwitchRule>();
       for (JsonElement el : root.getAsJsonArray()) {
-        if (!el.isJsonObject()) continue;
-        JsonObject obj = el.getAsJsonObject();
-        String pattern = obj.has("pattern") ? obj.get("pattern").getAsString() : null;
-        String profileId = obj.has("profileId") ? obj.get("profileId").getAsString() : null;
-        if (pattern != null && !pattern.isEmpty() && profileId != null && !profileId.isEmpty()) {
-          try {
-            rules.add(new AutoSwitchRule(pattern, profileId));
-          } catch (IllegalArgumentException ignored) {
-            // skip malformed entry
-          }
-        }
+        AutoSwitchRule rule = readRule(el);
+        if (rule != null) rules.add(rule);
       }
       return rules;
+    } catch (RuntimeException exception) {
+      archiveBrokenRules();
+      return new ArrayList<AutoSwitchRule>();
     }
+  }
+
+  private void archiveBrokenRules() throws IOException {
+    if (!Files.exists(path)) return;
+    Path archived =
+        path.resolveSibling(
+            path.getFileName().toString() + ".broken." + System.currentTimeMillis());
+    try {
+      Files.move(
+          path, archived, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    } catch (AtomicMoveNotSupportedException ignored) {
+      Files.move(path, archived, StandardCopyOption.REPLACE_EXISTING);
+    }
+  }
+
+  private static AutoSwitchRule readRule(JsonElement el) {
+    try {
+      if (!el.isJsonObject()) return null;
+      JsonObject obj = el.getAsJsonObject();
+      String pattern = readString(obj, "pattern");
+      String profileId = readString(obj, "profileId");
+      if (pattern == null || pattern.isEmpty() || profileId == null || profileId.isEmpty()) {
+        return null;
+      }
+      return new AutoSwitchRule(pattern, profileId);
+    } catch (RuntimeException exception) {
+      return null;
+    }
+  }
+
+  private static String readString(JsonObject obj, String field) {
+    if (!obj.has(field) || obj.get(field).isJsonNull()) return null;
+    JsonElement value = obj.get(field);
+    if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) return null;
+    return value.getAsString();
   }
 
   void save(List<AutoSwitchRule> rules) throws IOException {
