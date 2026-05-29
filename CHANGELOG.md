@@ -1,6 +1,131 @@
 # Changelog
 
+## [2.0.0]
+
+### Added
+- Complete UI rewrite: custom theme, animated tabs, custom button and text field widgets
+- Intro screen with animated keycap background and smooth fade in/out
+- 9-step interactive tutorial with task validators, contextual darkening, and step sounds
+- Auto-Switch tab: server join rules, disconnect restore, invalid rule detection
+- Share tab: 8-character codes via share.beeboyd.com (anonymous, 90-day expiry)
+- ImportConfirmDialog: sender name, profile name, keybind compatibility check
+- Live conflict detection: polls MC keybind state every 10 ticks
+- Toast notifications: bottom-left slide-up, 10s auto-dismiss, duplicate coalescing
+- 15 new localisations: es_es, pt_br, fr_fr, de_de, ro_ro, it_it, ru_ru, zh_cn, zh_tw, ja_jp, ko_kr, pl_pl, uk_ua, nl_nl, sv_se
+- New targets: Fabric 1.21.4, 1.21.9, 1.21.11, 26.1 (Fabric + NeoForge)
+
+### Fixed
+- Profiles no longer auto-apply on game start or screen open
+- Export/import uses single-profile serialization — no phantom profiles
+- Share async callbacks guarded against stale/closed screen
+- All dialogs clamped to viewport, content vertically centered, blur suppressed
+- Auto-switch rules pruned on profile delete
+- Toast queue capped; duplicates coalesced
+- 23 additional bug fixes (see GitHub release notes)
+
 ## Unreleased
+
+## v2.0.0 - 2026-05-17
+
+### Added
+
+- New Keyset 2.0 Fabric UI with tabbed Bindings, Conflicts, Auto-Switch, and Share workflows across active Fabric 1.20.x and 1.21.x targets.
+- Profile sharing flow with generated import codes, import confirmation, local share history, and empty-profile validation.
+- Auto-switch rules for applying profiles when joining matching servers.
+
+### Changed
+
+- Dialogs now use sharp dim overlays with vertically centered content instead of the vanilla blurred background.
+- Toasts now appear from the bottom-left, stack upward, and auto-dismiss after ten seconds.
+- Fabric 26.1 metadata now targets Minecraft 26.1.2 with current Fabric Loader, Fabric API, and matching NeoForge metadata.
+
+### Fixed
+
+- Fixed the Conflicts tab count badge so the count is drawn once without the double-shadow artifact.
+- Fixed tutorial and in-place UI rebuilds so minor state changes do not restart the full screen fade.
+- Improved Share tab sizing, import placeholder behavior, invalid-code warning display, hover polish, conflict key tinting, and empty states.
+
+## v1.3.0 - 2026-04-24
+
+### Added
+
+- Direct `Activate Profile Slot 1-5` hotkeys across the active Fabric, Forge, and NeoForge targets so the first five saved profiles can be applied immediately.
+- A dedicated `Keyset` controls category for the open-screen, cycle-profile, and slot-activation keybinds.
+
+### Changed
+
+- Active Fabric services now expose slot-based profile activation while continuing to use the existing saved profile order as the source of truth.
+- Release automation can now use dedicated per-channel release notes so GitHub and Modrinth copy can diverge when needed.
+
+### Fixed
+
+- Modern `1.21.11` and `26.1` client paths now construct the newer key category record types with the correct identifier objects, fixing compilation for the latest category API shape.
+
+## v1.2.1 - 2026-04-09
+
+### Highlights
+
+- **Cross-loader launch testing got much more reliable.** The built-client tester now resolves each target's actual dev-launch main class from Gradle metadata instead of assuming one bootstrap path for all versions.
+- **Forge and NeoForge startup paths are now aligned across version families.** Older leaves that require `cpw.mods.bootstraplauncher.BootstrapLauncher` and newer leaves that require `net.neoforged.fml.startup.Client` are both handled correctly.
+- **Keyset UI interactions are cleaner and safer in paged layouts.** Overlapping action controls were repositioned, and disabled controls no longer remain interactable.
+
+### Fixed
+
+- Fixed Forge compile and runtime regressions caused by profile-cycle API return type changes.
+- Fixed built-client launcher failures caused by wrong Java argument sets on mixed-version targets.
+- Fixed target label normalization edge cases so range aliases map to valid CI build labels more predictably.
+- Fixed 3-column paged layout overlap where action buttons could render on top of each other.
+- Fixed disabled-button interaction leakage so inactive controls are not still clickable.
+
+### Tooling
+
+- Added broader target-selection support in the built-client test runner:
+  - accepts loader-wide selectors (`fabric`, `forge`, `neoforge`)
+  - supports `all` for full matrix execution
+  - supports skip-target filtering for long test passes
+- Improved launch diagnostics and result capture to make manual QA runs easier to triage from generated CSV output.
+
+## v1.2.0 - 2026-04-07
+
+### Added
+
+- **Full 1.2.0 target rollout** — the 1.2.0 UI and profile-management feature set now ships across the remaining active Fabric leaves (`1.20.1`, `1.20.4`, `1.20.6`, `1.21.1`, `1.21.4`, and `26.1`) instead of stopping at the primary `1.21.10-1.21.11` jar.
+- **Profile cycling keybinds** — bind keys to cycle forward/backward through profiles and apply them instantly without opening the UI.
+- **Undo/redo stack** — multi-level undo and redo for Safe Fix operations (up to 20 steps each direction).
+- **Confirm dialogs** — delete profile and activate profile now require confirmation before taking effect.
+- **Bulk binding clear** — "Clear All" in the conflict selection panel clears every binding in the current conflict at once.
+- **Profile move up/down** — reorder profiles in the list via dedicated up/down controls while preserving insertion order in saves.
+- **Jump to active profile** — one-click control to scroll the profile list back to the currently active profile.
+- **Search persistence and debounce** — the conflict search query is preserved when switching profiles and no longer rebuilds the list on every keystroke.
+- **Rotating backups and write-back verification** — config saves now keep `.bak` / `.bak1` / `.bak2` history and verify the written file can be parsed back in.
+
+### Changed
+
+- Forge `1.20.1` and NeoForge `1.20.1`, `1.20.4`, `1.20.6`, and `26.1` now pick up the same profile-cycle hotkeys and single-slot Controls-screen injection flow as the finalized Fabric client path.
+- Beta Modrinth releases now include the CI build number in both the displayed version name and the published `version_number`, making repeated beta drops easier to distinguish.
+- GitHub and Modrinth release notes continue to be generated directly from this changelog entry so both storefronts stay in sync.
+
+### Fixed
+
+- Config load exceptions are now logged with full details instead of being silently swallowed.
+- Config recovery logs which fallback layer (backup/defaults) was used.
+- Status notice queue no longer drops messages when multiple notices fire in quick succession.
+- The Keyset button injected into the Controls screen no longer uses a WeakHashMap, preventing rare GC-related disappearance.
+- Profile name blank-check now happens in the UI before submitting, not only in the service layer.
+- Modrinth publishing now checks the target project for an existing matching `version_number` before upload and skips already-published builds instead of attempting a duplicate release.
+- The `1.21.1` Fabric port uses the correct legacy keybinding setter path, keeping the final 1.2.0 rollout aligned with the older Yarn API split.
+
+### Notes
+
+- v1.2.0 now covers the full active release line: **Fabric/Quilt 1.20.1-1.21.11 plus 26.1**, **Forge 1.20.1-1.21.1**, and **NeoForge 1.20.1-1.21.11 plus 26.1**.
+- Recent beta-publish commits (`ci: trigger beta publish ...`) were release-ops retries and are not user-facing features on their own; the functional publishing change in this pass is the duplicate-check plus beta build-number naming above.
+
+## v1.1.3 - 2026-04-07
+
+### Fixed
+
+- Fabric `fabric.mod.json` MC version ranges were incorrect across the entire 1.20.x–1.21.x ladder, causing launchers and modpack tools to load the wrong jar for a given MC version. Most critically, the `1.21.10–1.21.11` jar (compiled against MC 1.21.11, which uses `KeyBinding$Category`/`class_11900`) was accepted by Fabric Loader on MC 1.21.1 where that class does not exist, causing an immediate `NoClassDefFoundError` crash on startup.
+- Added `verifyFabricModRanges` build task (wired into `verifyWorkspace`) to catch MC range overlaps and gaps at build time, preventing regressions.
 
 ## v1.1.2 - 2026-03-30
 

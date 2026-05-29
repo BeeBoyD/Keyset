@@ -1,7 +1,11 @@
 package net.beeboyd.keyset.core.profile;
 
+import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
@@ -158,6 +162,97 @@ public final class KeysetProfiles {
         KeysetCoreMetadata.CONFIG_SCHEMA, normalized.getActiveProfileId(), updatedProfiles);
   }
 
+  /**
+   * Moves the given profile one position earlier in the profile list. If the profile is already
+   * first, returns the config unchanged. The Default profile cannot be moved.
+   */
+  public static KeysetProfilesConfig moveProfileUp(KeysetProfilesConfig config, String profileId) {
+    String normalizedProfileId = requireProfileId(profileId);
+    if (DEFAULT_PROFILE_ID.equals(normalizedProfileId)) {
+      throw new IllegalArgumentException("The Default profile cannot be moved");
+    }
+
+    KeysetProfilesConfig normalized = normalize(config);
+    requireProfile(normalized, normalizedProfileId);
+
+    List<Map.Entry<String, KeysetProfile>> entries =
+        new ArrayList<Map.Entry<String, KeysetProfile>>(normalized.getProfiles().entrySet());
+    int index = indexOfProfileId(entries, normalizedProfileId);
+
+    if (index <= 0) {
+      return normalized;
+    }
+
+    Collections.swap(entries, index, index - 1);
+    return new KeysetProfilesConfig(
+        KeysetCoreMetadata.CONFIG_SCHEMA,
+        normalized.getActiveProfileId(),
+        rebuildProfiles(entries));
+  }
+
+  /**
+   * Moves the given profile one position later in the profile list. If the profile is already last,
+   * returns the config unchanged. The Default profile cannot be moved.
+   */
+  public static KeysetProfilesConfig moveProfileDown(
+      KeysetProfilesConfig config, String profileId) {
+    String normalizedProfileId = requireProfileId(profileId);
+    if (DEFAULT_PROFILE_ID.equals(normalizedProfileId)) {
+      throw new IllegalArgumentException("The Default profile cannot be moved");
+    }
+
+    KeysetProfilesConfig normalized = normalize(config);
+    requireProfile(normalized, normalizedProfileId);
+
+    List<Map.Entry<String, KeysetProfile>> entries =
+        new ArrayList<Map.Entry<String, KeysetProfile>>(normalized.getProfiles().entrySet());
+    int index = indexOfProfileId(entries, normalizedProfileId);
+
+    if (index < 0 || index >= entries.size() - 1) {
+      return normalized;
+    }
+
+    Collections.swap(entries, index, index + 1);
+    return new KeysetProfilesConfig(
+        KeysetCoreMetadata.CONFIG_SCHEMA,
+        normalized.getActiveProfileId(),
+        rebuildProfiles(entries));
+  }
+
+  /** Removes all given binding ids from the specified profile in one operation. */
+  public static KeysetProfilesConfig removeBindings(
+      KeysetProfilesConfig config, String profileId, Collection<String> bindingIds) {
+    String normalizedProfileId = requireProfileId(profileId);
+    KeysetProfilesConfig normalized = normalize(config);
+    requireProfile(normalized, normalizedProfileId);
+
+    KeysetProfilesConfig result = normalized;
+    for (String bindingId : bindingIds) {
+      result = removeBinding(result, normalizedProfileId, bindingId);
+    }
+    return result;
+  }
+
+  private static int indexOfProfileId(
+      List<Map.Entry<String, KeysetProfile>> entries, String profileId) {
+    for (int i = 0; i < entries.size(); i++) {
+      if (entries.get(i).getKey().equals(profileId)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private static Map<String, KeysetProfile> rebuildProfiles(
+      List<Map.Entry<String, KeysetProfile>> entries) {
+    LinkedHashMap<String, KeysetProfile> result =
+        new LinkedHashMap<String, KeysetProfile>(entries.size());
+    for (Map.Entry<String, KeysetProfile> entry : entries) {
+      result.put(entry.getKey(), entry.getValue());
+    }
+    return result;
+  }
+
   private static KeysetProfile builtInProfile(String id, String name) {
     return new KeysetProfile(id, name, true, Collections.<String, KeysetBindingSnapshot>emptyMap());
   }
@@ -184,6 +279,7 @@ public final class KeysetProfiles {
       if (normalizedName == null) {
         normalizedName = fallbackProfileName(normalizedId);
       }
+      normalizedName = uniqueProfileName(normalized, normalizedName, null);
 
       normalized.put(
           normalizedId,
@@ -228,9 +324,14 @@ public final class KeysetProfiles {
 
   private static String uniqueProfileName(
       KeysetProfilesConfig config, String baseName, String ignoredProfileId) {
+    return uniqueProfileName(config.getProfiles(), baseName, ignoredProfileId);
+  }
+
+  private static String uniqueProfileName(
+      Map<String, KeysetProfile> profiles, String baseName, String ignoredProfileId) {
     String candidate = baseName;
     int suffix = 2;
-    while (containsProfileName(config, candidate, ignoredProfileId)) {
+    while (containsProfileName(profiles, candidate, ignoredProfileId)) {
       candidate = baseName + " (" + suffix + ")";
       suffix++;
     }
@@ -239,8 +340,13 @@ public final class KeysetProfiles {
 
   private static boolean containsProfileName(
       KeysetProfilesConfig config, String candidate, String ignoredProfileId) {
+    return containsProfileName(config.getProfiles(), candidate, ignoredProfileId);
+  }
+
+  private static boolean containsProfileName(
+      Map<String, KeysetProfile> profiles, String candidate, String ignoredProfileId) {
     String needle = candidate.toLowerCase(Locale.ROOT);
-    for (KeysetProfile profile : config.getProfiles().values()) {
+    for (KeysetProfile profile : profiles.values()) {
       if (profile.getId().equals(ignoredProfileId)) {
         continue;
       }
@@ -272,11 +378,18 @@ public final class KeysetProfiles {
       return "profile";
     }
 
+    String decomposed = Normalizer.normalize(normalized, Normalizer.Form.NFKD);
     StringBuilder slug = new StringBuilder();
     boolean lastWasSeparator = false;
-    String lowerCase = normalized.toLowerCase(Locale.ROOT);
+    String lowerCase = decomposed.toLowerCase(Locale.ROOT);
     for (int index = 0; index < lowerCase.length(); index++) {
       char character = lowerCase.charAt(index);
+      int characterType = Character.getType(character);
+      if (characterType == Character.NON_SPACING_MARK
+          || characterType == Character.COMBINING_SPACING_MARK
+          || characterType == Character.ENCLOSING_MARK) {
+        continue;
+      }
       if ((character >= 'a' && character <= 'z') || (character >= '0' && character <= '9')) {
         slug.append(character);
         lastWasSeparator = false;

@@ -1,5 +1,7 @@
 # Gradle
 .gradle/
+.gradle-home/
+gradle-local.properties
 build/
 **/build/
 
@@ -10,21 +12,60 @@ build/
 
 # OS
 .DS_Store
+**/.DS_Store
 
 # Runtime
 run/
 logs/
-builtJars/*
-!builtJars/1.0.0/
-!builtJars/1.0.0/**
-!builtJars/1.1.0/
-!builtJars/1.1.0/**
-!builtJars/1.1.1/
-!builtJars/1.1.1/**
-!builtJars/1.1.2/
-!builtJars/1.1.2/**
+builtJars/.DS_Store
+builtJars/**/.DS_Store
 
 # Misc
 out/
+bin/
+
+# tools
 .claude/
 CLAUDE.md
+WORK-LOG.md
+CODEX.md
+.aider*
+.cursor/
+.copilot/
+*.claude-session
+KEYSET-2.0-PLAN.md
+.repowise/
+.codex
+.claudeignore
+.mcp.json
+AGENTS.MD
+.gitignore
+.serena/
+.settings/
+.editorconfig
+.rgignore
+.claude/
+.settings/
+graphify-out/
+opencode.json
+.claudeignore
+.codex
+.editorconfig
+.repowise/
+.gitattributes
+.project
+.python-version
+.rgignore
+.mcp.json
+.gitignore
+AGENTS.md
+builtJars/
+._*
+
+# other
+testResults/
+**/.classpath
+
+AGENTS.md
+builtJars/*
+**/builtJars/

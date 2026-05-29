@@ -5,7 +5,23 @@ plugins {
     id "dev.architectury.loom" version "1.13.467" apply false
     id "dev.architectury.loom-no-remap" version "1.14.473" apply false
     id "fabric-loom" version "1.15.4" apply false
+    id "me.modmuss50.mod-publish-plugin" version "1.1.0" apply false
     id "net.fabricmc.fabric-loom" version "1.15-SNAPSHOT" apply false
+}
+
+def localSecrets = new Properties()
+def localSecretsFile = rootProject.file("gradle-local.properties")
+if (localSecretsFile.exists()) {
+    localSecretsFile.withInputStream { stream ->
+        localSecrets.load(stream)
+    }
+}
+
+if (!JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_25)) {
+    throw new GradleException(
+        "Keyset's active release line includes Minecraft 26.1 targets, so Gradle itself must run on Java 25 or newer. " +
+            "Use a Java 25 runtime for this branch and let Gradle toolchains handle the lower target versions."
+    )
 }
 
 allprojects {
@@ -27,9 +43,15 @@ subprojects {
         }
         maven {
             url = "https://maven.minecraftforge.net/"
+            content {
+                excludeGroup("org.apache.logging.log4j")
+            }
         }
         maven {
             url = "https://maven.neoforged.net/releases/"
+            content {
+                excludeGroup("org.apache.logging.log4j")
+            }
         }
     }
 
@@ -45,8 +67,12 @@ subprojects {
 
         sourceSets {
             main {
+                java {
+                    exclude("**/._*")
+                }
                 resources {
                     srcDir(rootProject.file("shared-resources"))
+                    exclude("**/._*")
                 }
             }
         }
@@ -87,69 +113,93 @@ subprojects {
         }
     }
 }
-// The 1.1.x release line ships only the modern 1.20.1+ targets.
+// The 1.3.x release line ships only the modern 1.20.1+ targets.
 // Legacy leaves stay in the repo for critical-fix maintenance when needed.
-def releaseProjectsByLoader = [
+def releaseTargetSpecsByLoader = [
     fabric   : [
-        ":platform-fabric-1_20_1",
-        ":platform-fabric-1_20_4",
-        ":platform-fabric-1_20_6",
-        ":platform-fabric-1_21_1",
-        ":platform-fabric-1_21_4",
-        ":platform-fabric-1_21_9",
-        ":platform-fabric-1_21_11",
-        ":platform-fabric-26_1"
+        [path: ":platform-fabric-1_20_1", label: "fabric-1.20.1-1.20.2", minecraftVersions: ["1.20.1", "1.20.2"]],
+        [path: ":platform-fabric-1_20_4", label: "fabric-1.20.4", minecraftVersions: ["1.20.3", "1.20.4"]],
+        [path: ":platform-fabric-1_20_6", label: "fabric-1.20.3-1.20.6", minecraftVersions: ["1.20.5", "1.20.6"]],
+        [path: ":platform-fabric-1_21_1", label: "fabric-1.21.1", minecraftVersions: ["1.21", "1.21.1"]],
+        [path: ":platform-fabric-1_21_4", label: "fabric-1.21.4", minecraftVersions: ["1.21.2", "1.21.3", "1.21.4"]],
+        [path: ":platform-fabric-1_21_9", label: "fabric-1.21.9", minecraftVersions: ["1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9"]],
+        [path: ":platform-fabric-1_21_11", label: "fabric-1.21-1.21.11", minecraftVersions: ["1.21.10", "1.21.11"]],
+        [path: ":platform-fabric-26_1", label: "fabric-26.1", minecraftVersions: ["26.1"]]
     ],
     forge    : [
-        ":platform-forge-1_20_1",
-        ":platform-forge-1_20_4",
-        ":platform-forge-1_20_6",
-        ":platform-forge-1_21_1",
-        ":platform-forge-26_1"
+        [path: ":platform-forge-1_20_1", label: "forge-1.20.1-1.20.2", minecraftVersions: ["1.20.1", "1.20.2"]],
+        [path: ":platform-forge-1_20_4", label: "forge-1.20.4", minecraftVersions: ["1.20.3", "1.20.4"]],
+        [path: ":platform-forge-1_20_6", label: "forge-1.20.3-1.20.6", minecraftVersions: ["1.20.5", "1.20.6"]],
+        [path: ":platform-forge-1_21_1", label: "forge-1.21.1", minecraftVersions: ["1.21", "1.21.1"]]
     ],
     neoforge : [
-        ":platform-neoforge-1_20_1",
-        ":platform-neoforge-1_20_4",
-        ":platform-neoforge-1_20_6",
-        ":platform-neoforge-1_21_1",
-        ":platform-neoforge-1_21_4",
-        ":platform-neoforge-1_21_11",
-        ":platform-neoforge-26_1"
+        [path: ":platform-neoforge-1_20_1", label: "neoforge-1.20.1-1.20.2", minecraftVersions: ["1.20.1", "1.20.2"], metadataEntry: "META-INF/mods.toml"],
+        [path: ":platform-neoforge-1_20_4", label: "neoforge-1.20.4", minecraftVersions: ["1.20.3", "1.20.4"], metadataEntry: "META-INF/mods.toml"],
+        [path: ":platform-neoforge-1_20_6", label: "neoforge-1.20.6", minecraftVersions: ["1.20.5", "1.20.6"]],
+        [path: ":platform-neoforge-1_21_1", label: "neoforge-1.21.1", minecraftVersions: ["1.21", "1.21.1"]],
+        [path: ":platform-neoforge-1_21_4", label: "neoforge-1.21.4", minecraftVersions: ["1.21.2", "1.21.3", "1.21.4"]],
+        [path: ":platform-neoforge-1_21_11", label: "neoforge-1.21-1.21.11", minecraftVersions: ["1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11"]],
+        [path: ":platform-neoforge-26_1", label: "neoforge-26.1", minecraftVersions: ["26.1"]]
     ]
 ]
 
-def releaseArtifactLabels = [
-    "platform-fabric-1_16_5"   : "fabric-1.16.5",
-    "platform-fabric-1_17_1"   : "fabric-1.17.1",
-    "platform-fabric-1_18_2"   : "fabric-1.18.2",
-    "platform-fabric-1_19_2"   : "fabric-1.19.2",
-    "platform-fabric-1_19_4"   : "fabric-1.19.4",
-    "platform-fabric-1_20_1"   : "fabric-1.20.1-1.20.2",
-    "platform-fabric-1_20_4"   : "fabric-1.20.4",
-    "platform-fabric-1_20_6"   : "fabric-1.20.3-1.20.6",
-    "platform-fabric-1_21_1"   : "fabric-1.21.1",
-    "platform-fabric-1_21_4"   : "fabric-1.21.4",
-    "platform-fabric-1_21_9"   : "fabric-1.21.9",
-    "platform-fabric-1_21_11"  : "fabric-1.21-1.21.11",
-    "platform-forge-1_16_5"    : "forge-1.16.5",
-    "platform-forge-1_17_1"    : "forge-1.17.1",
-    "platform-forge-1_18_2"    : "forge-1.18.2",
-    "platform-forge-1_19_2"    : "forge-1.19.2",
-    "platform-forge-1_19_4"    : "forge-1.19.4",
-    "platform-forge-1_20_1"    : "forge-1.20.1-1.20.2",
-    "platform-forge-1_20_4"    : "forge-1.20.4",
-    "platform-forge-1_20_6"    : "forge-1.20.3-1.20.6",
-    "platform-forge-1_21_1"    : "forge-1.21.1",
-    "platform-neoforge-1_20_1" : "neoforge-1.20.1-1.20.2",
-    "platform-neoforge-1_20_4" : "neoforge-1.20.4",
-    "platform-neoforge-1_20_6" : "neoforge-1.20.6",
-    "platform-neoforge-1_21_1" : "neoforge-1.21.1",
-    "platform-neoforge-1_21_4" : "neoforge-1.21.4",
-    "platform-neoforge-1_21_11": "neoforge-1.21-1.21.11",
-    "platform-fabric-26_1"    : "fabric-26.1",
-    "platform-forge-26_1"     : "forge-26.1",
-    "platform-neoforge-26_1"  : "neoforge-26.1"
-]
+def releaseProjectsByLoader = releaseTargetSpecsByLoader.collectEntries { loader, specs ->
+    [loader, specs.collect { it.path }]
+}
+
+def releaseArtifactLabels = releaseTargetSpecsByLoader.values()
+    .flatten()
+    .collectEntries { spec -> [(spec.path.substring(1)): spec.label] }
+
+def releaseTargets = releaseTargetSpecsByLoader.collectMany { loader, specs ->
+    specs.collect { spec ->
+        [
+            loader           : loader,
+            path             : spec.path,
+            projectName      : spec.path.substring(1),
+            label            : spec.label,
+            minecraftVersions: spec.minecraftVersions,
+            metadataEntry    : spec.metadataEntry ?: null
+        ]
+    }
+}
+
+def releaseTargetLabels = releaseTargets.collect { it.label } as Set
+def allowedReleaseTypes = ["stable", "beta", "alpha"] as Set
+
+// When -PbuildTargets=label1,label2 is passed, only those release targets are
+// built, collected, verified, and published. Pass "all" or omit to include everything.
+def resolveActiveTargets = { ->
+    def prop = findProperty("buildTargets")?.toString()?.trim()
+    if (prop == null || prop.isEmpty() || prop == "all") return releaseTargets
+
+    def labels = prop.split(",")*.trim()
+    def emptyLabels = labels.findAll { it.isEmpty() }
+    if (!emptyLabels.isEmpty()) {
+        throw new GradleException(
+            "Invalid -PbuildTargets='${prop}': empty target labels are not allowed. " +
+                "Valid labels: ${releaseTargets.collect { it.label }.join(', ')}"
+        )
+    }
+
+    def unknownLabels = labels.findAll { !releaseTargetLabels.contains(it) }.unique()
+    if (!unknownLabels.isEmpty()) {
+        throw new GradleException(
+            "Unknown build target label(s) in -PbuildTargets='${prop}': " +
+                "${unknownLabels.join(', ')}. Valid labels: ${releaseTargets.collect { it.label }.join(', ')}"
+        )
+    }
+
+    def active = releaseTargets.findAll { labels.contains(it.label) }
+    if (active.isEmpty()) {
+        throw new GradleException(
+            "No release targets matched -PbuildTargets='${prop}'. " +
+                "Known labels: ${releaseTargets.collect { it.label }.join(', ')}"
+        )
+    }
+    return active
+}
+def activeReleaseTargets = resolveActiveTargets()
 
 subprojects {
     tasks.withType(AbstractArchiveTask).configureEach {
@@ -170,12 +220,27 @@ tasks.register("buildRepresentativeTarget") {
 
 tasks.register("buildTargetJars") {
     group = "build"
-    description = "Builds and collects the current release jars into builtJars/<version>/<loader>."
-    dependsOn("collectTargetJars")
+    description = "Rebuilds the current release bundle into builtJars/<version>/<loader>."
+    dependsOn(
+        "cleanReleaseBundle",
+        "collectTargetJars",
+        "stageReleaseMetadata"
+    )
 }
 
-// platform-fabric-26_1 and platform-neoforge-26_1 use loom-no-remap which produces 'jar', not 'remapJar'.
-def noRemapProjects = [":platform-fabric-26_1", ":platform-neoforge-26_1"] as Set
+// Most active leaves publish remapped jars. A few edge leaves currently need the plain
+// `jar` task instead:
+// - Fabric 26.1 and NeoForge 26.1 only expose `jar` in CI
+// - Forge 1.20.6 currently fails remapJar with unfixable Yarn/Forge mapping conflicts
+//   and Architectury does not publish a 1.20.6 forge patch layer
+// - Forge 1.21.1 currently fails remapJar with the same class of conflicts, and there is
+//   no published 1.21.x forge patch layer either
+def jarTaskOverrides = [
+    ":platform-forge-1_20_6" : "jar",
+    ":platform-forge-1_21_1" : "jar",
+    ":platform-fabric-26_1"  : "jar",
+    ":platform-neoforge-26_1": "jar"
+]
 
 releaseProjectsByLoader.each { loader, projectPaths ->
     tasks.register("build${loader.capitalize()}Targets") {
@@ -184,14 +249,29 @@ releaseProjectsByLoader.each { loader, projectPaths ->
         dependsOn(projectPaths.collect { "${it}:build" })
     }
 
+    tasks.register("build${loader.capitalize()}SmokeTarget") {
+        group = "verification"
+        description = "Builds the newest wired ${loader} target jar as a CI smoke test."
+        dependsOn("${projectPaths.last()}:build")
+    }
+
+    // Filter to only active targets for this loader
+    def activeProjectPaths = activeReleaseTargets
+        .findAll { it.loader == loader }
+        .collect { it.path }
+
     tasks.register("collect${loader.capitalize()}Jars", Sync) {
         group = "build"
         description = "Copies the current remapped ${loader} jars into ${releaseBundleDir}/${loader}."
         into(layout.projectDirectory.dir("${releaseBundleDir}/${loader}"))
-        projectPaths.each { projectPath ->
-            def jarTaskName = noRemapProjects.contains(projectPath) ? "jar" : "remapJar"
+        activeProjectPaths.each { projectPath ->
+            def projectName = projectPath.substring(1)
+            def jarTaskName = jarTaskOverrides.get(projectPath, "remapJar")
+            def releaseLabel = releaseArtifactLabels[projectName]
             dependsOn("${projectPath}:${jarTaskName}")
-            from(project(projectPath).tasks.named(jarTaskName).flatMap { it.archiveFile })
+            from(project(projectPath).tasks.named(jarTaskName).flatMap { it.archiveFile }) {
+                rename { "${rootProject.findProperty('modId')}-${releaseLabel}-${rootProject.version}.jar" }
+            }
         }
     }
 }
@@ -212,9 +292,599 @@ tasks.register("buildAllJars") {
     dependsOn("buildTargetJars")
 }
 
+tasks.register("buildSelectedTargets") {
+    group = "build"
+    description = "Builds and collects only the jars specified by -PbuildTargets. Defaults to all targets."
+    dependsOn("validateBuildTargets")
+    dependsOn("collectTargetJars", "stageReleaseMetadata")
+    activeReleaseTargets.each { target ->
+        def jarTaskName = jarTaskOverrides.get(target.path, "remapJar")
+        dependsOn("${target.path}:${jarTaskName}")
+    }
+}
+
+tasks.register("buildSmokeTargets") {
+    group = "verification"
+    description = "Builds the newest wired target jar for each active loader."
+    dependsOn(
+        "buildFabricSmokeTarget",
+        "buildForgeSmokeTarget",
+        "buildNeoforgeSmokeTarget"
+    )
+}
+
+/**
+ * Parses a Fabric mod semver range string composed of one or two space-separated
+ * clauses, each of the form {@code >=X.Y.Z}, {@code <=X.Y.Z}, or {@code <X.Y.Z}.
+ * Returns a closure that accepts a version string and returns true when it satisfies
+ * the range.
+ */
+def parseFabricRange = { String rangeStr ->
+    def clauses = rangeStr.trim().tokenize(" ")
+    def parseTuple = { String v ->
+        def parts = v.tokenize(".")
+        [
+            (parts.size() > 0 ? parts[0].toInteger() : 0),
+            (parts.size() > 1 ? parts[1].toInteger() : 0),
+            (parts.size() > 2 ? parts[2].toInteger() : 0)
+        ]
+    }
+    def compareTuples = { List a, List b ->
+        for (int i = 0; i < 3; i++) {
+            if (a[i] != b[i]) return a[i] <=> b[i]
+        }
+        return 0
+    }
+    return { String version ->
+        def vt = parseTuple(version)
+        clauses.every { clause ->
+            if (clause.startsWith(">=")) {
+                compareTuples(vt, parseTuple(clause.substring(2))) >= 0
+            } else if (clause.startsWith("<=")) {
+                compareTuples(vt, parseTuple(clause.substring(2))) <= 0
+            } else if (clause.startsWith("<")) {
+                compareTuples(vt, parseTuple(clause.substring(1))) < 0
+            } else {
+                version == clause
+            }
+        }
+    }
+}
+
+tasks.register("verifyFabricModRanges") {
+    group = "verification"
+    description = "Verifies that each Fabric supportedMinecraftRange_* exactly covers its own minecraftVersions and does not overlap any other spec's versions."
+
+    doLast {
+        def fabricSpecs = releaseTargetSpecsByLoader.fabric
+        def allVersionsBySpec = fabricSpecs.collectEntries { spec ->
+            def key = spec.path
+                .substring(1)                     // strip leading ':'
+                .replaceFirst("platform-fabric-", "") // strip prefix
+                .replace("-", "_")                // hyphens to underscores
+            def propKey = "supportedMinecraftRange_${key}"
+            [(spec): project.findProperty(propKey)]
+        }.findAll { spec, rangeVal -> rangeVal != null }
+
+        def errors = []
+
+        allVersionsBySpec.each { spec, rangeStr ->
+            def rangeFn = parseFabricRange(rangeStr)
+
+            // Every version in this spec must satisfy the range.
+            spec.minecraftVersions.each { v ->
+                if (!rangeFn(v)) {
+                    errors << "${spec.path}: version ${v} does not satisfy its own range '${rangeStr}'"
+                }
+            }
+
+            // No version from any OTHER spec may satisfy this range.
+            fabricSpecs.findAll { it.path != spec.path }.each { otherSpec ->
+                otherSpec.minecraftVersions.each { v ->
+                    if (rangeFn(v)) {
+                        errors << "${spec.path}: range '${rangeStr}' incorrectly accepts ${v} (belongs to ${otherSpec.path})"
+                    }
+                }
+            }
+        }
+
+        if (!errors.isEmpty()) {
+            throw new GradleException(
+                "Fabric mod range verification failed:\n - " + errors.join("\n - ")
+            )
+        }
+    }
+}
+
+tasks.register("validateBuildTargets") {
+    group = "verification"
+    description = "Validates -PbuildTargets against the known release target labels."
+
+    doLast {
+        resolveActiveTargets()
+    }
+}
+
 tasks.register("verifyWorkspace") {
     group = "verification"
-    description = "Runs formatting and checks across all modules."
+    description = "Runs formatting and checks across the currently included workspace."
+    dependsOn("verifyFabricModRanges")
     dependsOn(subprojects.collect { "${it.path}:spotlessCheck" })
     dependsOn(subprojects.collect { "${it.path}:check" })
+}
+
+tasks.register("verifyActiveWorkspace") {
+    group = "verification"
+    description = "Alias for verifyWorkspace on the active release-line workspace."
+    dependsOn("verifyWorkspace")
+}
+
+tasks.register("verifyCiWorkspace") {
+    group = "verification"
+    description = "CI-optimised verification: spotless on all modules, compile+test only on core and common."
+    dependsOn("verifyFabricModRanges")
+    dependsOn(subprojects.collect { "${it.path}:spotlessCheck" })
+    def coreAndCommon = subprojects.findAll { it.name == "core" || it.name.startsWith("common-") }
+    dependsOn(coreAndCommon.collect { "${it.path}:check" })
+}
+
+// ---------------------------------------------------------------------------
+// Publishing — mod-publish-plugin
+// ---------------------------------------------------------------------------
+
+/** Extracts the version section body from the given Markdown file. */
+def extractVersionSection = { File sourceFile, String ver ->
+    def text = sourceFile.getText("UTF-8")
+    def header = "## v${ver}"
+    def start = text.indexOf(header)
+    if (start == -1) {
+        throw new GradleException("${sourceFile.name} does not contain a section header for v${ver}.")
+    }
+    def afterHeader = text.indexOf("\n", start) + 1
+    def nextHeader = text.indexOf("\n## ", afterHeader)
+    def body = nextHeader == -1 ? text.substring(afterHeader) : text.substring(afterHeader, nextHeader)
+    return body.trim()
+}
+
+/** Extracts the changelog section for the given version from CHANGELOG.md. */
+def extractChangelog = { String ver ->
+    return extractVersionSection(file("CHANGELOG.md"), ver)
+}
+
+/** Uses per-channel release notes when present, otherwise falls back to CHANGELOG.md. */
+def extractReleaseNotes = { String channel, String ver ->
+    def notesFile = file("release-notes/${channel}/v${ver}.md")
+    if (notesFile.exists()) {
+        return notesFile.getText("UTF-8").trim()
+    }
+    return extractChangelog(ver)
+}
+
+def loaderNamesForProject = [
+    "fabric"  : ["fabric", "quilt"],
+    "forge"   : ["forge"],
+    "neoforge": ["neoforge"],
+]
+
+def primaryGithubReleaseProject = [
+    loader     : "fabric",
+    projectName: releaseTargetSpecsByLoader.fabric.last().path.substring(1)
+]
+
+def releaseJarFile = { Map target ->
+    def label = target.label ?: releaseArtifactLabels[target.projectName]
+    if (label == null) {
+        throw new GradleException("Missing release artifact label for ${target.projectName}")
+    }
+    return layout.projectDirectory.file("${releaseBundleDir}/${target.loader}/${rootProject.findProperty('modId')}-${label}-${rootProject.version}.jar")
+}
+
+def parseReleaseType = { ->
+    def rawReleaseType = findProperty("releaseType")?.toString()?.trim()
+    def releaseType = rawReleaseType == null || rawReleaseType.isEmpty() ? "stable" : rawReleaseType.toLowerCase()
+    if (!allowedReleaseTypes.contains(releaseType)) {
+        throw new GradleException(
+            "Invalid releaseType '${rawReleaseType}'. Expected one of: ${allowedReleaseTypes.join(', ')}."
+        )
+    }
+    return releaseType
+}
+
+def jarHasEntry = { java.util.zip.ZipFile zipFile, String entryName ->
+    return zipFile.getEntry(entryName) != null
+}
+
+def jarContainsClassFile = { java.util.zip.ZipFile zipFile ->
+    def entries = zipFile.entries()
+    while (entries.hasMoreElements()) {
+        def entry = entries.nextElement()
+        if (!entry.isDirectory() && entry.name.endsWith(".class")) {
+            return true
+        }
+    }
+    return false
+}
+
+def expectedMetadataEntryForLoader = [
+    fabric  : "fabric.mod.json",
+    forge   : "META-INF/mods.toml",
+    neoforge: "META-INF/neoforge.mods.toml"
+]
+
+def validateReleaseJar = { File jarFile, String metadataEntry, String label ->
+    if (!jarFile.exists()) {
+        throw new GradleException("Release jar not found: ${jarFile.path}")
+    }
+    if (jarFile.length() <= 0L) {
+        throw new GradleException("Release jar is empty: ${jarFile.path}")
+    }
+
+    try {
+        new java.util.zip.ZipFile(jarFile).withCloseable { zipFile ->
+            if (!jarHasEntry(zipFile, metadataEntry)) {
+                throw new GradleException(
+                    "Release jar ${jarFile.name} is missing required metadata entry '${metadataEntry}'."
+                )
+            }
+            if (!jarContainsClassFile(zipFile)) {
+                throw new GradleException("Release jar ${jarFile.name} does not contain any class files.")
+            }
+        }
+    } catch (java.io.IOException exception) {
+        throw new GradleException("Release jar is not a valid ZIP archive: ${jarFile.path}", exception)
+    }
+}
+
+tasks.register("cleanReleaseBundle", Delete) {
+    group = "build"
+    description = "Deletes the current builtJars/<version> bundle before rebuilding it."
+    delete(layout.projectDirectory.dir(releaseBundleDir))
+}
+
+tasks.register("stageReleaseMetadata") {
+    group = "build"
+    description = "Writes release metadata files into builtJars/<version>."
+
+    def githubChangelog = layout.projectDirectory.file("${releaseBundleDir}/GITHUB_CHANGELOG.md")
+    def modrinthChangelog = layout.projectDirectory.file("${releaseBundleDir}/MODRINTH_CHANGELOG.md")
+    def buildInfo = layout.projectDirectory.file("${releaseBundleDir}/BUILD_INFO.md")
+
+    outputs.files(githubChangelog, modrinthChangelog, buildInfo)
+    mustRunAfter("cleanReleaseBundle")
+
+    doLast {
+        def releaseDir = githubChangelog.asFile.parentFile
+        releaseDir.mkdirs()
+
+        def githubChangelogBody = extractReleaseNotes("github", version as String) + "\n"
+        def modrinthChangelogBody = extractReleaseNotes("modrinth", version as String) + "\n"
+        githubChangelog.asFile.text = githubChangelogBody
+        modrinthChangelog.asFile.text = modrinthChangelogBody
+
+        def lines = [
+            "# Keyset ${version} Build Bundle",
+            "",
+            "Generated by `./gradlew buildTargetJars`.",
+            "",
+            "## Included Targets"
+        ]
+        activeReleaseTargets.each { target ->
+            lines << "- `${rootProject.findProperty('modId')}-${target.label}-${version}.jar`"
+        }
+        buildInfo.asFile.text = lines.join("\n") + "\n"
+    }
+}
+
+tasks.register("verifyReleaseBundle") {
+    group = "verification"
+    description = "Verifies that buildTargetJars produced the expected builtJars bundle."
+    dependsOn("buildTargetJars")
+
+    doLast {
+        def missing = []
+
+        activeReleaseTargets.each { target ->
+            def jarFile = releaseJarFile(target).asFile
+            def metadataEntry = target.metadataEntry ?: expectedMetadataEntryForLoader[target.loader]
+            try {
+                validateReleaseJar(jarFile, metadataEntry, target.label)
+            } catch (GradleException exception) {
+                missing << exception.message
+            }
+        }
+
+        def githubChangelog = layout.projectDirectory.file("${releaseBundleDir}/GITHUB_CHANGELOG.md").asFile
+        def modrinthChangelog = layout.projectDirectory.file("${releaseBundleDir}/MODRINTH_CHANGELOG.md").asFile
+        def buildInfo = layout.projectDirectory.file("${releaseBundleDir}/BUILD_INFO.md").asFile
+        [githubChangelog, modrinthChangelog, buildInfo].each { metadataFile ->
+            if (!metadataFile.exists()) {
+                missing << metadataFile.path
+            } else if (metadataFile.length() <= 0L) {
+                missing << "${metadataFile.path} (empty)"
+            }
+        }
+
+        def buildInfoText = buildInfo.exists() ? buildInfo.getText("UTF-8") : ""
+        if (buildInfoText) {
+            activeReleaseTargets.each { target ->
+                def expectedName = "${rootProject.findProperty('modId')}-${target.label}-${version}.jar"
+                if (!buildInfoText.contains(expectedName)) {
+                    missing << "${buildInfo.path} missing reference to ${expectedName}"
+                }
+            }
+        }
+
+        if (!missing.isEmpty()) {
+            throw new GradleException("Release bundle is incomplete. Missing:\n - " + missing.join("\n - "))
+        }
+    }
+}
+
+tasks.named("collectTargetJars") {
+    mustRunAfter("cleanReleaseBundle")
+}
+
+// ---------------------------------------------------------------------------
+// Modrinth publishing — direct REST API, no plugin required
+// ---------------------------------------------------------------------------
+
+tasks.register("publishToModrinth") {
+    group = "publishing"
+    description = "Uploads built jars to Modrinth via the REST API."
+    dependsOn("validateReleaseType")
+    dependsOn("buildSelectedTargets")
+    outputs.upToDateWhen { false }
+    doNotTrackState("Network publish — must always run")
+
+    doLast {
+        def token = System.getenv("MODRINTH_TOKEN") ?: localSecrets.getProperty("modrinthToken")
+        if (!token) {
+            throw new GradleException(
+                "MODRINTH_TOKEN is not set. " +
+                "Add it as a repository secret (CI) or in gradle-local.properties (local)."
+            )
+        }
+
+        def projectId     = findProperty("modrinthProjectId")?.toString()
+        if (!projectId) {
+            throw new GradleException("modrinthProjectId is not set.")
+        }
+        def versionStr    = version as String
+        def releaseType   = parseReleaseType()
+        def versionType   = (releaseType == "stable") ? "release" : releaseType
+        def dryRun        = findProperty("publishDryRun")?.toString()?.toBoolean() ?: false
+        def changelog     = extractReleaseNotes("modrinth", versionStr)
+        def CRLF          = "\r\n"
+        def buildNumber = null
+        if (releaseType == "beta") {
+            buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.trim()
+            if (!buildNumber) {
+                def gitRunNumber = new ByteArrayOutputStream()
+                exec {
+                    commandLine("git", "rev-list", "--count", "HEAD")
+                    standardOutput = gitRunNumber
+                    errorOutput = new ByteArrayOutputStream()
+                    ignoreExitValue = true
+                }
+                buildNumber = gitRunNumber.toString("UTF-8").trim()
+            }
+            if (!buildNumber) {
+                throw new GradleException("Unable to resolve a beta build number for Modrinth publishing.")
+            }
+        }
+
+        def compactTargetToken = { Map target ->
+            def loaderCode = (target.loader == "fabric") ? "f" : ((target.loader == "forge") ? "g" : "n")
+            def firstMc = target.minecraftVersions.first().toString().replace(".", "")
+            def lastMc = target.minecraftVersions.last().toString().replace(".", "")
+            def mcCode = (firstMc == lastMc) ? firstMc : "${firstMc}-${lastMc}"
+            return "${loaderCode}${mcCode}"
+        }
+
+        def modrinthVersions = null
+        if (!dryRun) {
+            def url = new URL("https://api.modrinth.com/v2/project/${projectId}/version")
+            def conn = (HttpURLConnection) url.openConnection()
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 30_000
+            conn.readTimeout = 30_000
+            conn.setRequestProperty("Authorization", token)
+            conn.setRequestProperty("User-Agent", "BeeBoyD/Keyset/${versionStr} (gradle-direct)")
+
+            def code = conn.responseCode
+            def response = (code < 300 ? conn.inputStream : conn.errorStream)?.getText("UTF-8") ?: ""
+            if (code in 200..299) {
+                modrinthVersions = new groovy.json.JsonSlurper().parseText(response)
+            } else {
+                throw new GradleException("Modrinth version lookup failed for project ${projectId} (HTTP ${code}):\n${response}")
+            }
+        }
+
+        activeReleaseTargets.each { target ->
+            def jarFile = releaseJarFile(target).asFile
+            if (!jarFile.exists()) {
+                throw new GradleException("Jar not found: ${jarFile}. Run buildSelectedTargets first.")
+            }
+
+            def loaders = loaderNamesForProject[target.loader]
+            def deps    = (target.loader == "fabric")
+                ? [[project_id: "P7dR8mSH", dependency_type: "required"]]   // Fabric API
+                : []
+            def targetToken = compactTargetToken(target)
+            def versionNumber = (releaseType == "beta")
+                ? "${versionStr}-b${buildNumber}-${targetToken}"
+                : "${versionStr}+${target.label}"
+            if (versionNumber.length() > 32) {
+                throw new GradleException(
+                    "Generated Modrinth version_number exceeds 32 chars: '${versionNumber}' for target ${target.label}"
+                )
+            }
+
+            def meta = [
+                name          : (releaseType == "beta")
+                    ? "${versionStr}+${target.label}-${buildNumber}"
+                    : "${versionStr}+${target.label}",
+                version_number: versionNumber,
+                changelog     : changelog,
+                dependencies  : deps,
+                game_versions : target.minecraftVersions,
+                version_type  : versionType,
+                loaders       : loaders,
+                featured      : false,
+                project_id    : projectId,
+                file_parts    : ["file"]
+            ]
+
+            if (dryRun) {
+                logger.lifecycle("[DRY RUN] ${jarFile.name} → Modrinth ${meta.version_number} (${versionType}, loaders=${loaders}, mc=${target.minecraftVersions})")
+                return
+            }
+
+            def alreadyPublished = (modrinthVersions ?: []).any { version ->
+                version?.version_number?.toString() == versionNumber
+            }
+            if (alreadyPublished) {
+                logger.lifecycle("Modrinth: skipping ${jarFile.name}; version ${versionNumber} already exists")
+                return
+            }
+
+            def boundary = "KeysetBoundary${UUID.randomUUID().toString().replace('-', '')}"
+            def metaJson = groovy.json.JsonOutput.toJson(meta)
+            def body     = new ByteArrayOutputStream()
+            def w        = { String s -> body.write(s.getBytes("UTF-8")) }
+
+            w("--${boundary}${CRLF}")
+            w("Content-Disposition: form-data; name=\"data\"${CRLF}")
+            w("Content-Type: application/json${CRLF}${CRLF}")
+            w(metaJson)
+            w("${CRLF}--${boundary}${CRLF}")
+            w("Content-Disposition: form-data; name=\"file\"; filename=\"${jarFile.name}\"${CRLF}")
+            w("Content-Type: application/java-archive${CRLF}${CRLF}")
+            body.write(jarFile.bytes)
+            w("${CRLF}--${boundary}--${CRLF}")
+
+            def url  = new URL("https://api.modrinth.com/v2/version")
+            def conn = (HttpURLConnection) url.openConnection()
+            conn.requestMethod = "POST"
+            conn.doOutput      = true
+            conn.connectTimeout = 30_000
+            conn.readTimeout    = 60_000
+            conn.setRequestProperty("Authorization", token)
+            conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=${boundary}")
+            conn.setRequestProperty("User-Agent", "BeeBoyD/Keyset/${versionStr} (gradle-direct)")
+
+            def bodyBytes = body.toByteArray()
+            conn.setRequestProperty("Content-Length", String.valueOf(bodyBytes.length))
+            conn.outputStream.write(bodyBytes)
+            conn.outputStream.close()
+
+            def code     = conn.responseCode
+            def response = (code < 300 ? conn.inputStream : conn.errorStream)?.getText("UTF-8") ?: ""
+            if (code in 200..299) {
+                logger.lifecycle("Modrinth: published ${jarFile.name} (HTTP ${code})")
+            } else {
+                throw new GradleException("Modrinth upload failed for ${jarFile.name} (HTTP ${code}):\n${response}")
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// GitHub release publishing — gh CLI
+// ---------------------------------------------------------------------------
+
+tasks.register("publishToGitHub") {
+    group = "publishing"
+    description = "Creates or updates a GitHub release and attaches all built jars."
+    dependsOn("validateReleaseType")
+    dependsOn("buildSelectedTargets")
+    outputs.upToDateWhen { false }
+    doNotTrackState("Network publish — must always run")
+
+    doLast {
+        def skipGitHub = findProperty("noGitHub")?.toString()?.toBoolean() ?: false
+        if (skipGitHub) { logger.lifecycle("GitHub publish skipped (-PnoGitHub=true)"); return }
+
+        def githubRepo = findProperty("githubRepo")?.toString()
+        if (!githubRepo) { logger.warn("githubRepo not set — skipping GitHub release"); return }
+
+        def versionStr = version as String
+        def tagName    = "v${versionStr}"
+        def releaseType = parseReleaseType()
+        def dryRun     = findProperty("publishDryRun")?.toString()?.toBoolean() ?: false
+        def changelogFile = layout.projectDirectory.file("${releaseBundleDir}/GITHUB_CHANGELOG.md").asFile
+        def changelogText = changelogFile.exists() ? changelogFile.text : extractReleaseNotes("github", versionStr)
+
+        def jarFiles = activeReleaseTargets.collect { releaseJarFile(it).asFile }.findAll { it.exists() }
+
+        if (dryRun) {
+            logger.lifecycle("[DRY RUN] Would create GitHub release ${tagName} with ${jarFiles.size()} jar(s)")
+            return
+        }
+
+        def ghToken = System.getenv("GITHUB_TOKEN") ?: System.getenv("GH_TOKEN") ?: ""
+        def runGh = { List<String> command ->
+            def output = providers.exec {
+                commandLine(command)
+                environment("GH_TOKEN", ghToken)
+                ignoreExitValue = true
+            }
+            def result = output.result.get()
+            return [
+                exitValue: result.exitValue,
+                stdout   : output.standardOutput.asText.get(),
+                stderr   : output.standardError.asText.get()
+            ]
+        }
+
+        def releaseExists = false
+        def viewResult = runGh(["gh", "release", "view", tagName, "--repo", githubRepo])
+        releaseExists = (viewResult.exitValue == 0)
+
+        if (!releaseExists) {
+            def cmd = ["gh", "release", "create", tagName,
+                       "--repo", githubRepo,
+                       "--title", "Keyset ${versionStr}",
+                       "--notes", changelogText]
+            if (releaseType != "stable") cmd += ["--prerelease"]
+            cmd += jarFiles.collect { it.absolutePath }
+            def createResult = runGh(cmd)
+            if (createResult.exitValue != 0) {
+                throw new GradleException(
+                    "GitHub release creation failed for ${tagName} (exit ${createResult.exitValue}):\n" +
+                        "${createResult.stderr ?: createResult.stdout}"
+                )
+            }
+            logger.lifecycle("GitHub: created release ${tagName} with ${jarFiles.size()} jar(s)")
+        } else {
+            def uploadCmd = ["gh", "release", "upload", tagName, "--repo", githubRepo, "--clobber"]
+            uploadCmd += jarFiles.collect { it.absolutePath }
+            def uploadResult = runGh(uploadCmd)
+            if (uploadResult.exitValue != 0) {
+                throw new GradleException(
+                    "GitHub release upload failed for ${tagName} (exit ${uploadResult.exitValue}):\n" +
+                        "${uploadResult.stderr ?: uploadResult.stdout}"
+                )
+            }
+            logger.lifecycle("GitHub: uploaded ${jarFiles.size()} jar(s) to existing release ${tagName}")
+        }
+    }
+}
+
+// Convenience aggregate matching old publishMods name used in release.yml
+tasks.register("publishMods") {
+    group = "publishing"
+    description = "Publishes to Modrinth and optionally GitHub."
+    dependsOn("publishToModrinth")
+    def skipGitHub = findProperty("noGitHub")?.toString()?.toBoolean() ?: false
+    if (!skipGitHub) dependsOn("publishToGitHub")
+}
+
+tasks.register("validateReleaseType") {
+    group = "verification"
+    description = "Validates -PreleaseType against the supported publishing modes."
+
+    doLast {
+        parseReleaseType()
+    }
 }

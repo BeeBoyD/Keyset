@@ -5,6 +5,7 @@ import net.beeboyd.keyset.platform.fabric.KeysetFabricService;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Options;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.controls.KeyBindsList;
 import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
@@ -70,7 +71,21 @@ public final class KeysetKeybindsScreen extends KeyBindsScreen {
   public void extractRenderState(
       GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
     super.extractRenderState(context, mouseX, mouseY, delta);
+    extractFooterAboveList(context, mouseX, mouseY, delta);
     context.centeredText(font, helperText, width / 2, 20, 0xFFB8C7D9);
+  }
+
+  private void extractFooterAboveList(
+      GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+    int footerTop = height - 32;
+    context.fill(0, footerTop - 2, width, height, 0xFF202124);
+    context.fill(0, footerTop - 2, width, footerTop - 1, 0xFF30343A);
+    for (Object child : children()) {
+      if (child instanceof AbstractWidget widget
+          && widget.getY() + widget.getHeight() > footerTop - 2) {
+        widget.extractRenderState(context, mouseX, mouseY, delta);
+      }
+    }
   }
 
   private void focusTargetBinding() {

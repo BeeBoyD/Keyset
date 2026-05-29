@@ -43,6 +43,17 @@ sourceSets {
     }
 }
 
+configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == "org.apache.logging.log4j"
+            && details.requested.name in ["log4j-api", "log4j-core"]
+            && details.requested.version == "2.11.+") {
+            details.useVersion("2.11.2")
+            details.because("Avoid a dynamic log4j metadata lookup against NeoForged's Maven during CI.")
+        }
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.property('minecraftVersion_1_20_1')}"
     mappings "net.fabricmc:yarn:${project.property('yarnMappings_1_20_1')}:v2"
@@ -71,6 +82,16 @@ processResources {
     inputs.properties(expandProps)
     filesMatching("META-INF/mods.toml") {
         expand(expandProps)
+    }
+    doLast {
+        def eclipseOutput = layout.projectDirectory.dir("bin/main").asFile
+        if (eclipseOutput.isDirectory()) {
+            copy {
+                from(destinationDir)
+                into(eclipseOutput)
+                include("META-INF/mods.toml")
+            }
+        }
     }
 }
 

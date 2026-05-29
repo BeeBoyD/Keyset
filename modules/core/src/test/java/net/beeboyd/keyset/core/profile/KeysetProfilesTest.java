@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+import net.beeboyd.keyset.core.KeysetCoreMetadata;
 import org.junit.jupiter.api.Test;
 
 class KeysetProfilesTest {
@@ -65,6 +68,39 @@ class KeysetProfilesTest {
   }
 
   @Test
+  void normalizeUpgradesLegacySchemaZero() {
+    KeysetProfilesConfig legacy = new KeysetProfilesConfig(0, "default", createProfiles());
+
+    KeysetProfilesConfig normalized = KeysetProfiles.normalize(legacy);
+
+    assertEquals(KeysetCoreMetadata.CONFIG_SCHEMA, normalized.getSchemaVersion());
+    assertEquals(KeysetProfiles.DEFAULT_PROFILE_ID, normalized.getActiveProfileId());
+    assertTrue(normalized.hasProfile(KeysetProfiles.PVP_PROFILE_ID));
+  }
+
+  @Test
+  void normalizeAssignsUniqueNamesToCaseInsensitiveDuplicates() {
+    Map<String, KeysetProfile> profiles = new LinkedHashMap<String, KeysetProfile>();
+    profiles.put("one", new KeysetProfile("one", "Test", false, null));
+    profiles.put("two", new KeysetProfile("two", "test", false, null));
+
+    KeysetProfilesConfig normalized =
+        KeysetProfiles.normalize(new KeysetProfilesConfig(0, "one", profiles));
+
+    assertEquals("Test", normalized.getProfile("one").getName());
+    assertEquals("test (2)", normalized.getProfile("two").getName());
+  }
+
+  @Test
+  void slugifyNormalizesUnicodeCharacters() {
+    KeysetProfilesConfig created =
+        KeysetProfiles.createProfile(KeysetProfiles.createDefaultConfig(), "Über");
+
+    assertTrue(created.hasProfile("uber"));
+    assertEquals("Über", created.getProfile("uber").getName());
+  }
+
+  @Test
   void putBindingStoresUnknownBindingIdsAndStickyAssignments() {
     KeysetProfilesConfig updated =
         KeysetProfiles.putBinding(
@@ -88,5 +124,9 @@ class KeysetProfilesTest {
     assertEquals(
         java.util.Arrays.asList(KeysetModifier.SHIFT, KeysetModifier.ALT),
         snapshot.getKeyStroke().getModifiers());
+  }
+
+  private static Map<String, KeysetProfile> createProfiles() {
+    return KeysetProfiles.createDefaultConfig().getProfiles();
   }
 }

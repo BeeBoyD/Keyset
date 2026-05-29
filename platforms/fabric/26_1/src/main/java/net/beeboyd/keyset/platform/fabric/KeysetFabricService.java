@@ -3,9 +3,11 @@ package net.beeboyd.keyset.platform.fabric;
 import com.google.gson.JsonParseException;
 import com.mojang.blaze3d.platform.InputConstants;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -17,6 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
+import net.beeboyd.keyset.core.autoswitch.AutoSwitchMatcher;
+import net.beeboyd.keyset.core.autoswitch.AutoSwitchRule;
 import net.beeboyd.keyset.core.binding.KeysetBindingDescriptor;
 import net.beeboyd.keyset.core.conflict.KeysetConflict;
 import net.beeboyd.keyset.core.conflict.KeysetConflictReport;
@@ -27,13 +31,18 @@ import net.beeboyd.keyset.core.profile.KeysetProfile;
 import net.beeboyd.keyset.core.profile.KeysetProfiles;
 import net.beeboyd.keyset.core.profile.KeysetProfilesConfig;
 import net.beeboyd.keyset.core.profile.KeysetProfilesJson;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
 import net.minecraft.network.chat.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Fabric-side bridge between live Minecraft keybindings and the shared Keyset core. */
 public final class KeysetFabricService {
+  private static final Logger LOGGER = LoggerFactory.getLogger(KeysetCoreMetadata.MOD_ID);
+
   private static final Comparator<KeyBindingDescriptorWithFlags> RESOLVE_ORDER =
       new Comparator<KeyBindingDescriptorWithFlags>() {
         @Override
@@ -101,10 +110,22 @@ public final class KeysetFabricService {
               "key.keyboard.kp.8",
               "key.keyboard.kp.9"));
 
+  private static final int MAX_NOTICE_QUEUE = 5;
+  private static final int MAX_UNDO_STACK = 20;
+
   private final KeysetProfilesJson codec = new KeysetProfilesJson();
   private KeysetProfilesConfig config;
   private boolean loaded;
-  private StatusNotice pendingStatusNotice;
+  private final ArrayDeque<StatusNotice> pendingNotices = new ArrayDeque<StatusNotice>();
+  private final ArrayDeque<UndoState> undoStack = new ArrayDeque<UndoState>();
+  private final ArrayDeque<UndoState> redoStack = new ArrayDeque<UndoState>();
+  private KeysetConflictReport cachedConflictReport;
+  private KeysetAutoSwitchStore autoSwitchStore;
+  private List<AutoSwitchRule> autoSwitchRules;
+  private String profileBeforeAutoSwitch;
+  private String autoSwitchedProfileId;
+  private boolean tutorialComplete;
+  private boolean tutorialLoaded;
 
   public void onClientStarted(Minecraft client) throws IOException {
     ensureLoaded(client);
@@ -116,13 +137,26 @@ public final class KeysetFabricService {
   }
 
   public StatusNotice consumeStatusNotice() {
-    StatusNotice notice = pendingStatusNotice;
-    pendingStatusNotice = null;
-    return notice;
+    return pendingNotices.pollFirst();
   }
 
   public void reportStatusNotice(String message, boolean error) {
     queueStatusNotice(message, error);
+  }
+
+  public void flushStatusNoticeToHud(Minecraft client) {
+    if (client == null || client.player == null) {
+      return;
+    }
+
+    StatusNotice notice = consumeStatusNotice();
+    if (notice == null) {
+      return;
+    }
+
+    client.player.sendOverlayMessage(
+        Component.literal(notice.getMessage())
+            .withStyle(notice.isError() ? ChatFormatting.RED : ChatFormatting.GREEN));
   }
 
   public List<KeysetProfile> listProfiles(Minecraft client) throws IOException {
@@ -132,7 +166,11 @@ public final class KeysetFabricService {
 
   public KeysetConflictReport buildConflictReport(Minecraft client) throws IOException {
     ensureLoaded(client);
-    return KeysetConflicts.analyze(describeBindings(client.options));
+    if (cachedConflictReport != null) {
+      return cachedConflictReport;
+    }
+    cachedConflictReport = KeysetConflicts.analyze(describeBindings(client.options));
+    return cachedConflictReport;
   }
 
   public KeysetConflictReport buildConflictReport(Minecraft client, String profileId)
@@ -146,64 +184,80 @@ public final class KeysetFabricService {
       throws IOException {
     ensureLoaded(client);
     KeysetProfilesConfig previousConfig = config;
-    config = KeysetProfiles.createProfile(config, requestedName);
-    String createdProfileId = findAddedProfileId(previousConfig, config);
-    config =
+    KeysetProfilesConfig updatedConfig = KeysetProfiles.createProfile(config, requestedName);
+    String createdProfileId = findAddedProfileId(previousConfig, updatedConfig);
+    updatedConfig =
         replaceProfileBindings(
-            config, createdProfileId, captureSnapshots(client.options, true), false);
-    save(client);
+            updatedConfig, createdProfileId, captureSnapshots(client.options, true), false);
+    commitConfig(client, updatedConfig);
     return createdProfileId;
   }
 
   public String duplicateProfile(Minecraft client, String profileId) throws IOException {
     ensureLoaded(client);
     KeysetProfilesConfig previousConfig = config;
-    config = KeysetProfiles.duplicateProfile(config, profileId);
-    String duplicateProfileId = findAddedProfileId(previousConfig, config);
-    save(client);
+    KeysetProfilesConfig updatedConfig = KeysetProfiles.duplicateProfile(config, profileId);
+    String duplicateProfileId = findAddedProfileId(previousConfig, updatedConfig);
+    commitConfig(client, updatedConfig);
     return duplicateProfileId;
   }
 
   public void renameProfile(Minecraft client, String profileId, String requestedName)
       throws IOException {
     ensureLoaded(client);
-    config = KeysetProfiles.renameProfile(config, profileId, requestedName);
-    save(client);
+    commitConfig(client, KeysetProfiles.renameProfile(config, profileId, requestedName));
   }
 
   public String deleteProfile(Minecraft client, String profileId) throws IOException {
     ensureLoaded(client);
     String previousActiveProfileId = config.getActiveProfileId();
-    config = KeysetProfiles.deleteProfile(config, profileId);
+    commitConfig(client, KeysetProfiles.deleteProfile(config, profileId));
+    pruneAutoSwitchRulesForProfile(client, profileId);
     if (!previousActiveProfileId.equals(config.getActiveProfileId())) {
       applyProfile(client.options, requireProfile(config, config.getActiveProfileId()));
     }
-    save(client);
+    cachedConflictReport = null;
     return config.getActiveProfileId();
   }
 
-  public void activateProfile(Minecraft client, String profileId) throws IOException {
+  public ActivationResult activateProfile(Minecraft client, String profileId) throws IOException {
+    return activateProfile(client, profileId, true);
+  }
+
+  private ActivationResult activateProfile(
+      Minecraft client, String profileId, boolean manualActivation) throws IOException {
     ensureLoaded(client);
-    config = KeysetProfiles.setActiveProfile(config, profileId);
-    applyProfile(client.options, requireProfile(config, profileId));
-    save(client);
+    if (manualActivation) {
+      clearAutoSwitchRestoreState();
+    }
+    KeysetProfilesConfig updatedConfig = KeysetProfiles.setActiveProfile(config, profileId);
+    KeysetProfile profile = requireProfile(updatedConfig, profileId);
+    commitConfig(client, updatedConfig);
+    applyProfile(client.options, profile);
+    cachedConflictReport = KeysetConflicts.analyze(describeBindings(client.options));
+    return ActivationResult.from(profile.getName(), cachedConflictReport);
   }
 
   public void captureCurrentToProfile(Minecraft client, String profileId, boolean stickySnapshots)
       throws IOException {
     ensureLoaded(client);
-    config =
-        replaceProfileBindings(
-            config, profileId, captureSnapshots(client.options, stickySnapshots), null);
-    save(client);
+    KeysetProfile previousProfile = requireProfile(config, profileId);
+    Map<String, KeysetBindingSnapshot> mergedBindings =
+        new LinkedHashMap<String, KeysetBindingSnapshot>(previousProfile.getBindings());
+    mergedBindings.putAll(captureSnapshots(client.options, stickySnapshots));
+    commitConfig(client, replaceProfileBindings(config, profileId, mergedBindings, null));
+    cachedConflictReport = null;
   }
 
   public String exportProfileJson(Minecraft client, String profileId) throws IOException {
     ensureLoaded(client);
-    KeysetProfile profile = requireProfile(config, profileId);
-    Map<String, KeysetProfile> profiles = new LinkedHashMap<String, KeysetProfile>();
-    profiles.put(profileId, profile);
-    return codec.toJson(new KeysetProfilesConfig(config.getSchemaVersion(), profileId, profiles));
+    return codec.singleProfileToJson(requireProfile(config, profileId));
+  }
+
+  /** Exports a single profile as portable share JSON. */
+  public String exportShareProfileJson(Minecraft client, String profileId) throws IOException {
+    ensureLoaded(client);
+    return codec.singleProfileToJson(requireProfile(config, profileId));
   }
 
   public void clearActiveBinding(Minecraft client, String bindingId) throws IOException {
@@ -213,13 +267,43 @@ public final class KeysetFabricService {
     Map<String, KeysetKeyStroke> strokes = new LinkedHashMap<String, KeysetKeyStroke>(1);
     strokes.put(bindingId, KeysetKeyStroke.unbound());
     applyStrokes(client.options, strokes);
-    config =
+    commitConfig(
+        client,
         syncProfileFromCurrent(
             client.options,
             config.getActiveProfileId(),
             Collections.singleton(bindingId),
-            Collections.<String>emptySet());
-    save(client);
+            Collections.<String>emptySet()));
+    cachedConflictReport = null;
+  }
+
+  public void clearBindings(Minecraft client, java.util.List<String> bindingIds)
+      throws IOException {
+    ensureLoaded(client);
+    if (bindingIds == null || bindingIds.isEmpty()) {
+      return;
+    }
+
+    Map<String, KeysetKeyStroke> strokes =
+        new LinkedHashMap<String, KeysetKeyStroke>(bindingIds.size());
+    for (String bindingId : bindingIds) {
+      boolean exists = false;
+      for (KeyMapping binding : keyMappings(client.options)) {
+        if (binding.getName().equals(bindingId)) {
+          exists = true;
+          break;
+        }
+      }
+      if (exists) {
+        strokes.put(bindingId, KeysetKeyStroke.unbound());
+      }
+    }
+    applyStrokes(client.options, strokes);
+    commitConfig(
+        client,
+        KeysetProfiles.removeBindings(
+            config, config.getActiveProfileId(), new ArrayList<String>(strokes.keySet())));
+    cachedConflictReport = null;
   }
 
   public ImportResult importProfiles(Minecraft client, String json) throws IOException {
@@ -227,24 +311,33 @@ public final class KeysetFabricService {
     if (json == null || json.trim().isEmpty()) {
       throw new IllegalArgumentException("Clipboard JSON did not contain any profiles.");
     }
-    KeysetProfilesConfig importedConfig = codec.fromJson(json);
-    int importedCount = 0;
-    String lastImportedProfileId = null;
-    for (KeysetProfile importedProfile : importedConfig.getProfiles().values()) {
-      KeysetProfilesConfig previousConfig = config;
-      config = KeysetProfiles.createProfile(config, importedProfile.getName());
-      String importedProfileId = findAddedProfileId(previousConfig, config);
-      config =
-          replaceProfileBindings(config, importedProfileId, importedProfile.getBindings(), false);
-      lastImportedProfileId = importedProfileId;
-      importedCount++;
-    }
+    KeysetProfile importedProfile = readSharedProfile(json);
+    KeysetProfilesConfig previousConfig = config;
+    KeysetProfilesConfig updatedConfig =
+        KeysetProfiles.createProfile(config, importedProfile.getName());
+    String importedProfileId = findAddedProfileId(previousConfig, updatedConfig);
+    updatedConfig =
+        replaceProfileBindings(
+            updatedConfig, importedProfileId, importedProfile.getBindings(), false);
+    commitConfig(client, updatedConfig);
+    cachedConflictReport = null;
+    return new ImportResult(1, importedProfileId);
+  }
 
-    if (importedCount > 0) {
-      save(client);
-    }
-
-    return new ImportResult(importedCount, lastImportedProfileId);
+  /** Imports a single profile from portable share JSON. */
+  public ImportResult importShareProfileJson(Minecraft client, String json) throws IOException {
+    ensureLoaded(client);
+    KeysetProfile importedProfile = readSharedProfile(json);
+    KeysetProfilesConfig previousConfig = config;
+    KeysetProfilesConfig updatedConfig =
+        KeysetProfiles.createProfile(config, importedProfile.getName());
+    String importedProfileId = findAddedProfileId(previousConfig, updatedConfig);
+    updatedConfig =
+        replaceProfileBindings(
+            updatedConfig, importedProfileId, importedProfile.getBindings(), false);
+    commitConfig(client, updatedConfig);
+    cachedConflictReport = null;
+    return new ImportResult(1, importedProfileId);
   }
 
   public AutoResolvePlan previewAutoResolve(Minecraft client) throws IOException {
@@ -307,15 +400,99 @@ public final class KeysetFabricService {
             activeProfileId,
             new LinkedHashMap<String, KeysetBindingSnapshot>(activeProfile.getBindings()));
 
+    // Push current state to undo stack and clear redo stack.
+    while (undoStack.size() >= MAX_UNDO_STACK) {
+      undoStack.pollLast();
+    }
+    undoStack.addFirst(undoState);
+    redoStack.clear();
+
     applyStrokes(client.options, plan.toStrokeMap());
-    config =
+    commitConfig(
+        client,
         syncProfileFromCurrent(
             client.options,
             activeProfileId,
             Collections.<String>emptySet(),
-            plan.changedBindingIds());
-    save(client);
+            plan.changedBindingIds()));
+    cachedConflictReport = null;
     return undoState;
+  }
+
+  public boolean canUndo() {
+    return !undoStack.isEmpty();
+  }
+
+  public boolean canRedo() {
+    return !redoStack.isEmpty();
+  }
+
+  public void undoAutoResolve(Minecraft client) throws IOException {
+    ensureLoaded(client);
+    UndoState undoState = undoStack.pollFirst();
+    if (undoState == null) {
+      return;
+    }
+    if (!config.hasProfile(undoState.profileId)) {
+      throw new IllegalStateException("Cannot undo because the original profile no longer exists");
+    }
+
+    // Save current state to redo stack before applying the undo.
+    KeysetProfile activeProfile = requireProfile(config, undoState.profileId);
+    UndoState redoState =
+        new UndoState(
+            undoState.profileId,
+            new LinkedHashMap<String, KeysetBindingSnapshot>(activeProfile.getBindings()));
+    while (redoStack.size() >= MAX_UNDO_STACK) {
+      redoStack.pollLast();
+    }
+    redoStack.addFirst(redoState);
+
+    commitConfig(
+        client,
+        replaceProfileBindings(config, undoState.profileId, undoState.previousBindings, null));
+    if (undoState.profileId.equals(config.getActiveProfileId())) {
+      applyProfile(client.options, requireProfile(config, undoState.profileId));
+    }
+    cachedConflictReport = null;
+  }
+
+  /**
+   * @deprecated Use {@link #undoAutoResolve(Minecraft)} instead.
+   */
+  @Deprecated
+  public void undoAutoResolve(Minecraft client, UndoState undoState) throws IOException {
+    undoAutoResolve(client);
+  }
+
+  public void redoAutoResolve(Minecraft client) throws IOException {
+    ensureLoaded(client);
+    UndoState redoState = redoStack.pollFirst();
+    if (redoState == null) {
+      return;
+    }
+    if (!config.hasProfile(redoState.profileId)) {
+      throw new IllegalStateException("Cannot redo because the original profile no longer exists");
+    }
+
+    // Save current state back to undo stack before applying the redo.
+    KeysetProfile activeProfile = requireProfile(config, redoState.profileId);
+    UndoState newUndoState =
+        new UndoState(
+            redoState.profileId,
+            new LinkedHashMap<String, KeysetBindingSnapshot>(activeProfile.getBindings()));
+    while (undoStack.size() >= MAX_UNDO_STACK) {
+      undoStack.pollLast();
+    }
+    undoStack.addFirst(newUndoState);
+
+    commitConfig(
+        client,
+        replaceProfileBindings(config, redoState.profileId, redoState.previousBindings, null));
+    if (redoState.profileId.equals(config.getActiveProfileId())) {
+      applyProfile(client.options, requireProfile(config, redoState.profileId));
+    }
+    cachedConflictReport = null;
   }
 
   public boolean syncActiveProfileFromCurrentManual(Minecraft client) throws IOException {
@@ -337,31 +514,280 @@ public final class KeysetFabricService {
       return false;
     }
 
-    config =
+    commitConfig(
+        client,
         syncProfileFromCurrent(
             client.options,
             activeProfileId,
             manuallyChangedBindings,
-            Collections.<String>emptySet());
-    save(client);
+            Collections.<String>emptySet()));
     queueStatusNotice(Component.translatable("keyset.status.manual_synced").getString(), false);
     return true;
   }
 
-  public void undoAutoResolve(Minecraft client, UndoState undoState) throws IOException {
+  public ActivationResult cycleToNextProfile(Minecraft client) throws IOException {
     ensureLoaded(client);
-    if (undoState == null) {
-      return;
-    }
-    if (!config.hasProfile(undoState.profileId)) {
-      throw new IllegalStateException("Cannot undo because the original profile no longer exists");
+    List<KeysetProfile> profiles = new ArrayList<KeysetProfile>(config.getProfiles().values());
+    if (profiles.size() <= 1) {
+      KeysetProfile activeProfile = requireProfile(config, config.getActiveProfileId());
+      return ActivationResult.from(activeProfile.getName(), KeysetConflictReport.empty());
     }
 
-    config = replaceProfileBindings(config, undoState.profileId, undoState.previousBindings, null);
-    if (undoState.profileId.equals(config.getActiveProfileId())) {
-      applyProfile(client.options, requireProfile(config, undoState.profileId));
+    List<String> profileIds = new ArrayList<String>(config.getProfiles().keySet());
+    int currentIndex = profileIds.indexOf(config.getActiveProfileId());
+    if (currentIndex < 0) {
+      currentIndex = 0;
     }
-    save(client);
+    int nextIndex = (currentIndex + 1) % profileIds.size();
+    String nextProfileId = profileIds.get(nextIndex);
+    return activateProfile(client, nextProfileId);
+  }
+
+  public ActivationResult cycleToPreviousProfile(Minecraft client) throws IOException {
+    ensureLoaded(client);
+    List<KeysetProfile> profiles = new ArrayList<KeysetProfile>(config.getProfiles().values());
+    if (profiles.size() <= 1) {
+      KeysetProfile activeProfile = requireProfile(config, config.getActiveProfileId());
+      return ActivationResult.from(activeProfile.getName(), KeysetConflictReport.empty());
+    }
+
+    List<String> profileIds = new ArrayList<String>(config.getProfiles().keySet());
+    int currentIndex = profileIds.indexOf(config.getActiveProfileId());
+    if (currentIndex < 0) {
+      currentIndex = 0;
+    }
+    int prevIndex = (currentIndex - 1 + profileIds.size()) % profileIds.size();
+    String prevProfileId = profileIds.get(prevIndex);
+    return activateProfile(client, prevProfileId);
+  }
+
+  public ActivationResult activateProfileByIndex(Minecraft client, int slotIndex)
+      throws IOException {
+    ensureLoaded(client);
+    List<String> profileIds = new ArrayList<String>(config.getProfiles().keySet());
+    if (slotIndex < 0 || slotIndex >= profileIds.size()) {
+      return null;
+    }
+    return activateProfile(client, profileIds.get(slotIndex));
+  }
+
+  public List<AutoSwitchRule> getAutoSwitchRules(Minecraft client) throws IOException {
+    if (autoSwitchRules == null) {
+      autoSwitchStore = new KeysetAutoSwitchStore(autoSwitchPath(client));
+      autoSwitchRules = autoSwitchStore.load();
+    }
+    return autoSwitchRules;
+  }
+
+  public void addAutoSwitchRule(Minecraft client, AutoSwitchRule rule) throws IOException {
+    getAutoSwitchRules(client).add(rule);
+    autoSwitchStore.save(autoSwitchRules);
+  }
+
+  public void deleteAutoSwitchRule(Minecraft client, int index) throws IOException {
+    List<AutoSwitchRule> rules = getAutoSwitchRules(client);
+    if (index >= 0 && index < rules.size()) {
+      rules.remove(index);
+      autoSwitchStore.save(rules);
+    }
+  }
+
+  private void pruneAutoSwitchRulesForProfile(Minecraft client, String profileId)
+      throws IOException {
+    List<AutoSwitchRule> rules = getAutoSwitchRules(client);
+    if (rules.removeIf(rule -> rule.getProfileId().equals(profileId))) {
+      autoSwitchStore.save(rules);
+    }
+  }
+
+  public void handleServerJoin(Minecraft client, String serverAddress) {
+    try {
+      ensureLoaded(client);
+    } catch (IOException | RuntimeException exception) {
+      LOGGER.warn("Keyset auto-switch: failed to load profiles", exception);
+      return;
+    }
+    if (serverAddress == null || serverAddress.isEmpty()) {
+      return;
+    }
+    List<AutoSwitchRule> rules;
+    try {
+      rules = getAutoSwitchRules(client);
+    } catch (IOException exception) {
+      LOGGER.warn("Keyset auto-switch: failed to load rules", exception);
+      return;
+    }
+    for (AutoSwitchRule rule : rules) {
+      if (AutoSwitchMatcher.matchesGlob(rule.getPattern(), serverAddress)) {
+        try {
+          if (config.getProfile(rule.getProfileId()) == null) {
+            reportStatusNotice(
+                Component.translatable("keyset.status.autoswitch_missing_profile").getString(),
+                true);
+            pruneAutoSwitchRulesForProfile(client, rule.getProfileId());
+            break;
+          }
+          if (profileBeforeAutoSwitch == null) {
+            profileBeforeAutoSwitch = config.getActiveProfileId();
+          }
+          ActivationResult result = activateProfile(client, rule.getProfileId(), false);
+          autoSwitchedProfileId = rule.getProfileId();
+          reportStatusNotice(
+              Component.translatable("keyset.status.profile_cycled", result.getProfileName())
+                  .getString(),
+              result.hasConflicts());
+        } catch (IOException | IllegalArgumentException exception) {
+          LOGGER.warn(
+              "Keyset auto-switch: failed to activate profile {} for {}",
+              rule.getProfileId(),
+              serverAddress,
+              exception);
+        }
+        break;
+      }
+    }
+  }
+
+  public void handleServerDisconnect(Minecraft client) {
+    if (profileBeforeAutoSwitch == null) {
+      return;
+    }
+    try {
+      ensureLoaded(client);
+    } catch (IOException | RuntimeException exception) {
+      LOGGER.warn("Keyset auto-switch: failed to load profiles before restore", exception);
+      clearAutoSwitchRestoreState();
+      return;
+    }
+    String profileId = profileBeforeAutoSwitch;
+    String switchedProfileId = autoSwitchedProfileId;
+    clearAutoSwitchRestoreState();
+    try {
+      if (config != null
+          && config.hasProfile(profileId)
+          && (switchedProfileId == null || switchedProfileId.equals(config.getActiveProfileId()))) {
+        activateProfile(client, profileId, false);
+      }
+    } catch (IOException | IllegalArgumentException exception) {
+      LOGGER.warn("Keyset auto-switch: failed to restore profile {}", profileId, exception);
+    }
+  }
+
+  private Path autoSwitchPath(Minecraft client) {
+    return client.gameDirectory.toPath().resolve("config").resolve("keyset-autoswitch.json");
+  }
+
+  private void clearAutoSwitchRestoreState() {
+    profileBeforeAutoSwitch = null;
+    autoSwitchedProfileId = null;
+  }
+
+  public boolean isTutorialComplete(Minecraft client) {
+    if (!tutorialLoaded) {
+      loadTutorialPrefs(client);
+    }
+    return tutorialComplete;
+  }
+
+  public void setTutorialComplete(Minecraft client, boolean complete) {
+    tutorialComplete = complete;
+    tutorialLoaded = true;
+    saveTutorialPrefs(client);
+  }
+
+  private void loadTutorialPrefs(Minecraft client) {
+    tutorialLoaded = true;
+    Path path = tutorialPrefsPath(client);
+    if (!Files.exists(path)) {
+      return;
+    }
+    try (java.io.Reader reader =
+        Files.newBufferedReader(path, java.nio.charset.StandardCharsets.UTF_8)) {
+      com.google.gson.JsonElement root = com.google.gson.JsonParser.parseReader(reader);
+      if (root == null || root.isJsonNull() || !root.isJsonObject()) {
+        archiveBrokenTutorialPrefs(path);
+        return;
+      }
+      com.google.gson.JsonObject obj = root.getAsJsonObject();
+      com.google.gson.JsonElement complete = obj.get("tutorialComplete");
+      if (complete != null && complete.isJsonPrimitive()) {
+        tutorialComplete = complete.getAsBoolean();
+      } else if (complete != null && !complete.isJsonNull()) {
+        archiveBrokenTutorialPrefs(path);
+      }
+    } catch (Exception exception) {
+      LOGGER.warn("Keyset: could not read tutorial prefs", exception);
+      archiveBrokenTutorialPrefs(path);
+    }
+  }
+
+  private void archiveBrokenTutorialPrefs(Path path) {
+    try {
+      if (!Files.exists(path)) return;
+      Path archived =
+          path.resolveSibling(
+              path.getFileName().toString() + ".broken." + System.currentTimeMillis());
+      try {
+        Files.move(
+            path, archived, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+      } catch (AtomicMoveNotSupportedException ignored) {
+        Files.move(path, archived, StandardCopyOption.REPLACE_EXISTING);
+      }
+    } catch (IOException exception) {
+      LOGGER.warn("Keyset: could not archive broken tutorial prefs", exception);
+    }
+  }
+
+  private void saveTutorialPrefs(Minecraft client) {
+    Path path = tutorialPrefsPath(client);
+    Path tempFile = null;
+    try {
+      Path parent = path.getParent();
+      if (parent != null) {
+        Files.createDirectories(parent);
+      }
+      com.google.gson.JsonObject obj = new com.google.gson.JsonObject();
+      obj.addProperty("tutorialComplete", tutorialComplete);
+      tempFile =
+          Files.createTempFile(
+              parent != null ? parent : path.toAbsolutePath().getParent(),
+              path.getFileName().toString(),
+              ".tmp");
+      try (java.io.Writer writer =
+          Files.newBufferedWriter(tempFile, java.nio.charset.StandardCharsets.UTF_8)) {
+        writer.write(new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(obj));
+      }
+      try {
+        Files.move(
+            tempFile, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+      } catch (AtomicMoveNotSupportedException ignored) {
+        Files.move(tempFile, path, StandardCopyOption.REPLACE_EXISTING);
+      }
+      tempFile = null;
+    } catch (IOException exception) {
+      LOGGER.warn("Keyset: could not save tutorial prefs", exception);
+    } finally {
+      if (tempFile != null) {
+        try {
+          Files.deleteIfExists(tempFile);
+        } catch (IOException ignored) {
+        }
+      }
+    }
+  }
+
+  private Path tutorialPrefsPath(Minecraft client) {
+    return client.gameDirectory.toPath().resolve("config").resolve("keyset-prefs.json");
+  }
+
+  public void moveProfileUp(Minecraft client, String profileId) throws IOException {
+    ensureLoaded(client);
+    commitConfig(client, KeysetProfiles.moveProfileUp(config, profileId));
+  }
+
+  public void moveProfileDown(Minecraft client, String profileId) throws IOException {
+    ensureLoaded(client);
+    commitConfig(client, KeysetProfiles.moveProfileDown(config, profileId));
   }
 
   private void ensureLoaded(Minecraft client) throws IOException {
@@ -374,12 +800,12 @@ public final class KeysetFabricService {
     try {
       config = KeysetProfiles.normalize(codec.read(path));
     } catch (JsonParseException | IllegalArgumentException exception) {
+      LOGGER.warn("Keyset: failed to load config, recovering", exception);
       if (fileExists) {
         archiveConfigCopy(path, "broken");
       }
       config = recoverConfigAfterLoadFailure(client);
       loaded = true;
-      applyProfile(client.options, requireProfile(config, config.getActiveProfileId()));
       return;
     }
 
@@ -389,7 +815,29 @@ public final class KeysetFabricService {
     }
 
     loaded = true;
-    applyProfile(client.options, requireProfile(config, config.getActiveProfileId()));
+  }
+
+  private KeysetProfilesConfig readImportedConfig(String json) {
+    try {
+      return codec.fromJson(json);
+    } catch (RuntimeException exception) {
+      throw invalidProfileData(exception);
+    }
+  }
+
+  private KeysetProfile readSharedProfile(String json) {
+    try {
+      return codec.singleProfileFromJson(json, "temp");
+    } catch (RuntimeException exception) {
+      throw invalidProfileData(exception);
+    }
+  }
+
+  private IllegalArgumentException invalidProfileData(RuntimeException exception) {
+    String message = exception.getMessage();
+    return new IllegalArgumentException(
+        "Invalid profile data" + (message == null || message.isEmpty() ? "" : ": " + message),
+        exception);
   }
 
   private KeysetProfilesConfig seedStarterProfiles(
@@ -459,18 +907,25 @@ public final class KeysetFabricService {
   }
 
   private KeysetProfilesConfig recoverConfigAfterLoadFailure(Minecraft client) throws IOException {
-    Path backupPath = backupConfigPath(client);
-    if (Files.exists(backupPath)) {
-      try {
-        KeysetProfilesConfig recoveredConfig = KeysetProfiles.normalize(codec.read(backupPath));
-        recoveredConfig = seedStarterProfiles(client.options, recoveredConfig);
-        config = recoveredConfig;
-        save(client);
-        queueStatusNotice(
-            Component.translatable("keyset.status.config_recovered_backup").getString(), false);
-        return recoveredConfig;
-      } catch (JsonParseException | IllegalArgumentException exception) {
-        archiveConfigCopy(backupPath, "backup-broken");
+    // Try .bak, then .bak1, then .bak2.
+    Path[] backupPaths = {
+      backupConfigPath(client), backupConfigPath1(client), backupConfigPath2(client)
+    };
+
+    for (Path backupPath : backupPaths) {
+      if (Files.exists(backupPath)) {
+        try {
+          KeysetProfilesConfig recoveredConfig = KeysetProfiles.normalize(codec.read(backupPath));
+          recoveredConfig = seedStarterProfiles(client.options, recoveredConfig);
+          config = recoveredConfig;
+          save(client);
+          LOGGER.info("Keyset: recovered from backup config");
+          queueStatusNotice(
+              Component.translatable("keyset.status.config_recovered_backup").getString(), false);
+          return recoveredConfig;
+        } catch (JsonParseException | IllegalArgumentException exception) {
+          archiveConfigCopy(backupPath, "backup-broken");
+        }
       }
     }
 
@@ -478,15 +933,40 @@ public final class KeysetFabricService {
         seedStarterProfiles(client.options, KeysetProfiles.createDefaultConfig());
     config = recoveredConfig;
     save(client);
+    LOGGER.warn("Keyset: reset to default config after backup failure");
     queueStatusNotice(
         Component.translatable("keyset.status.config_recovered_default").getString(), true);
     return recoveredConfig;
   }
 
   private void save(Minecraft client) throws IOException {
+    saveConfig(client, config);
+  }
+
+  private void commitConfig(Minecraft client, KeysetProfilesConfig updatedConfig)
+      throws IOException {
+    KeysetProfilesConfig previousConfig = config;
+    config = updatedConfig;
+    try {
+      save(client);
+    } catch (IOException | RuntimeException exception) {
+      config = previousConfig;
+      throw exception;
+    }
+  }
+
+  private void saveConfig(Minecraft client, KeysetProfilesConfig configToSave) throws IOException {
     Path path = configPath(client);
-    codec.write(path, config);
-    refreshBackup(path, backupConfigPath(client));
+    codec.write(path, configToSave);
+
+    // Write-back verification.
+    try {
+      codec.read(path);
+    } catch (JsonParseException | IllegalArgumentException exception) {
+      LOGGER.warn("Keyset: write-back verification failed — saved file may be corrupt", exception);
+    }
+
+    refreshBackup(path, client);
   }
 
   private Path configPath(Minecraft client) {
@@ -505,13 +985,41 @@ public final class KeysetFabricService {
         .resolve(KeysetCoreMetadata.CONFIG_FILE_NAME + ".bak");
   }
 
-  private void refreshBackup(Path path, Path backupPath) {
+  private Path backupConfigPath1(Minecraft client) {
+    return client
+        .gameDirectory
+        .toPath()
+        .resolve("config")
+        .resolve(KeysetCoreMetadata.CONFIG_FILE_NAME + ".bak1");
+  }
+
+  private Path backupConfigPath2(Minecraft client) {
+    return client
+        .gameDirectory
+        .toPath()
+        .resolve("config")
+        .resolve(KeysetCoreMetadata.CONFIG_FILE_NAME + ".bak2");
+  }
+
+  private void refreshBackup(Path path, Minecraft client) {
     try {
-      Path parent = backupPath.getParent();
+      Path bak = backupConfigPath(client);
+      Path bak1 = backupConfigPath1(client);
+      Path bak2 = backupConfigPath2(client);
+
+      Path parent = bak.getParent();
       if (parent != null) {
         Files.createDirectories(parent);
       }
-      Files.copy(path, backupPath, StandardCopyOption.REPLACE_EXISTING);
+
+      // Rotate: bak2 = old bak1, bak1 = old bak, bak = new.
+      if (Files.exists(bak1)) {
+        Files.copy(bak1, bak2, StandardCopyOption.REPLACE_EXISTING);
+      }
+      if (Files.exists(bak)) {
+        Files.copy(bak, bak1, StandardCopyOption.REPLACE_EXISTING);
+      }
+      Files.copy(path, bak, StandardCopyOption.REPLACE_EXISTING);
     } catch (IOException exception) {
       queueStatusNotice(
           Component.translatable("keyset.status.config_backup_warning").getString(), true);
@@ -543,10 +1051,17 @@ public final class KeysetFabricService {
     if (normalized.isEmpty()) {
       return;
     }
-    if (pendingStatusNotice != null && pendingStatusNotice.isError() && !error) {
+
+    // Non-errors are suppressed if there is already an error at the front of the queue.
+    StatusNotice front = pendingNotices.peekFirst();
+    if (front != null && front.isError() && !error) {
       return;
     }
-    pendingStatusNotice = new StatusNotice(normalized, error);
+
+    while (pendingNotices.size() >= MAX_NOTICE_QUEUE) {
+      pendingNotices.pollFirst();
+    }
+    pendingNotices.addLast(new StatusNotice(normalized, error));
   }
 
   private static KeysetProfile requireProfile(KeysetProfilesConfig config, String profileId) {
@@ -557,6 +1072,29 @@ public final class KeysetFabricService {
     return profile;
   }
 
+  private static KeyMapping[] keyMappings(Options options) {
+    if (options == null || options.keyMappings == null) {
+      return new KeyMapping[0];
+    }
+    return options.keyMappings;
+  }
+
+  private static Map<String, KeysetBindingSnapshot> filterBindingsForLiveKeys(
+      Options options, Map<String, KeysetBindingSnapshot> bindings) {
+    Set<String> liveIds = new HashSet<String>();
+    for (KeyMapping binding : keyMappings(options)) {
+      liveIds.add(binding.getName());
+    }
+    Map<String, KeysetBindingSnapshot> filtered =
+        new LinkedHashMap<String, KeysetBindingSnapshot>();
+    for (Map.Entry<String, KeysetBindingSnapshot> entry : bindings.entrySet()) {
+      if (liveIds.contains(entry.getKey())) {
+        filtered.put(entry.getKey(), entry.getValue());
+      }
+    }
+    return filtered;
+  }
+
   private static List<KeysetBindingDescriptor> describeBindings(Options options) {
     return describeBindings(options, null);
   }
@@ -564,8 +1102,8 @@ public final class KeysetFabricService {
   private static List<KeysetBindingDescriptor> describeBindings(
       Options options, KeysetProfile profileOverride) {
     List<KeysetBindingDescriptor> bindings =
-        new ArrayList<KeysetBindingDescriptor>(options.keyMappings.length);
-    for (KeyMapping binding : options.keyMappings) {
+        new ArrayList<KeysetBindingDescriptor>(keyMappings(options).length);
+    for (KeyMapping binding : keyMappings(options)) {
       KeysetBindingSnapshot snapshot =
           profileOverride == null ? null : profileOverride.getBindings().get(binding.getName());
       KeysetKeyStroke keyStroke = snapshot == null ? toKeyStroke(binding) : snapshot.getKeyStroke();
@@ -586,8 +1124,8 @@ public final class KeysetFabricService {
   private static Map<String, KeysetBindingSnapshot> captureSnapshots(
       Options options, boolean sticky) {
     Map<String, KeysetBindingSnapshot> snapshots =
-        new LinkedHashMap<String, KeysetBindingSnapshot>(options.keyMappings.length);
-    for (KeyMapping binding : options.keyMappings) {
+        new LinkedHashMap<String, KeysetBindingSnapshot>(keyMappings(options).length);
+    for (KeyMapping binding : keyMappings(options)) {
       snapshots.put(binding.getName(), new KeysetBindingSnapshot(toKeyStroke(binding), sticky));
     }
     return snapshots;
@@ -609,16 +1147,24 @@ public final class KeysetFabricService {
   }
 
   private static void applyStrokes(Options options, Map<String, KeysetKeyStroke> strokes) {
-    if (strokes.isEmpty()) {
+    if (options == null || strokes.isEmpty()) {
       return;
     }
 
-    for (KeyMapping binding : options.keyMappings) {
+    for (KeyMapping binding : keyMappings(options)) {
       KeysetKeyStroke keyStroke = strokes.get(binding.getName());
       if (keyStroke == null) {
         continue;
       }
-      binding.setKey(toInputKey(keyStroke));
+      InputConstants.Key inputKey = toInputKeyOrNull(keyStroke);
+      if (inputKey == null) {
+        LOGGER.warn(
+            "Skipping unknown Keyset key token '{}' for {}",
+            keyStroke.getKeyToken(),
+            binding.getName());
+        continue;
+      }
+      binding.setKey(inputKey);
     }
 
     KeyMapping.resetMapping();
@@ -626,6 +1172,11 @@ public final class KeysetFabricService {
   }
 
   private static InputConstants.Key toInputKey(KeysetKeyStroke keyStroke) {
+    InputConstants.Key key = toInputKeyOrNull(keyStroke);
+    return key == null ? InputConstants.UNKNOWN : key;
+  }
+
+  private static InputConstants.Key toInputKeyOrNull(KeysetKeyStroke keyStroke) {
     if (keyStroke == null || keyStroke.isUnbound()) {
       return InputConstants.UNKNOWN;
     }
@@ -633,7 +1184,7 @@ public final class KeysetFabricService {
     try {
       return InputConstants.getKey(keyStroke.getKeyToken());
     } catch (IllegalArgumentException exception) {
-      return InputConstants.UNKNOWN;
+      return null;
     }
   }
 
@@ -642,7 +1193,7 @@ public final class KeysetFabricService {
   }
 
   private static KeyMapping requireLiveBinding(Options options, String bindingId) {
-    for (KeyMapping binding : options.keyMappings) {
+    for (KeyMapping binding : keyMappings(options)) {
       if (binding.getName().equals(bindingId)) {
         return binding;
       }
@@ -870,6 +1421,41 @@ public final class KeysetFabricService {
 
     public boolean isError() {
       return error;
+    }
+  }
+
+  public static final class ActivationResult {
+    private final String profileName;
+    private final int conflictCount;
+    private final int affectedBindingCount;
+
+    private ActivationResult(String profileName, int conflictCount, int affectedBindingCount) {
+      this.profileName = profileName;
+      this.conflictCount = conflictCount;
+      this.affectedBindingCount = affectedBindingCount;
+    }
+
+    private static ActivationResult from(String profileName, KeysetConflictReport conflictReport) {
+      KeysetConflictReport safeReport =
+          conflictReport == null ? KeysetConflictReport.empty() : conflictReport;
+      return new ActivationResult(
+          profileName, safeReport.getConflictCount(), safeReport.getAffectedBindingCount());
+    }
+
+    public String getProfileName() {
+      return profileName;
+    }
+
+    public int getConflictCount() {
+      return conflictCount;
+    }
+
+    public int getAffectedBindingCount() {
+      return affectedBindingCount;
+    }
+
+    public boolean hasConflicts() {
+      return conflictCount > 0;
     }
   }
 }

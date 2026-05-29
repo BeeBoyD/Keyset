@@ -2,12 +2,12 @@ package net.beeboyd.keyset.platform.neoforge;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import java.util.List;
-import java.util.Map;
-import java.util.WeakHashMap;
 import net.beeboyd.keyset.core.KeysetCoreMetadata;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService;
 import net.beeboyd.keyset.platform.fabric.screen.KeysetKeybindsScreen;
 import net.beeboyd.keyset.platform.fabric.screen.KeysetScreen;
+import net.beeboyd.keyset.shim.client.KeysetClientHooks;
+import net.beeboyd.keyset.shim.client.KeysetControlsButtonPlacement;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -20,6 +20,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
@@ -45,28 +46,51 @@ public final class KeysetNeoForgeClientMod {
     private static final Logger LOGGER = LoggerFactory.getLogger(KeysetCoreMetadata.MOD_ID);
     private static final KeysetFabricService SERVICE = new KeysetFabricService();
 
+    private static final KeyMapping.Category KEYSET_CATEGORY =
+        new KeyMapping.Category(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("keyset", "keyset"));
+
     private KeyMapping openScreenKeyMapping;
-    private Screen pendingParentScreen;
-    private boolean openScreenRequested;
+    private KeyMapping cycleNextKeyMapping;
+    private KeyMapping cyclePrevKeyMapping;
+    private final KeyMapping[] slotKeyMappings = new KeyMapping[5];
+    private final KeysetClientHooks<Minecraft, Screen> clientHooks =
+        new KeysetClientHooks<Minecraft, Screen>();
     private boolean started;
-    private final Map<Screen, AbstractWidget> injectedControlsButtons =
-        new WeakHashMap<Screen, AbstractWidget>();
+    private Screen lastInjectedScreen;
+    private AbstractWidget lastInjectedButton;
 
     private ClientOnly(IEventBus modBus) {
       LOGGER.info("Keyset NeoForge client bootstrap loaded");
       modBus.addListener(this::onRegisterKeyMappings);
       NeoForge.EVENT_BUS.addListener(this::onClientTick);
       NeoForge.EVENT_BUS.addListener(this::onScreenInit);
+      NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
+      NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedOut);
     }
 
     private void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
       LOGGER.info("Registering Keyset NeoForge key mapping");
       openScreenKeyMapping =
           new KeyMapping(
-              "keyset.key.open_screen",
-              InputConstants.UNKNOWN.getValue(),
-              KeyMapping.Category.MISC);
+              "keyset.key.open_screen", InputConstants.UNKNOWN.getValue(), KEYSET_CATEGORY);
+      cycleNextKeyMapping =
+          new KeyMapping(
+              "keyset.key.cycle_profile_next", InputConstants.UNKNOWN.getValue(), KEYSET_CATEGORY);
+      cyclePrevKeyMapping =
+          new KeyMapping(
+              "keyset.key.cycle_profile_prev", InputConstants.UNKNOWN.getValue(), KEYSET_CATEGORY);
       event.register(openScreenKeyMapping);
+      event.register(cycleNextKeyMapping);
+      event.register(cyclePrevKeyMapping);
+      for (int i = 0; i < 5; i++) {
+        slotKeyMappings[i] =
+            new KeyMapping(
+                "keyset.key.activate_slot_" + (i + 1),
+                InputConstants.UNKNOWN.getValue(),
+                KEYSET_CATEGORY);
+        event.register(slotKeyMappings[i]);
+      }
     }
 
     private void onClientTick(ClientTickEvent.Post event) {
@@ -85,13 +109,52 @@ public final class KeysetNeoForgeClientMod {
         return;
       }
 
-      if (openScreenKeyMapping != null) {
-        while (openScreenKeyMapping.consumeClick()) {
-          requestOpenScreen(client.screen);
-        }
+      KeysetClientHooks.consumeAllPresses(
+          openScreenKeyMapping == null ? null : openScreenKeyMapping::consumeClick,
+          () -> clientHooks.requestOpenScreen(client.screen, ClientOnly::isKeysetScreen));
+
+      KeysetClientHooks.consumeAllPresses(
+          cycleNextKeyMapping == null ? null : cycleNextKeyMapping::consumeClick,
+          () -> queueCycleStatus(SERVICE.cycleToNextProfile(client)),
+          exception -> LOGGER.warn("Failed to cycle to next profile", exception));
+
+      KeysetClientHooks.consumeAllPresses(
+          cyclePrevKeyMapping == null ? null : cyclePrevKeyMapping::consumeClick,
+          () -> queueCycleStatus(SERVICE.cycleToPreviousProfile(client)),
+          exception -> LOGGER.warn("Failed to cycle to previous profile", exception));
+
+      for (int i = 0; i < 5; i++) {
+        final int slotIndex = i;
+        KeysetClientHooks.consumeAllPresses(
+            slotKeyMappings[slotIndex] == null ? null : slotKeyMappings[slotIndex]::consumeClick,
+            () -> {
+              KeysetFabricService.ActivationResult result =
+                  SERVICE.activateProfileByIndex(client, slotIndex);
+              if (result != null) {
+                queueCycleStatus(result);
+              }
+            },
+            exception ->
+                LOGGER.warn("Failed to activate profile slot {}", slotIndex + 1, exception));
       }
 
-      flushPendingOpen(client);
+      flushHudStatusNotice(client);
+      clientHooks.flushPendingOpen(
+          client,
+          currentClient -> currentClient.screen,
+          Minecraft::setScreen,
+          parentScreen -> new KeysetScreen(parentScreen, SERVICE),
+          ClientOnly::isKeysetScreen);
+    }
+
+    private void onPlayerLoggedIn(ClientPlayerNetworkEvent.LoggingIn event) {
+      Minecraft client = Minecraft.getInstance();
+      String address = client.getCurrentServer() != null ? client.getCurrentServer().ip : null;
+      SERVICE.handleServerJoin(client, address);
+    }
+
+    private void onPlayerLoggedOut(ClientPlayerNetworkEvent.LoggingOut event) {
+      SERVICE.handleServerDisconnect(Minecraft.getInstance());
     }
 
     private void onScreenInit(ScreenEvent.Init.Post event) {
@@ -100,119 +163,94 @@ public final class KeysetNeoForgeClientMod {
       // sub-screen reached via its "Key Binds" button. Inject into both.
       // Exclude KeysetKeybindsScreen (extends KeyBindsScreen) — it is Keyset's own screen.
       if (!(screen instanceof KeyBindsScreen) && !(screen instanceof ControlsScreen)) {
+        lastInjectedScreen = null;
+        lastInjectedButton = null;
         return;
       }
       if (screen instanceof KeysetKeybindsScreen) {
         return;
       }
 
-      removeInjectedControlsButton(event, screen);
+      if (lastInjectedScreen == screen && lastInjectedButton != null) {
+        event.removeListener(lastInjectedButton);
+      } else if (lastInjectedScreen != null && lastInjectedButton != null) {
+        lastInjectedScreen = null;
+        lastInjectedButton = null;
+      }
       List<AbstractWidget> buttons =
           event.getListenersList().stream()
               .filter(AbstractWidget.class::isInstance)
               .map(AbstractWidget.class::cast)
               .toList();
-      int[] placement = findControlsButtonPlacement(buttons, screen.width, screen.height);
+      int[] placement =
+          KeysetControlsButtonPlacement.findPlacement(
+              buttons,
+              screen.width,
+              screen.height,
+              CONTROLS_BUTTON_WIDTH,
+              CONTROLS_BUTTON_HEIGHT,
+              CONTROLS_BUTTON_MARGIN,
+              new KeysetControlsButtonPlacement.BoundsView<AbstractWidget>() {
+                @Override
+                public int getX(AbstractWidget widget) {
+                  return widget.getX();
+                }
+
+                @Override
+                public int getY(AbstractWidget widget) {
+                  return widget.getY();
+                }
+
+                @Override
+                public int getWidth(AbstractWidget widget) {
+                  return widget.getWidth();
+                }
+
+                @Override
+                public int getHeight(AbstractWidget widget) {
+                  return widget.getHeight();
+                }
+              });
       Button keysetButton =
           Button.builder(Component.translatable("keyset.open"), button -> requestOpenScreen(screen))
               .bounds(placement[0], placement[1], CONTROLS_BUTTON_WIDTH, CONTROLS_BUTTON_HEIGHT)
               .build();
       event.addListener(keysetButton);
-      injectedControlsButtons.put(screen, keysetButton);
-    }
-
-    private void removeInjectedControlsButton(ScreenEvent.Init.Post event, Screen screen) {
-      AbstractWidget existingButton = injectedControlsButtons.remove(screen);
-      if (existingButton != null) {
-        event.removeListener(existingButton);
-      }
+      lastInjectedScreen = screen;
+      lastInjectedButton = keysetButton;
     }
 
     private void requestOpenScreen(Screen parent) {
-      if (isKeysetScreen(parent)) {
-        return;
-      }
-      pendingParentScreen = parent;
-      openScreenRequested = true;
+      clientHooks.requestOpenScreen(parent, ClientOnly::isKeysetScreen);
     }
 
-    private void flushPendingOpen(Minecraft client) {
-      if (!openScreenRequested || client == null) {
+    private void flushHudStatusNotice(Minecraft client) {
+      if (client == null || isKeysetScreen(client.screen)) {
         return;
       }
 
-      openScreenRequested = false;
-      Screen parent = pendingParentScreen;
-      pendingParentScreen = null;
-      if (isKeysetScreen(client.screen) || isKeysetScreen(parent)) {
-        return;
-      }
-      client.setScreen(new KeysetScreen(parent != null ? parent : client.screen, SERVICE));
+      SERVICE.flushStatusNoticeToHud(client);
     }
 
     private static boolean isKeysetScreen(Screen screen) {
       return screen instanceof KeysetScreen || screen instanceof KeysetKeybindsScreen;
     }
 
-    private static int[] findControlsButtonPlacement(
-        List<? extends AbstractWidget> buttons, int screenWidth, int screenHeight) {
-      int centerX = (screenWidth - CONTROLS_BUTTON_WIDTH) / 2;
-      int bottomY = Math.max(32, screenHeight - CONTROLS_BUTTON_HEIGHT - 32);
-      int[][] candidates = {
-        {centerX, bottomY},
-        {screenWidth - CONTROLS_BUTTON_WIDTH - CONTROLS_BUTTON_MARGIN, bottomY},
-        {CONTROLS_BUTTON_MARGIN, bottomY},
-        {screenWidth - CONTROLS_BUTTON_WIDTH - CONTROLS_BUTTON_MARGIN, CONTROLS_BUTTON_MARGIN},
-        {CONTROLS_BUTTON_MARGIN, CONTROLS_BUTTON_MARGIN},
-        {centerX, 32}
-      };
-
-      for (int[] candidate : candidates) {
-        if (!overlapsExisting(buttons, candidate[0], candidate[1])) {
-          return candidate;
-        }
+    private static void queueCycleStatus(KeysetFabricService.ActivationResult activationResult) {
+      String message =
+          Component.translatable("keyset.status.profile_cycled", activationResult.getProfileName())
+              .getString();
+      if (activationResult.hasConflicts()) {
+        message +=
+            " "
+                + Component.translatable(
+                        "keyset.status.profile_conflicts",
+                        Integer.valueOf(activationResult.getConflictCount()),
+                        Integer.valueOf(activationResult.getAffectedBindingCount()))
+                    .getString();
       }
 
-      return new int[] {
-        screenWidth - CONTROLS_BUTTON_WIDTH - CONTROLS_BUTTON_MARGIN,
-        Math.max(CONTROLS_BUTTON_MARGIN, bottomY)
-      };
-    }
-
-    private static boolean overlapsExisting(List<? extends AbstractWidget> buttons, int x, int y) {
-      for (AbstractWidget button : buttons) {
-        int otherX = button.getX();
-        int otherY = button.getY();
-        int otherWidth = button.getWidth();
-        int otherHeight = button.getHeight();
-        if (rectanglesOverlap(
-            x,
-            y,
-            CONTROLS_BUTTON_WIDTH,
-            CONTROLS_BUTTON_HEIGHT,
-            otherX,
-            otherY,
-            otherWidth,
-            otherHeight)) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    private static boolean rectanglesOverlap(
-        int x,
-        int y,
-        int width,
-        int height,
-        int otherX,
-        int otherY,
-        int otherWidth,
-        int otherHeight) {
-      return x < otherX + otherWidth
-          && x + width > otherX
-          && y < otherY + otherHeight
-          && y + height > otherY;
+      SERVICE.reportStatusNotice(message, activationResult.hasConflicts());
     }
   }
 }
