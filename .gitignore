@@ -44,7 +44,28 @@ AGENTS.MD
 .settings/
 .editorconfig
 .rgignore
-
+.claude/
+.settings/
+graphify-out/
+opencode.json
+.claudeignore
+.codex
+.editorconfig
+.repowise/
+.gitattributes
+.project
+.python-version
+.rgignore
+.mcp.json
+.gitignore
+AGENTS.md
+builtJars/
+._*
 
 # other
 testResults/
+**/.classpath
+
+AGENTS.md
+builtJars/*
+**/builtJars/
