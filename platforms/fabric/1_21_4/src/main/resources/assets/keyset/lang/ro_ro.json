@@ -142,6 +142,7 @@
   "keyset.status.config_recovered_default": "Profilurile Keyset resetate la implicit după găsirea unei configurații corupte.",
   "keyset.status.config_backup_warning": "Keyset salvat, dar fișierul de recuperare nu a putut fi actualizat.",
   "keyset.status.config_archive_warning": "Keyset a continuat încărcarea, dar copia de configurare coruptă nu a putut fi arhivată.",
+  "keyset.status.autoswitch_missing_profile": "A fost eliminată o regulă Auto-Switch pentru un profil lipsă.",
   "keyset.error.import_empty": "JSON-ul din clipboard nu conținea niciun profil.",
   "keyset.error.no_preview": "Generează o previzualizare de Corecție sigură înainte de a o aplica.",
   "keyset.error.no_undo": "Nu există nicio modificare de Corecție sigură de anulat.",
@@ -207,6 +208,9 @@
   "keyset.tutorial.autoswitch.title": "Pasul 7 — Comutare automată",
   "keyset.tutorial.autoswitch.body": "Keyset poate comuta automat profiluri când te conectezi la un server. Setează o regulă precum 'hypixel.net → profil PvP' și comută în momentul conectării. Deschide fila Comutare automată pentru a configura.",
   "keyset.tutorial.autoswitch.hint": "→ Dă clic pe fila Comutare automată de sus",
+  "keyset.tutorial.share.title": "Pasul 8 — Share pentru un profil",
+  "keyset.tutorial.share.body": "Fila Share îți permite să exporți orice profil ca un cod de 8 caractere. Trimite-l unui prieten sau importă instantaneu configurația altcuiva. Codurile expiră după 90 de zile.",
+  "keyset.tutorial.share.hint": "",
   "keyset.tutorial.done.title": "Ești gata!",
   "keyset.tutorial.done.body": "Știi cum să creezi, activezi și salvezi profiluri, să corectezi conflicte și să configurezi comutarea automată. Folosește butonul ? oricând pentru a revedea acest ghid. Du-te și construiește configurația perfectă.",
   "keyset.tutorial.done.hint": "",
@@ -236,5 +240,11 @@
   "keyset.share.dialog.accept": "Acceptă",
   "keyset.share.dialog.decline": "Refuză",
   "keyset.share.compat.ok": "✓ Toate scurtăturile sunt compatibile.",
-  "keyset.share.error.empty_profile": "Salvează live mai întâi înainte de a distribui acest profil."
+  "keyset.share.error.empty_profile": "Salvează live mai întâi înainte de a distribui acest profil.",
+  "keyset.share.error.rate_limited": "Prea multe cereri. Încearcă din nou mai târziu.",
+  "keyset.share.error.not_found": "Codul nu a fost găsit sau a expirat.",
+  "keyset.share.error.server_error": "Eroare de server. Încearcă din nou mai târziu.",
+  "keyset.share.error.malformed_response": "Serverul Share a returnat date nevalide.",
+  "keyset.share.error.unknown": "Share a eșuat. Verifică conexiunea.",
+  "keyset.share.error.invalid_data": "Date de profil nevalide."
 }

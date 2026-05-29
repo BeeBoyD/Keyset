@@ -95,6 +95,42 @@ Requires `MODRINTH_TOKEN` env var or `modrinthToken` in `gradle-local.properties
 
 `platform-forge-1_20_6`, `platform-forge-1_21_1`, `platform-fabric-26_1`, `platform-neoforge-26_1` use `jar` instead of `remapJar` due to mapping conflicts. See `jarTaskOverrides` in root `build.gradle`.
 
+## Version Matrix
+
+| Minecraft        | Fabric | Forge | NeoForge |
+|------------------|:------:|:-----:|:--------:|
+| 1.20.1 – 1.20.2  | ✅     | ✅    | ✅       |
+| 1.20.3 – 1.20.6  | ✅     | ✅    | ✅       |
+| 1.21.1           | ✅     | ✅    | ✅       |
+| 1.21.2 – 1.21.11 | ✅     | ❌    | ✅       |
+| 26.1.x           | ✅     | ❌    | ✅       |
+
+## Share API
+
+Backend: `share.beeboyd.com/api/keyset/`
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/keyset/shares` | POST | Upload profile JSON → `{code, expires_at}` |
+| `/api/keyset/shares/:code` | GET | Download by code → `{data, meta, expires_at}` |
+
+Code: 8 alphanumeric chars (no O/0/I/1) · Expiry: 90 days · Auth: none
+Rate limits: 10 uploads/hr, 30 downloads/min per IP
+Meta: `{username, profileName}`
+Client: `ShareApiClient.java` — `java.net.http.HttpClient`, no new dependencies
+
+## 26.1 (Mojang mappings)
+
+26.1 is the first unobfuscated Minecraft version. Yarn is not used.
+
+Key API differences from Yarn 1.21.x:
+- `MinecraftClient` → `Minecraft`
+- `client.options.allKeys` → `client.options.keyMappings`
+- `DrawContext` → `GuiGraphicsExtractor`
+- `Screen#render` → `Screen#extractRenderState`
+- `fabric.mod.json` range: `"minecraft": ">=26.1 <26.2"`
+- Java 25 required
+
 ---
 
 ## Branches
@@ -108,6 +144,13 @@ Requires `MODRINTH_TOKEN` env var or `modrinthToken` in `gradle-local.properties
 Short-lived branches: `feature/*`, `fix/*`, `mc/common/*`, `mc/fabric/*`, `mc/forge/*`, `mc/neoforge/*`, `release/*`
 
 A `core/` bug fix should be committed on `main` and cherry-picked to `main-next` and `main-legacy` as needed.
+
+## Legacy targets (1.16.5 – 1.19.4)
+
+The `1.0.x` release line receives critical bug fixes only.
+Share, Auto-Switch, and the 2.0 UI are not backported.
+
+Parity verification for active targets should cover Fabric 1.20.x, Fabric 1.21.x, Fabric 26.1, Forge 1.20.x-1.21.1, and NeoForge 1.20.x-26.1. Forge and NeoForge targets intentionally reuse the matching Fabric screen/service sources through Gradle source sets, so UI fixes must be applied to every active Fabric source set that a loader target includes.
 
 ---
 

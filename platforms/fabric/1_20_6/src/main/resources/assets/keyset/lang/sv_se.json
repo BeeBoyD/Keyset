@@ -142,6 +142,7 @@
   "keyset.status.config_recovered_default": "Keyset-profiler återställda till standard efter att ha hittat skadad konfiguration.",
   "keyset.status.config_backup_warning": "Keyset sparat, men säkerhetskopieringsfilen kunde inte uppdateras.",
   "keyset.status.config_archive_warning": "Keyset fortsatte ladda, men den skadade konfigurationskopian kunde inte arkiveras.",
+  "keyset.status.autoswitch_missing_profile": "Tog bort en Auto-Switch-regel för en saknad profil.",
   "keyset.error.import_empty": "Urklipps-JSON innehöll inga profiler.",
   "keyset.error.no_preview": "Generera en förhandsgranskning av säker korrigering innan du tillämpar den.",
   "keyset.error.no_undo": "Det finns ingen ändring av säker korrigering att ångra.",
@@ -207,6 +208,9 @@
   "keyset.tutorial.autoswitch.title": "Steg 7 — Automatiskt byte",
   "keyset.tutorial.autoswitch.body": "Keyset kan automatiskt byta profiler när du ansluter till en server. Sätt upp en regel som 'hypixel.net → PvP-profil' och den byter i det ögonblick du ansluter. Öppna fliken Automatiskt byte för att konfigurera detta.",
   "keyset.tutorial.autoswitch.hint": "→ Klicka på fliken Automatiskt byte ovan",
+  "keyset.tutorial.share.title": "Steg 8 — Share av en profil",
+  "keyset.tutorial.share.body": "Fliken Share låter dig exportera vilken profil som helst som en kod med 8 tecken. Skicka den till en vän eller importera någon annans layout direkt. Koder upphör efter 90 dagar.",
+  "keyset.tutorial.share.hint": "",
   "keyset.tutorial.done.title": "Du är redo!",
   "keyset.tutorial.done.body": "Du vet hur man skapar, aktiverar och sparar profiler, åtgärdar konflikter och ställer in automatiskt byte. Använd ? knappen när som helst för att besöka den här guiden igen. Gå och bygg din perfekta layout.",
   "keyset.tutorial.done.hint": "",
@@ -236,5 +240,11 @@
   "keyset.share.dialog.accept": "Acceptera",
   "keyset.share.dialog.decline": "Avvisa",
   "keyset.share.compat.ok": "✓ Alla tangentbindningar är kompatibla.",
-  "keyset.share.error.empty_profile": "Spara live först innan du delar den här profilen."
+  "keyset.share.error.empty_profile": "Spara live först innan du delar den här profilen.",
+  "keyset.share.error.rate_limited": "För många förfrågningar. Försök igen senare.",
+  "keyset.share.error.not_found": "Koden hittades inte eller har gått ut.",
+  "keyset.share.error.server_error": "Serverfel. Försök igen senare.",
+  "keyset.share.error.malformed_response": "Share-servern returnerade ogiltiga data.",
+  "keyset.share.error.unknown": "Share misslyckades. Kontrollera anslutningen.",
+  "keyset.share.error.invalid_data": "Ogiltiga profildata."
 }

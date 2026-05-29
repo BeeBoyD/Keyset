@@ -142,6 +142,7 @@
   "keyset.status.config_recovered_default": "Keyset-profielen teruggezet naar standaard na vinden van beschadigde configuratie.",
   "keyset.status.config_backup_warning": "Keyset opgeslagen, maar het herstelback-upbestand kon niet worden bijgewerkt.",
   "keyset.status.config_archive_warning": "Keyset bleef laden, maar kon de beschadigde configuratiekopie niet archiveren.",
+  "keyset.status.autoswitch_missing_profile": "Een Auto-Switch-regel voor een ontbrekend profiel is verwijderd.",
   "keyset.error.import_empty": "De klembord-JSON bevatte geen profielen.",
   "keyset.error.no_preview": "Genereer een veilig correctievoorbeeld voor het toepassen.",
   "keyset.error.no_undo": "Er is geen veilige correctiewijziging om ongedaan te maken.",
@@ -207,6 +208,9 @@
   "keyset.tutorial.autoswitch.title": "Stap 7 — Automatisch wisselen",
   "keyset.tutorial.autoswitch.body": "Keyset kan automatisch van profiel wisselen bij het joinen van een server. Stel een regel in zoals 'hypixel.net → PvP-profiel' en het wisselt op het moment van verbinding. Open het tabblad Automatisch wisselen om dit in te stellen.",
   "keyset.tutorial.autoswitch.hint": "→ Klik op het tabblad Automatisch wisselen hierboven",
+  "keyset.tutorial.share.title": "Stap 8 — Share van een profiel",
+  "keyset.tutorial.share.body": "Met het tabblad Share exporteer je elk profiel als een code van 8 tekens. Stuur die naar een vriend of importeer direct de indeling van iemand anders. Codes verlopen na 90 dagen.",
+  "keyset.tutorial.share.hint": "",
   "keyset.tutorial.done.title": "Je bent klaar!",
   "keyset.tutorial.done.body": "Je weet hoe je profielen aanmaakt, activeert en opslaat, conflicten oplost en automatisch wisselen instelt. Gebruik de ? knop op elk moment om deze gids opnieuw te bekijken. Ga je perfecte bezetting bouwen.",
   "keyset.tutorial.done.hint": "",
@@ -236,5 +240,11 @@
   "keyset.share.dialog.accept": "Accepteren",
   "keyset.share.dialog.decline": "Weigeren",
   "keyset.share.compat.ok": "✓ Alle toetsbindingen zijn compatibel.",
-  "keyset.share.error.empty_profile": "Sla eerst live op voor het delen van dit profiel."
+  "keyset.share.error.empty_profile": "Sla eerst live op voor het delen van dit profiel.",
+  "keyset.share.error.rate_limited": "Te veel verzoeken. Probeer het later opnieuw.",
+  "keyset.share.error.not_found": "Code niet gevonden of verlopen.",
+  "keyset.share.error.server_error": "Serverfout. Probeer het later opnieuw.",
+  "keyset.share.error.malformed_response": "Share-server heeft ongeldige gegevens teruggestuurd.",
+  "keyset.share.error.unknown": "Share mislukt. Controleer je verbinding.",
+  "keyset.share.error.invalid_data": "Ongeldige profielgegevens."
 }

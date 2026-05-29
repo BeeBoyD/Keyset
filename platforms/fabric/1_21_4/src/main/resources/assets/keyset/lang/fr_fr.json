@@ -142,6 +142,7 @@
   "keyset.status.config_recovered_default": "Profils Keyset réinitialisés aux valeurs par défaut après avoir trouvé une configuration corrompue.",
   "keyset.status.config_backup_warning": "Keyset sauvegardé, mais impossible de mettre à jour le fichier de récupération.",
   "keyset.status.config_archive_warning": "Keyset a continué à charger, mais impossible d'archiver la copie de configuration corrompue.",
+  "keyset.status.autoswitch_missing_profile": "Une règle Auto-Switch liée à un profil manquant a été supprimée.",
   "keyset.error.import_empty": "Le JSON du presse-papiers ne contenait aucun profil.",
   "keyset.error.no_preview": "Générez un aperçu de Correction sûre avant de l'appliquer.",
   "keyset.error.no_undo": "Il n'y a pas de modification de Correction sûre à annuler.",
@@ -207,6 +208,9 @@
   "keyset.tutorial.autoswitch.title": "Étape 7 — Bascule automatique",
   "keyset.tutorial.autoswitch.body": "Keyset peut basculer automatiquement de profils quand vous rejoignez un serveur. Configurez une règle comme 'hypixel.net → profil PvP' et il bascule au moment où vous vous connectez. Ouvrez l'onglet Bascule automatique pour configurer cela.",
   "keyset.tutorial.autoswitch.hint": "→ Cliquez sur l'onglet Bascule automatique ci-dessus",
+  "keyset.tutorial.share.title": "Étape 8 — Share d’un profil",
+  "keyset.tutorial.share.body": "L’onglet Share permet d’exporter n’importe quel profil sous forme de code à 8 caractères. Envoyez-le à un ami ou importez instantanément la configuration de quelqu’un d’autre. Les codes expirent après 90 jours.",
+  "keyset.tutorial.share.hint": "",
   "keyset.tutorial.done.title": "Vous êtes prêt !",
   "keyset.tutorial.done.body": "Vous savez comment créer, activer et sauvegarder des profils, corriger les conflits et configurer la bascule automatique. Utilisez le bouton ? à tout moment pour revoir ce guide. Allez construire votre configuration parfaite.",
   "keyset.tutorial.done.hint": "",
@@ -236,5 +240,11 @@
   "keyset.share.dialog.accept": "Accepter",
   "keyset.share.dialog.decline": "Refuser",
   "keyset.share.compat.ok": "✓ Tous les raccourcis sont compatibles.",
-  "keyset.share.error.empty_profile": "Sauvegardez en direct d'abord avant de partager ce profil."
+  "keyset.share.error.empty_profile": "Sauvegardez en direct d'abord avant de partager ce profil.",
+  "keyset.share.error.rate_limited": "Trop de requêtes. Réessayez plus tard.",
+  "keyset.share.error.not_found": "Code introuvable ou expiré.",
+  "keyset.share.error.server_error": "Erreur serveur. Réessayez plus tard.",
+  "keyset.share.error.malformed_response": "Le serveur Share a renvoyé des données invalides.",
+  "keyset.share.error.unknown": "Share a échoué. Vérifiez votre connexion.",
+  "keyset.share.error.invalid_data": "Données de profil invalides."
 }

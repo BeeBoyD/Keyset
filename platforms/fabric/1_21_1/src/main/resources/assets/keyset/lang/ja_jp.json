@@ -142,6 +142,7 @@
   "keyset.status.config_recovered_default": "壊れた設定が見つかったため、Keyset プロファイルをデフォルトにリセットしました。",
   "keyset.status.config_backup_warning": "Keyset を保存しましたが、復旧バックアップファイルを更新できませんでした。",
   "keyset.status.config_archive_warning": "Keyset は読み込みを続けましたが、壊れた設定のコピーをアーカイブできませんでした。",
+  "keyset.status.autoswitch_missing_profile": "存在しないプロファイルの Auto-Switch ルールを削除しました。",
   "keyset.error.import_empty": "クリップボードの JSON にプロファイルが含まれていませんでした。",
   "keyset.error.no_preview": "適用する前に安全な修正プレビューを生成してください。",
   "keyset.error.no_undo": "元に戻す安全な修正の変更がありません。",
@@ -207,6 +208,9 @@
   "keyset.tutorial.autoswitch.title": "ステップ 7 — 自動切り替え",
   "keyset.tutorial.autoswitch.body": "Keyset はサーバーに参加したときにプロファイルを自動的に切り替えることができます。「hypixel.net → PvP プロファイル」などのルールを設定すると、接続した瞬間に切り替わります。自動切り替えタブを開いて設定してください。",
   "keyset.tutorial.autoswitch.hint": "→ 上の自動切り替えタブをクリック",
+  "keyset.tutorial.share.title": "ステップ 8 — プロファイルの Share",
+  "keyset.tutorial.share.body": "Share タブでは、任意のプロファイルを8文字のコードとしてエクスポートできます。友達に送ったり、他の人のレイアウトをすぐにインポートしたりできます。コードは90日後に期限切れになります。",
+  "keyset.tutorial.share.hint": "",
   "keyset.tutorial.done.title": "準備完了！",
   "keyset.tutorial.done.body": "プロファイルの作成、適用、保存、コンフリクトの修正、自動切り替えの設定方法を知っています。このガイドを再確認するにはいつでも ? ボタンを使用してください。完璧なレイアウトを構築しましょう。",
   "keyset.tutorial.done.hint": "",
@@ -236,5 +240,11 @@
   "keyset.share.dialog.accept": "承認",
   "keyset.share.dialog.decline": "拒否",
   "keyset.share.compat.ok": "✓ すべてのキーバインドは互換性があります。",
-  "keyset.share.error.empty_profile": "このプロファイルを共有する前にライブ保存してください。"
+  "keyset.share.error.empty_profile": "このプロファイルを共有する前にライブ保存してください。",
+  "keyset.share.error.rate_limited": "リクエストが多すぎます。後でもう一度お試しください。",
+  "keyset.share.error.not_found": "コードが見つからないか期限切れです。",
+  "keyset.share.error.server_error": "サーバーエラーです。後でもう一度お試しください。",
+  "keyset.share.error.malformed_response": "Share サーバーが無効なデータを返しました。",
+  "keyset.share.error.unknown": "Share に失敗しました。接続を確認してください。",
+  "keyset.share.error.invalid_data": "無効なプロファイルデータです。"
 }

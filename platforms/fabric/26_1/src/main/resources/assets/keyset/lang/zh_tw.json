@@ -142,6 +142,7 @@
   "keyset.status.config_recovered_default": "發現設定損毀後，Keyset 設定檔已重設為預設值。",
   "keyset.status.config_backup_warning": "Keyset 已儲存，但無法更新還原備份檔案。",
   "keyset.status.config_archive_warning": "Keyset 繼續載入，但無法封存損毀的設定副本。",
+  "keyset.status.autoswitch_missing_profile": "已移除缺少設定檔對應的 Auto-Switch 規則。",
   "keyset.error.import_empty": "剪貼簿 JSON 中不包含任何設定檔。",
   "keyset.error.no_preview": "套用之前請先產生安全修復預覽。",
   "keyset.error.no_undo": "沒有可復原的安全修復變更。",
@@ -207,6 +208,9 @@
   "keyset.tutorial.autoswitch.title": "第 7 步 — 自動切換",
   "keyset.tutorial.autoswitch.body": "Keyset 可以在您加入伺服器時自動切換設定檔。設定一條規則，如 'hypixel.net → PvP 設定檔'，它會在您連線時立即切換。開啟自動切換標籤頁進行設定。",
   "keyset.tutorial.autoswitch.hint": "→ 點擊上方的自動切換標籤頁",
+  "keyset.tutorial.share.title": "步驟 8 — Share 設定檔",
+  "keyset.tutorial.share.body": "Share 分頁可將任何設定檔匯出為 8 個字元的代碼。把它傳給朋友，或立即匯入其他人的配置。代碼會在 90 天後過期。",
+  "keyset.tutorial.share.hint": "",
   "keyset.tutorial.done.title": "您已準備好！",
   "keyset.tutorial.done.body": "您知道如何建立、啟用和儲存設定檔，修復衝突，以及設定自動切換。隨時使用 ? 按鈕重新查看本指南。去建構您的完美配置吧。",
   "keyset.tutorial.done.hint": "",
@@ -236,5 +240,11 @@
   "keyset.share.dialog.accept": "接受",
   "keyset.share.dialog.decline": "拒絕",
   "keyset.share.compat.ok": "✓ 所有按鍵綁定相容。",
-  "keyset.share.error.empty_profile": "分享此設定檔前請先即時儲存。"
+  "keyset.share.error.empty_profile": "分享此設定檔前請先即時儲存。",
+  "keyset.share.error.rate_limited": "請求過多。請稍後再試。",
+  "keyset.share.error.not_found": "找不到代碼或代碼已過期。",
+  "keyset.share.error.server_error": "伺服器錯誤。請稍後再試。",
+  "keyset.share.error.malformed_response": "Share 伺服器傳回無效資料。",
+  "keyset.share.error.unknown": "Share 失敗。請檢查連線。",
+  "keyset.share.error.invalid_data": "無效的設定檔資料。"
 }

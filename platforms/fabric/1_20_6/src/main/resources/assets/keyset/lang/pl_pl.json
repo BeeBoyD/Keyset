@@ -142,6 +142,7 @@
   "keyset.status.config_recovered_default": "Profile Keyset zresetowane do domyślnych po znalezieniu uszkodzonej konfiguracji.",
   "keyset.status.config_backup_warning": "Keyset zapisany, ale nie można zaktualizować pliku kopii zapasowej.",
   "keyset.status.config_archive_warning": "Keyset kontynuował ładowanie, ale nie można zarchiwizować uszkodzonej kopii konfiguracji.",
+  "keyset.status.autoswitch_missing_profile": "Usunięto regułę Auto-Switch dla brakującego profilu.",
   "keyset.error.import_empty": "JSON ze schowka nie zawierał żadnych profili.",
   "keyset.error.no_preview": "Wygeneruj podgląd bezpiecznej poprawki przed jej zastosowaniem.",
   "keyset.error.no_undo": "Nie ma zmian bezpiecznej poprawki do cofnięcia.",
@@ -207,6 +208,9 @@
   "keyset.tutorial.autoswitch.title": "Krok 7 — Automatyczne przełączanie",
   "keyset.tutorial.autoswitch.body": "Keyset może automatycznie przełączać profile przy dołączaniu do serwera. Ustaw regułę jak 'hypixel.net → profil PvP' a przełączy się w momencie połączenia. Otwórz zakładkę Automatyczne przełączanie aby to skonfigurować.",
   "keyset.tutorial.autoswitch.hint": "→ Kliknij zakładkę Automatyczne przełączanie powyżej",
+  "keyset.tutorial.share.title": "Krok 8 — Share profilu",
+  "keyset.tutorial.share.body": "Karta Share pozwala wyeksportować dowolny profil jako 8-znakowy kod. Wyślij go znajomemu albo natychmiast zaimportuj układ innej osoby. Kody wygasają po 90 dniach.",
+  "keyset.tutorial.share.hint": "",
   "keyset.tutorial.done.title": "Jesteś gotowy!",
   "keyset.tutorial.done.body": "Wiesz jak tworzyć, aktywować i zapisywać profile, naprawiać konflikty i konfigurować automatyczne przełączanie. Użyj przycisku ? w dowolnym momencie, aby ponownie przejrzeć ten przewodnik. Idź zbudować swój idealny układ.",
   "keyset.tutorial.done.hint": "",
@@ -236,5 +240,11 @@
   "keyset.share.dialog.accept": "Akceptuj",
   "keyset.share.dialog.decline": "Odrzuć",
   "keyset.share.compat.ok": "✓ Wszystkie przypisania klawiszy są kompatybilne.",
-  "keyset.share.error.empty_profile": "Najpierw zapisz na żywo przed udostępnieniem tego profilu."
+  "keyset.share.error.empty_profile": "Najpierw zapisz na żywo przed udostępnieniem tego profilu.",
+  "keyset.share.error.rate_limited": "Zbyt wiele żądań. Spróbuj ponownie później.",
+  "keyset.share.error.not_found": "Nie znaleziono kodu albo kod wygasł.",
+  "keyset.share.error.server_error": "Błąd serwera. Spróbuj ponownie później.",
+  "keyset.share.error.malformed_response": "Serwer Share zwrócił nieprawidłowe dane.",
+  "keyset.share.error.unknown": "Share nie powiódł się. Sprawdź połączenie.",
+  "keyset.share.error.invalid_data": "Nieprawidłowe dane profilu."
 }

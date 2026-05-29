@@ -142,6 +142,7 @@
   "keyset.status.config_recovered_default": "Profili Keyset ripristinati ai valori predefiniti dopo aver trovato una configurazione corrotta.",
   "keyset.status.config_backup_warning": "Keyset salvato, ma impossibile aggiornare il file di recupero.",
   "keyset.status.config_archive_warning": "Keyset ha continuato a caricare, ma impossibile archiviare la copia di configurazione corrotta.",
+  "keyset.status.autoswitch_missing_profile": "È stata rimossa una regola Auto-Switch per un profilo mancante.",
   "keyset.error.import_empty": "Il JSON degli appunti non conteneva nessun profilo.",
   "keyset.error.no_preview": "Genera un'anteprima di Correzione sicura prima di applicarla.",
   "keyset.error.no_undo": "Non c'è nessuna modifica di Correzione sicura da annullare.",
@@ -207,6 +208,9 @@
   "keyset.tutorial.autoswitch.title": "Passo 7 — Cambio automatico",
   "keyset.tutorial.autoswitch.body": "Keyset può cambiare automaticamente i profili quando entri in un server. Imposta una regola come 'hypixel.net → profilo PvP' e cambia nel momento in cui ti connetti. Apri la scheda Cambio automatico per configurare.",
   "keyset.tutorial.autoswitch.hint": "→ Clicca sulla scheda Cambio automatico in alto",
+  "keyset.tutorial.share.title": "Passaggio 8 — Share di un profilo",
+  "keyset.tutorial.share.body": "La scheda Share ti consente di esportare qualsiasi profilo come codice di 8 caratteri. Invialo a un amico o importa subito la configurazione di qualcun altro. I codici scadono dopo 90 giorni.",
+  "keyset.tutorial.share.hint": "",
   "keyset.tutorial.done.title": "Sei pronto!",
   "keyset.tutorial.done.body": "Sai come creare, attivare e salvare profili, correggere i conflitti e impostare il cambio automatico. Usa il pulsante ? in qualsiasi momento per rivisitare questa guida. Vai a costruire il tuo layout perfetto.",
   "keyset.tutorial.done.hint": "",
@@ -236,5 +240,11 @@
   "keyset.share.dialog.accept": "Accetta",
   "keyset.share.dialog.decline": "Rifiuta",
   "keyset.share.compat.ok": "✓ Tutte le scorciatoie sono compatibili.",
-  "keyset.share.error.empty_profile": "Salva live prima di condividere questo profilo."
+  "keyset.share.error.empty_profile": "Salva live prima di condividere questo profilo.",
+  "keyset.share.error.rate_limited": "Troppe richieste. Riprova più tardi.",
+  "keyset.share.error.not_found": "Codice non trovato o scaduto.",
+  "keyset.share.error.server_error": "Errore del server. Riprova più tardi.",
+  "keyset.share.error.malformed_response": "Il server Share ha restituito dati non validi.",
+  "keyset.share.error.unknown": "Share non riuscito. Controlla la connessione.",
+  "keyset.share.error.invalid_data": "Dati del profilo non validi."
 }

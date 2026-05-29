@@ -142,6 +142,7 @@
   "keyset.status.config_recovered_default": "Профілі Keyset скинуто до стандартних після виявлення пошкодженої конфігурації.",
   "keyset.status.config_backup_warning": "Keyset збережено, але файл відновлення не вдалося оновити.",
   "keyset.status.config_archive_warning": "Keyset продовжив завантаження, але пошкоджену копію конфігурації не вдалося архівувати.",
+  "keyset.status.autoswitch_missing_profile": "Видалено правило Auto-Switch для відсутнього профілю.",
   "keyset.error.import_empty": "JSON з буфера обміну не містив профілів.",
   "keyset.error.no_preview": "Згенеруйте попередній перегляд безпечного виправлення перед його застосуванням.",
   "keyset.error.no_undo": "Немає змін безпечного виправлення для скасування.",
@@ -207,6 +208,9 @@
   "keyset.tutorial.autoswitch.title": "Крок 7 — Автоперемикання",
   "keyset.tutorial.autoswitch.body": "Keyset може автоматично перемикати профілі при підключенні до сервера. Встановіть правило на зразок 'hypixel.net → профіль PvP' і він перемкнеться в момент підключення. Відкрийте вкладку Автоперемикання для налаштування.",
   "keyset.tutorial.autoswitch.hint": "→ Натисніть на вкладку Автоперемикання вище",
+  "keyset.tutorial.share.title": "Крок 8 — Share профілю",
+  "keyset.tutorial.share.body": "Вкладка Share дає змогу експортувати будь-який профіль як 8-символьний код. Надішліть його другові або миттєво імпортуйте розкладку іншої людини. Коди діють 90 днів.",
+  "keyset.tutorial.share.hint": "",
   "keyset.tutorial.done.title": "Ви готові!",
   "keyset.tutorial.done.body": "Ви знаєте як створювати, активувати та зберігати профілі, виправляти конфлікти та налаштовувати автоперемикання. Використовуйте кнопку ? будь-коли, щоб повернутись до цього посібника. Йдіть і створіть ідеальну розкладку.",
   "keyset.tutorial.done.hint": "",
@@ -236,5 +240,11 @@
   "keyset.share.dialog.accept": "Прийняти",
   "keyset.share.dialog.decline": "Відхилити",
   "keyset.share.compat.ok": "✓ Всі прив'язки сумісні.",
-  "keyset.share.error.empty_profile": "Спочатку збережіть наживо перед публікацією цього профілю."
+  "keyset.share.error.empty_profile": "Спочатку збережіть наживо перед публікацією цього профілю.",
+  "keyset.share.error.rate_limited": "Забагато запитів. Спробуйте пізніше.",
+  "keyset.share.error.not_found": "Код не знайдено або він протермінований.",
+  "keyset.share.error.server_error": "Помилка сервера. Спробуйте пізніше.",
+  "keyset.share.error.malformed_response": "Сервер Share повернув недійсні дані.",
+  "keyset.share.error.unknown": "Share не вдалося. Перевірте з’єднання.",
+  "keyset.share.error.invalid_data": "Недійсні дані профілю."
 }

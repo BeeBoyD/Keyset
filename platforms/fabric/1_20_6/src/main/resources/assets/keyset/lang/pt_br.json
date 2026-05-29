@@ -142,6 +142,7 @@
   "keyset.status.config_recovered_default": "Perfis do Keyset redefinidos para os padrões após encontrar uma configuração corrompida.",
   "keyset.status.config_backup_warning": "Keyset salvo, mas não foi possível atualizar o arquivo de recuperação.",
   "keyset.status.config_archive_warning": "Keyset continuou carregando, mas não foi possível arquivar a cópia de configuração corrompida.",
+  "keyset.status.autoswitch_missing_profile": "Uma regra de Auto-Switch para um perfil ausente foi removida.",
   "keyset.error.import_empty": "O JSON da área de transferência não continha nenhum perfil.",
   "keyset.error.no_preview": "Gere uma visualização de Correção segura antes de aplicá-la.",
   "keyset.error.no_undo": "Não há alteração de Correção segura para desfazer.",
@@ -207,6 +208,9 @@
   "keyset.tutorial.autoswitch.title": "Passo 7 — Alternância automática",
   "keyset.tutorial.autoswitch.body": "Keyset pode alternar automaticamente de perfis quando você entra em um servidor. Configure uma regra como 'hypixel.net → perfil PvP' e ele alterna no momento em que você conecta. Abra a aba Alternância automática para configurar.",
   "keyset.tutorial.autoswitch.hint": "→ Clique na aba Alternância automática acima",
+  "keyset.tutorial.share.title": "Etapa 8 — Share de um perfil",
+  "keyset.tutorial.share.body": "A aba Share permite exportar qualquer perfil como um código de 8 caracteres. Envie para um amigo ou importe instantaneamente o layout de outra pessoa. Os códigos expiram após 90 dias.",
+  "keyset.tutorial.share.hint": "",
   "keyset.tutorial.done.title": "Você está pronto!",
   "keyset.tutorial.done.body": "Você sabe como criar, ativar e salvar perfis, corrigir conflitos e configurar a alternância automática. Use o botão ? a qualquer momento para rever este guia. Vá construir seu layout perfeito.",
   "keyset.tutorial.done.hint": "",
@@ -236,5 +240,11 @@
   "keyset.share.dialog.accept": "Aceitar",
   "keyset.share.dialog.decline": "Recusar",
   "keyset.share.compat.ok": "✓ Todos os atalhos são compatíveis.",
-  "keyset.share.error.empty_profile": "Salve ao vivo primeiro antes de compartilhar este perfil."
+  "keyset.share.error.empty_profile": "Salve ao vivo primeiro antes de compartilhar este perfil.",
+  "keyset.share.error.rate_limited": "Solicitações demais. Tente novamente mais tarde.",
+  "keyset.share.error.not_found": "Código não encontrado ou expirado.",
+  "keyset.share.error.server_error": "Erro do servidor. Tente novamente mais tarde.",
+  "keyset.share.error.malformed_response": "O servidor de Share retornou dados inválidos.",
+  "keyset.share.error.unknown": "Share falhou. Verifique sua conexão.",
+  "keyset.share.error.invalid_data": "Dados de perfil inválidos."
 }

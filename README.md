@@ -42,7 +42,7 @@
 
 🗂️ &nbsp;**Profiles** — Create as many named keybind layouts as you want. Switch with one click or automatically on server join.
 
-🔍 &nbsp;**Conflict Browser** — Live scan of every clashing bind in your current layout. Fix them one by one or in bulk. Vanilla binds are never touched without you asking.
+🔍 &nbsp;**Live Conflict Detection** — Live scan of every clashing bind in your current layout. Fix them one by one or in bulk. Vanilla binds are never touched without you asking.
 
 🔄 &nbsp;**Auto-Switch** — Set rules like `hypixel.net → PvP` and Keyset handles the switch the moment you connect. Works with partial server address matching.
 

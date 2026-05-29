@@ -142,6 +142,7 @@
   "keyset.status.config_recovered_default": "发现配置损坏后，Keyset 配置文件已重置为默认值。",
   "keyset.status.config_backup_warning": "Keyset 已保存，但无法更新恢复备份文件。",
   "keyset.status.config_archive_warning": "Keyset 继续加载，但无法归档损坏的配置副本。",
+  "keyset.status.autoswitch_missing_profile": "已移除缺失配置对应的 Auto-Switch 规则。",
   "keyset.error.import_empty": "剪贴板 JSON 中不包含任何配置文件。",
   "keyset.error.no_preview": "应用之前请先生成安全修复预览。",
   "keyset.error.no_undo": "没有可撤销的安全修复更改。",
@@ -207,6 +208,9 @@
   "keyset.tutorial.autoswitch.title": "第 7 步 — 自动切换",
   "keyset.tutorial.autoswitch.body": "Keyset 可以在您加入服务器时自动切换配置文件。设置一条规则，如 'hypixel.net → PvP 配置文件'，它会在您连接时立即切换。打开自动切换标签页进行设置。",
   "keyset.tutorial.autoswitch.hint": "→ 点击上方的自动切换标签页",
+  "keyset.tutorial.share.title": "步骤 8 — Share 配置",
+  "keyset.tutorial.share.body": "Share 标签页可将任何配置导出为 8 个字符的代码。把它发给朋友，或立即导入其他人的布局。代码会在 90 天后过期。",
+  "keyset.tutorial.share.hint": "",
   "keyset.tutorial.done.title": "您已准备好！",
   "keyset.tutorial.done.body": "您知道如何创建、激活和保存配置文件，修复冲突，以及设置自动切换。随时使用 ? 按钮重新查看本指南。去构建您的完美布局吧。",
   "keyset.tutorial.done.hint": "",
@@ -236,5 +240,11 @@
   "keyset.share.dialog.accept": "接受",
   "keyset.share.dialog.decline": "拒绝",
   "keyset.share.compat.ok": "✓ 所有按键绑定兼容。",
-  "keyset.share.error.empty_profile": "分享此配置文件前请先实时保存。"
+  "keyset.share.error.empty_profile": "分享此配置文件前请先实时保存。",
+  "keyset.share.error.rate_limited": "请求过多。请稍后再试。",
+  "keyset.share.error.not_found": "代码不存在或已过期。",
+  "keyset.share.error.server_error": "服务器错误。请稍后再试。",
+  "keyset.share.error.malformed_response": "Share 服务器返回了无效数据。",
+  "keyset.share.error.unknown": "Share 失败。请检查连接。",
+  "keyset.share.error.invalid_data": "无效的配置数据。"
 }

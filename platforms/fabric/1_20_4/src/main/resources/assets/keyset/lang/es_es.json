@@ -142,6 +142,7 @@
   "keyset.status.config_recovered_default": "Se restablecieron los perfiles de Keyset a los predeterminados tras encontrar una configuración corrupta.",
   "keyset.status.config_backup_warning": "Se guardó Keyset, pero no se pudo actualizar el archivo de recuperación.",
   "keyset.status.config_archive_warning": "Keyset continuó cargando, pero no se pudo archivar la copia de configuración corrupta.",
+  "keyset.status.autoswitch_missing_profile": "Se eliminó una regla de Auto-Switch para un perfil faltante.",
   "keyset.error.import_empty": "El JSON del portapapeles no contenía ningún perfil.",
   "keyset.error.no_preview": "Genera una vista previa de corrección segura antes de aplicarla.",
   "keyset.error.no_undo": "No hay ningún cambio de corrección segura para deshacer.",
@@ -207,6 +208,9 @@
   "keyset.tutorial.autoswitch.title": "Paso 7 — Cambio automático",
   "keyset.tutorial.autoswitch.body": "Keyset puede cambiar automáticamente de perfiles cuando te unes a un servidor. Configura una regla como 'hypixel.net → perfil PvP' y cambia en el momento en que te conectas. Abre la pestaña Cambio automático para configurarlo.",
   "keyset.tutorial.autoswitch.hint": "→ Haz clic en la pestaña Cambio automático arriba",
+  "keyset.tutorial.share.title": "Paso 8 — Share de un perfil",
+  "keyset.tutorial.share.body": "La pestaña Share te permite exportar cualquier perfil como un código de 8 caracteres. Envíalo a un amigo o importa al instante la configuración de otra persona. Los códigos expiran después de 90 días.",
+  "keyset.tutorial.share.hint": "",
   "keyset.tutorial.done.title": "¡Estás listo!",
   "keyset.tutorial.done.body": "Ya sabes cómo crear, activar y guardar perfiles, corregir conflictos y configurar el cambio automático. Usa el botón ? en cualquier momento para volver a esta guía. Ve a construir tu distribución perfecta.",
   "keyset.tutorial.done.hint": "",
@@ -236,5 +240,11 @@
   "keyset.share.dialog.accept": "Aceptar",
   "keyset.share.dialog.decline": "Rechazar",
   "keyset.share.compat.ok": "✓ Todos los atajos son compatibles.",
-  "keyset.share.error.empty_profile": "Guarda en vivo primero antes de compartir este perfil."
+  "keyset.share.error.empty_profile": "Guarda en vivo primero antes de compartir este perfil.",
+  "keyset.share.error.rate_limited": "Demasiadas solicitudes. Inténtalo de nuevo más tarde.",
+  "keyset.share.error.not_found": "Código no encontrado o caducado.",
+  "keyset.share.error.server_error": "Error del servidor. Inténtalo de nuevo más tarde.",
+  "keyset.share.error.malformed_response": "El servidor de Share devolvió datos no válidos.",
+  "keyset.share.error.unknown": "Share falló. Comprueba tu conexión.",
+  "keyset.share.error.invalid_data": "Datos de perfil no válidos."
 }

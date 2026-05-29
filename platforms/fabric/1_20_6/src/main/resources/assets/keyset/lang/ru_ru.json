@@ -142,6 +142,7 @@
   "keyset.status.config_recovered_default": "Профили Keyset сброшены до стандартных после обнаружения повреждённой конфигурации.",
   "keyset.status.config_backup_warning": "Keyset сохранён, но файл восстановления не удалось обновить.",
   "keyset.status.config_archive_warning": "Keyset продолжил загрузку, но повреждённую копию конфигурации не удалось архивировать.",
+  "keyset.status.autoswitch_missing_profile": "Удалено правило Auto-Switch для отсутствующего профиля.",
   "keyset.error.import_empty": "JSON из буфера обмена не содержал профилей.",
   "keyset.error.no_preview": "Сгенерируйте предпросмотр Безопасного исправления перед его применением.",
   "keyset.error.no_undo": "Нет изменений Безопасного исправления для отмены.",
@@ -207,6 +208,9 @@
   "keyset.tutorial.autoswitch.title": "Шаг 7 — Автопереключение",
   "keyset.tutorial.autoswitch.body": "Keyset может автоматически переключать профили при подключении к серверу. Установите правило вроде 'hypixel.net → профиль PvP', и переключение произойдёт в момент подключения. Откройте вкладку Автопереключение для настройки.",
   "keyset.tutorial.autoswitch.hint": "→ Нажмите на вкладку Автопереключение выше",
+  "keyset.tutorial.share.title": "Шаг 8 — Share профиля",
+  "keyset.tutorial.share.body": "Вкладка Share позволяет экспортировать любой профиль как 8-символьный код. Отправьте его другу или мгновенно импортируйте раскладку другого игрока. Коды истекают через 90 дней.",
+  "keyset.tutorial.share.hint": "",
   "keyset.tutorial.done.title": "Вы готовы!",
   "keyset.tutorial.done.body": "Вы знаете, как создавать, активировать и сохранять профили, исправлять конфликты и настраивать автопереключение. Используйте кнопку ? в любое время, чтобы вернуться к этому руководству. Идите и создайте идеальную раскладку.",
   "keyset.tutorial.done.hint": "",
@@ -236,5 +240,11 @@
   "keyset.share.dialog.accept": "Принять",
   "keyset.share.dialog.decline": "Отклонить",
   "keyset.share.compat.ok": "✓ Все привязки совместимы.",
-  "keyset.share.error.empty_profile": "Сначала сохраните вживую перед публикацией этого профиля."
+  "keyset.share.error.empty_profile": "Сначала сохраните вживую перед публикацией этого профиля.",
+  "keyset.share.error.rate_limited": "Слишком много запросов. Попробуйте позже.",
+  "keyset.share.error.not_found": "Код не найден или истёк.",
+  "keyset.share.error.server_error": "Ошибка сервера. Попробуйте позже.",
+  "keyset.share.error.malformed_response": "Сервер Share вернул недопустимые данные.",
+  "keyset.share.error.unknown": "Share не удался. Проверьте подключение.",
+  "keyset.share.error.invalid_data": "Недопустимые данные профиля."
 }

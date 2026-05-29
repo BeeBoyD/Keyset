@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.0.0]
+
+### Added
+- Complete UI rewrite: custom theme, animated tabs, custom button and text field widgets
+- Intro screen with animated keycap background and smooth fade in/out
+- 9-step interactive tutorial with task validators, contextual darkening, and step sounds
+- Auto-Switch tab: server join rules, disconnect restore, invalid rule detection
+- Share tab: 8-character codes via share.beeboyd.com (anonymous, 90-day expiry)
+- ImportConfirmDialog: sender name, profile name, keybind compatibility check
+- Live conflict detection: polls MC keybind state every 10 ticks
+- Toast notifications: bottom-left slide-up, 10s auto-dismiss, duplicate coalescing
+- 15 new localisations: es_es, pt_br, fr_fr, de_de, ro_ro, it_it, ru_ru, zh_cn, zh_tw, ja_jp, ko_kr, pl_pl, uk_ua, nl_nl, sv_se
+- New targets: Fabric 1.21.4, 1.21.9, 1.21.11, 26.1 (Fabric + NeoForge)
+
+### Fixed
+- Profiles no longer auto-apply on game start or screen open
+- Export/import uses single-profile serialization — no phantom profiles
+- Share async callbacks guarded against stale/closed screen
+- All dialogs clamped to viewport, content vertically centered, blur suppressed
+- Auto-switch rules pruned on profile delete
+- Toast queue capped; duplicates coalesced
+- 23 additional bug fixes (see GitHub release notes)
+
 ## Unreleased
 
 ## v2.0.0 - 2026-05-17

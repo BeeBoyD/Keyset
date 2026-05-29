@@ -142,6 +142,7 @@
   "keyset.status.config_recovered_default": "Keyset-Profile nach beschädigter Konfiguration auf Standard zurückgesetzt.",
   "keyset.status.config_backup_warning": "Keyset gespeichert, aber Wiederherstellungsdatei konnte nicht aktualisiert werden.",
   "keyset.status.config_archive_warning": "Keyset hat weitergeladen, aber beschädigte Konfigurationskopie konnte nicht archiviert werden.",
+  "keyset.status.autoswitch_missing_profile": "Eine Auto-Switch-Regel für ein fehlendes Profil wurde entfernt.",
   "keyset.error.import_empty": "Das JSON der Zwischenablage enthielt keine Profile.",
   "keyset.error.no_preview": "Zuerst eine Vorschau der sicheren Korrektur generieren, bevor sie angewendet wird.",
   "keyset.error.no_undo": "Keine sichere Korrektur zum Rückgängigmachen vorhanden.",
@@ -207,6 +208,9 @@
   "keyset.tutorial.autoswitch.title": "Schritt 7 — Automatisch wechseln",
   "keyset.tutorial.autoswitch.body": "Keyset kann beim Serverbeitritt automatisch Profile wechseln. Richte eine Regel wie 'hypixel.net → PvP-Profil' ein und es wechselt im Moment der Verbindung. Öffne den Automatisch-wechseln-Tab zum Einrichten.",
   "keyset.tutorial.autoswitch.hint": "→ Auf den Automatisch-wechseln-Tab oben klicken",
+  "keyset.tutorial.share.title": "Schritt 8 — Share eines Profils",
+  "keyset.tutorial.share.body": "Über den Share-Tab kannst du jedes Profil als 8-stelligen Code exportieren. Schicke ihn einem Freund oder importiere sofort das Layout einer anderen Person. Codes laufen nach 90 Tagen ab.",
+  "keyset.tutorial.share.hint": "",
   "keyset.tutorial.done.title": "Du bist bereit!",
   "keyset.tutorial.done.body": "Du weißt jetzt, wie du Profile erstellst, aktivierst und speicherst, Konflikte behebst und automatisches Wechseln einrichtest. Verwende die ?-Schaltfläche jederzeit, um diese Anleitung erneut aufzurufen. Geh und baue deine perfekte Belegung.",
   "keyset.tutorial.done.hint": "",
@@ -236,5 +240,11 @@
   "keyset.share.dialog.accept": "Annehmen",
   "keyset.share.dialog.decline": "Ablehnen",
   "keyset.share.compat.ok": "✓ Alle Belegungen kompatibel.",
-  "keyset.share.error.empty_profile": "Zuerst Live speichern, bevor dieses Profil geteilt wird."
+  "keyset.share.error.empty_profile": "Zuerst Live speichern, bevor dieses Profil geteilt wird.",
+  "keyset.share.error.rate_limited": "Zu viele Anfragen. Versuche es später erneut.",
+  "keyset.share.error.not_found": "Code nicht gefunden oder abgelaufen.",
+  "keyset.share.error.server_error": "Serverfehler. Versuche es später erneut.",
+  "keyset.share.error.malformed_response": "Der Share-Server hat ungültige Daten zurückgegeben.",
+  "keyset.share.error.unknown": "Share fehlgeschlagen. Prüfe deine Verbindung.",
+  "keyset.share.error.invalid_data": "Ungültige Profildaten."
 }
