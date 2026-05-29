@@ -627,7 +627,9 @@ resolve_existing_classpath_entry() {
     return 0
   fi
 
-  printf '%s\n' "${normalized}"
+  # FIX: warn and skip missing entries instead of silently returning a phantom path.
+  printf 'Warning: classpath entry does not exist, skipping: %s\n' "${normalized}" >&2
+  return 1
 }
 
 build_classpath_from_argfile() {
@@ -635,9 +637,13 @@ build_classpath_from_argfile() {
   local filtered_parts=()
   local raw_classpath part
   raw_classpath="$(sed -n '2p' "${argfile}")"
+  # Loom quotes the entire classpath string when paths contain spaces; strip surrounding quotes.
+  raw_classpath="${raw_classpath#\"}"
+  raw_classpath="${raw_classpath%\"}"
   IFS=':' read -r -a parts <<<"${raw_classpath}"
   for part in "${parts[@]}"; do
-    part="$(resolve_existing_classpath_entry "${part}")"
+    # FIX: skip entries that don't resolve instead of including phantom paths.
+    part="$(resolve_existing_classpath_entry "${part}")" || continue
     if [[ -z "${part}" ]]; then
       continue
     fi
@@ -668,12 +674,14 @@ build_classpath_from_argfile() {
 
 build_classpath_from_remap() {
   local remap_classpath_file="$1"
-  local runtime_classpath normalized_parts=() part
+  local runtime_classpath normalized_parts=() part resolved
   runtime_classpath="$(<"${remap_classpath_file}")"
   runtime_classpath="${runtime_classpath#$'\ufeff'}"
   IFS=':' read -r -a parts <<<"${runtime_classpath}"
   for part in "${parts[@]}"; do
-    normalized_parts+=("$(resolve_existing_classpath_entry "${part}")")
+    # FIX: skip entries that don't resolve instead of including phantom paths.
+    resolved="$(resolve_existing_classpath_entry "${part}")" || continue
+    normalized_parts+=("${resolved}")
   done
   local joined=""
   for part in "${normalized_parts[@]}"; do
@@ -752,7 +760,8 @@ build_classpath_from_gradle_run_client() {
 
   IFS=':' read -r -a parts <<<"${cp_line}"
   for part in "${parts[@]}"; do
-    part="$(resolve_existing_classpath_entry "${part}")"
+    # FIX: skip entries that don't resolve instead of including phantom paths.
+    part="$(resolve_existing_classpath_entry "${part}")" || continue
     if [[ -z "${part}" ]]; then
       continue
     fi
@@ -1279,8 +1288,10 @@ main() {
     argfile="${REPO_ROOT}/${platform_dir}/build/loom-cache/argFiles/runClient"
     remap_classpath_file="${REPO_ROOT}/${platform_dir}/.gradle/loom-cache/remapClasspath.txt"
 
+    # FIX: no longer silently suppressing prepare_launch_metadata failures.
+    # Errors are now visible so missing Loom cache entries surface immediately.
     set +e
-    prepare_launch_metadata "${gradle_java_home}" "${loader}" "${platform_dir}" >/dev/null 2>&1
+    prepare_launch_metadata "${gradle_java_home}" "${loader}" "${platform_dir}"
     set -e
 
     if [[ "${label}" == "forge-1.21.1" ]]; then

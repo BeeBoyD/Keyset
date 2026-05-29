@@ -12,6 +12,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.KeyMapping;
@@ -34,7 +35,8 @@ public final class KeysetFabricClient implements ClientModInitializer {
   private static final KeysetFabricService SERVICE = new KeysetFabricService();
 
   private static final KeyMapping.Category KEYSET_CATEGORY =
-      new KeyMapping.Category(net.minecraft.resources.Identifier.fromNamespaceAndPath("keyset", "keyset"));
+      new KeyMapping.Category(
+          net.minecraft.resources.Identifier.fromNamespaceAndPath("keyset", "keyset"));
 
   private KeyMapping openScreenKeyMapping;
   private KeyMapping cycleNextKeyMapping;
@@ -56,9 +58,7 @@ public final class KeysetFabricClient implements ClientModInitializer {
     openScreenKeyMapping =
         KeyMappingHelper.registerKeyMapping(
             new KeyMapping(
-                "keyset.key.open_screen",
-                InputConstants.UNKNOWN.getValue(),
-                KEYSET_CATEGORY));
+                "keyset.key.open_screen", InputConstants.UNKNOWN.getValue(), KEYSET_CATEGORY));
 
     cycleNextKeyMapping =
         KeyMappingHelper.registerKeyMapping(
@@ -136,6 +136,14 @@ public final class KeysetFabricClient implements ClientModInitializer {
               parentScreen -> new KeysetScreen(parentScreen, SERVICE),
               KeysetFabricClient::isKeysetScreen);
         });
+
+    ClientPlayConnectionEvents.JOIN.register(
+        (handler, sender, client) -> {
+          String address = client.getCurrentServer() != null ? client.getCurrentServer().ip : null;
+          SERVICE.handleServerJoin(client, address);
+        });
+    ClientPlayConnectionEvents.DISCONNECT.register(
+        (handler, client) -> SERVICE.handleServerDisconnect(client));
 
     ScreenEvents.AFTER_INIT.register(
         (client, screen, scaledWidth, scaledHeight) -> {

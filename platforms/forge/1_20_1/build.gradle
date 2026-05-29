@@ -83,6 +83,16 @@ processResources {
     filesMatching("META-INF/mods.toml") {
         expand(expandProps)
     }
+    doLast {
+        def eclipseOutput = layout.projectDirectory.dir("bin/main").asFile
+        if (eclipseOutput.isDirectory()) {
+            copy {
+                from(destinationDir)
+                into(eclipseOutput)
+                include("META-INF/mods.toml")
+            }
+        }
+    }
 }
 
 jar {

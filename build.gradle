@@ -67,8 +67,12 @@ subprojects {
 
         sourceSets {
             main {
+                java {
+                    exclude("**/._*")
+                }
                 resources {
                     srcDir(rootProject.file("shared-resources"))
+                    exclude("**/._*")
                 }
             }
         }

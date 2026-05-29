@@ -11,7 +11,6 @@ import net.beeboyd.keyset.core.conflict.KeysetConflictGroupMode;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService.AutoResolveChange;
 import net.beeboyd.keyset.platform.fabric.KeysetFabricService.AutoResolvePlan;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.Selectable;
@@ -25,7 +24,6 @@ public final class KeysetConflictListWidget
 
   private final Listener listener;
   private final boolean compactRows;
-  private boolean hidden;
 
   public KeysetConflictListWidget(
       MinecraftClient client, int width, int top, int bottom, int rowHeight, Listener listener) {
@@ -111,7 +109,6 @@ public final class KeysetConflictListWidget
   }
 
   public void setHidden(boolean hidden) {
-    this.hidden = hidden;
     this.visible = !hidden;
     this.active = !hidden;
   }
@@ -126,7 +123,7 @@ public final class KeysetConflictListWidget
     for (Entry entry : children()) {
       if (bindingId.equals(entry.bindingId())) {
         setSelected(entry);
-        centerScrollOn(entry);
+        scrollTo(entry);
         listener.onBindingSelected(entry.bindingDescriptor());
         return;
       }
@@ -134,6 +131,11 @@ public final class KeysetConflictListWidget
 
     setSelected(null);
     listener.onBindingSelected(null);
+  }
+
+  @Override
+  public void setSelected(Entry entry) {
+    super.setSelected(entry);
   }
 
   @Override
@@ -146,47 +148,50 @@ public final class KeysetConflictListWidget
     return getRowRight() - 6;
   }
 
-  @Override
   protected void drawMenuListBackground(DrawContext context) {}
 
-  @Override
   protected void drawHeaderAndFooterSeparators(DrawContext context) {}
 
-  @Override
-  protected void drawSelectionHighlight(DrawContext context, Entry entry, int alpha) {}
+  protected void drawSelectionHighlight(
+      DrawContext context,
+      int y,
+      int entryWidth,
+      int entryHeight,
+      int borderColor,
+      int fillColor) {}
 
-  Text fitText(Text text, int maxWidth) {
+  private Text fitText(Text text, int maxWidth) {
     return Text.literal(ellipsize(text.getString(), maxWidth));
   }
 
-  Text fitText(String text, int maxWidth) {
+  private Text fitText(String text, int maxWidth) {
     return Text.literal(ellipsize(text, maxWidth));
   }
 
   // Keep row content centered from the actual row height so compact mode does not clip text.
-  int singleLineTextY(int y, int entryHeight) {
+  private int singleLineTextY(int y, int entryHeight) {
     return y + Math.max(2, (entryHeight - client.textRenderer.fontHeight) / 2);
   }
 
-  int bindingNameY(int y, int entryHeight) {
+  private int bindingNameY(int y, int entryHeight) {
     int lineGap = compactRows ? 1 : 2;
     int totalTextHeight = (client.textRenderer.fontHeight * 2) + lineGap;
     return y + Math.max(2, (entryHeight - totalTextHeight) / 2);
   }
 
-  int bindingMetaY(int nameY) {
+  private int bindingMetaY(int nameY) {
     return nameY + client.textRenderer.fontHeight + (compactRows ? 1 : 2);
   }
 
-  int badgeHeight() {
+  private int badgeHeight() {
     return compactRows ? 12 : 14;
   }
 
-  int badgeTextY(int badgeY) {
+  private int badgeTextY(int badgeY) {
     return badgeY + Math.max(1, (badgeHeight() - client.textRenderer.fontHeight) / 2);
   }
 
-  float emphasisFor(int y, int entryHeight) {
+  private float emphasisFor(int y, int entryHeight) {
     int viewportTop = getY();
     int viewportHeight = getHeight();
     int rowCenter = y + (entryHeight / 2);
@@ -208,7 +213,7 @@ public final class KeysetConflictListWidget
     }
 
     setSelected(entry);
-    centerScrollOn(entry);
+    scrollTo(entry);
     listener.onBindingSelected(entry.bindingDescriptor());
   }
 
@@ -223,7 +228,6 @@ public final class KeysetConflictListWidget
     for (Entry entry : children()) {
       if (entry.bindingId() != null) {
         setSelected(entry);
-        centerScrollOn(entry);
         listener.onBindingSelected(entry.bindingDescriptor());
         return;
       }
@@ -239,11 +243,11 @@ public final class KeysetConflictListWidget
     return (scaledAlpha << 24) | (color & 0x00FFFFFF);
   }
 
-  private static int clamp(int value, int min, int max) {
+  private static float clamp(float value, float min, float max) {
     return Math.max(min, Math.min(max, value));
   }
 
-  private static float clamp(float value, float min, float max) {
+  private static int clamp(int value, int min, int max) {
     return Math.max(min, Math.min(max, value));
   }
 
@@ -324,7 +328,10 @@ public final class KeysetConflictListWidget
     }
 
     @Override
-    public boolean mouseClicked(Click click, boolean doubleClick) {
+    public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubleClick) {
+      double mouseX = click.x();
+      double mouseY = click.y();
+      int button = click.button();
       owner.handleSelection(this);
       return true;
     }
@@ -336,9 +343,6 @@ public final class KeysetConflictListWidget
       int y = getY();
       int entryWidth = getWidth();
       int entryHeight = getHeight();
-      int contentX = getContentX();
-      int contentY = getContentY();
-      int contentWidth = getContentWidth();
       float emphasis = owner.emphasisFor(y, entryHeight);
       int offset = Math.round((1.0F - emphasis) * 8.0F);
 
@@ -347,9 +351,9 @@ public final class KeysetConflictListWidget
       context.fill(x, y + 3, x + 4, y + entryHeight - 3, scaleAlpha(0xFFF0C870, 0.9F * emphasis));
       context.drawTextWithShadow(
           owner.client.textRenderer,
-          owner.fitText(text, Math.max(28, contentWidth - 20)),
-          contentX + (owner.compactRows ? 8 : 10) + offset,
-          owner.singleLineTextY(contentY, entryHeight),
+          owner.fitText(text, Math.max(28, entryWidth - 24)),
+          x + (owner.compactRows ? 8 : 10) + offset,
+          owner.singleLineTextY(y, entryHeight),
           scaleAlpha(0xFFF5DEA0, emphasis));
     }
   }
@@ -370,7 +374,10 @@ public final class KeysetConflictListWidget
     }
 
     @Override
-    public boolean mouseClicked(Click click, boolean doubleClick) {
+    public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubleClick) {
+      double mouseX = click.x();
+      double mouseY = click.y();
+      int button = click.button();
       owner.handleSelection(this);
       return true;
     }
@@ -378,16 +385,17 @@ public final class KeysetConflictListWidget
     @Override
     public void render(
         DrawContext context, int mouseX, int mouseY, boolean hovered, float tickDelta) {
-      int contentX = getContentX();
-      int contentY = getContentY();
-      int contentWidth = getContentWidth();
-      float emphasis = owner.emphasisFor(getY(), getHeight());
+      int x = getX();
+      int y = getY();
+      int entryWidth = getWidth();
+      int entryHeight = getHeight();
+      float emphasis = owner.emphasisFor(y, entryHeight);
       int offset = Math.round((1.0F - emphasis) * 6.0F);
       context.drawTextWithShadow(
           owner.client.textRenderer,
-          owner.fitText(text, Math.max(24, contentWidth - 22)),
-          contentX + (owner.compactRows ? 12 : 14) + offset,
-          owner.singleLineTextY(contentY, getHeight()),
+          owner.fitText(text, Math.max(24, entryWidth - 30)),
+          x + (owner.compactRows ? 12 : 14) + offset,
+          owner.singleLineTextY(y, entryHeight),
           scaleAlpha(0xFF9FB4C9, 0.95F * emphasis));
     }
   }
@@ -412,7 +420,10 @@ public final class KeysetConflictListWidget
     }
 
     @Override
-    public boolean mouseClicked(Click click, boolean doubleClick) {
+    public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubleClick) {
+      double mouseX = click.x();
+      double mouseY = click.y();
+      int button = click.button();
       owner.handleSelection(this);
       return true;
     }
@@ -424,9 +435,6 @@ public final class KeysetConflictListWidget
       int y = getY();
       int entryWidth = getWidth();
       int entryHeight = getHeight();
-      int contentX = getContentX();
-      int contentY = getContentY();
-      int contentWidth = getContentWidth();
       boolean selected = owner.getSelectedOrNull() == this;
       float emphasis = owner.emphasisFor(y, entryHeight);
       int contentOffset = Math.round((1.0F - emphasis) * 6.0F);
@@ -455,8 +463,8 @@ public final class KeysetConflictListWidget
               owner.client.textRenderer.getWidth(keyLabel) + 14,
               40,
               Math.max(owner.compactRows ? 46 : 52, entryWidth / 3));
-      int badgeHeight = owner.badgeHeight();
       int badgeX = x + entryWidth - badgeWidth - 10;
+      int badgeHeight = owner.badgeHeight();
       int badgeY = y + Math.max(2, (entryHeight - badgeHeight) / 2);
       int keyBadgeFill = selected ? 0xFF33526B : scaleAlpha(0xFF273647, 0.92F * emphasis);
       int keyBadgeBorder = selected ? 0xFF8FD9F0 : scaleAlpha(0xFF60788C, emphasis);
@@ -469,18 +477,18 @@ public final class KeysetConflictListWidget
           owner.badgeTextY(badgeY),
           selected ? 0xFFF4FBFF : scaleAlpha(0xFFD7E4F2, emphasis));
 
-      int textMaxWidth = Math.max(24, badgeX - contentX - 18);
-      int nameY = owner.bindingNameY(contentY, entryHeight);
+      int textMaxWidth = Math.max(24, badgeX - x - 18);
+      int nameY = owner.bindingNameY(y, entryHeight);
       context.drawTextWithShadow(
           owner.client.textRenderer,
           owner.fitText(bindingDescriptor.getDisplayName(), textMaxWidth),
-          contentX + (owner.compactRows ? 6 : 8) + contentOffset,
+          x + (owner.compactRows ? 6 : 8) + contentOffset,
           nameY,
           nameColor);
       context.drawTextWithShadow(
           owner.client.textRenderer,
           owner.fitText(bindingDescriptor.getCategoryName(), textMaxWidth),
-          contentX + (owner.compactRows ? 6 : 8) + contentOffset,
+          x + (owner.compactRows ? 6 : 8) + contentOffset,
           owner.bindingMetaY(nameY),
           metaColor);
     }
@@ -503,9 +511,6 @@ public final class KeysetConflictListWidget
       int y = getY();
       int entryWidth = getWidth();
       int entryHeight = getHeight();
-      int contentX = getContentX();
-      int contentY = getContentY();
-      int contentWidth = getContentWidth();
       float emphasis = owner.emphasisFor(y, entryHeight);
       int offset = Math.round((1.0F - emphasis) * 4.0F);
 
@@ -523,9 +528,9 @@ public final class KeysetConflictListWidget
 
       context.drawTextWithShadow(
           owner.client.textRenderer,
-          owner.fitText(text, Math.max(24, contentWidth - 14)),
-          contentX + 8 + offset,
-          owner.singleLineTextY(contentY, entryHeight),
+          owner.fitText(text, Math.max(24, entryWidth - 14)),
+          x + 8 + offset,
+          owner.singleLineTextY(y, entryHeight),
           summary ? 0xFFF0F7ED : scaleAlpha(0xFFE2EAF3, emphasis));
     }
   }

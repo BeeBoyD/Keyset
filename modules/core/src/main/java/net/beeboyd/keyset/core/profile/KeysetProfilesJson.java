@@ -33,7 +33,11 @@ public final class KeysetProfilesJson {
       return KeysetProfiles.createDefaultConfig();
     }
 
-    return fromElement(new JsonParser().parse(json));
+    try {
+      return fromElement(new JsonParser().parse(json));
+    } catch (RuntimeException exception) {
+      throw invalidProfileData(exception);
+    }
   }
 
   /** Reads a config document from a reader. */
@@ -42,13 +46,82 @@ public final class KeysetProfilesJson {
       return KeysetProfiles.createDefaultConfig();
     }
 
-    return fromElement(new JsonParser().parse(reader));
+    try {
+      return fromElement(new JsonParser().parse(reader));
+    } catch (RuntimeException exception) {
+      throw invalidProfileData(exception);
+    }
   }
 
   /** Serializes a config document into stable pretty-printed JSON. */
   public String toJson(KeysetProfilesConfig config) {
     KeysetProfilesConfig normalized = KeysetProfiles.normalize(config);
     return GSON.toJson(toElement(normalized));
+  }
+
+  /** Serializes without normalization — caller guarantees no Default injection is desired. */
+  public String toJsonRaw(KeysetProfilesConfig config) {
+    return GSON.toJson(toElement(config));
+  }
+
+  /**
+   * Serializes a single profile to portable JSON for sharing. Does NOT wrap in a config object and
+   * does NOT call normalize(), so no phantom "Default" profile is injected.
+   */
+  public String singleProfileToJson(KeysetProfile profile) {
+    JsonObject profileObject = new JsonObject();
+    profileObject.addProperty("name", profile.getName());
+    profileObject.addProperty("builtIn", profile.isBuiltIn());
+    JsonObject bindings = new JsonObject();
+    for (Map.Entry<String, KeysetBindingSnapshot> entry : profile.getBindings().entrySet()) {
+      KeysetBindingSnapshot snapshot = entry.getValue();
+      JsonObject bindingObject = new JsonObject();
+      if (!snapshot.getKeyStroke().isUnbound()) {
+        bindingObject.addProperty("key", snapshot.getKeyStroke().getKeyToken());
+      }
+      JsonArray modifiers = new JsonArray();
+      for (KeysetModifier modifier : snapshot.getKeyStroke().getModifiers()) {
+        modifiers.add(modifier.name());
+      }
+      bindingObject.add("modifiers", modifiers);
+      if (snapshot.isSticky()) {
+        bindingObject.addProperty("sticky", true);
+      }
+      bindings.add(entry.getKey(), bindingObject);
+    }
+    profileObject.add("bindings", bindings);
+    return GSON.toJson(profileObject);
+  }
+
+  /**
+   * Deserializes a single profile from portable share JSON (inverse of singleProfileToJson). The
+   * caller supplies the profileId that will be assigned to the new profile.
+   */
+  public KeysetProfile singleProfileFromJson(String json, String profileId) {
+    try {
+      JsonElement root = new JsonParser().parse(json);
+      if (root == null || root.isJsonNull() || !root.isJsonObject()) {
+        throw new IllegalArgumentException("Expected profile JSON object");
+      }
+      JsonObject obj = root.getAsJsonObject();
+      if (!obj.has("bindings") || !obj.get("bindings").isJsonObject()) {
+        throw new IllegalArgumentException("Missing required profile bindings");
+      }
+      return new KeysetProfile(
+          profileId,
+          fallbackProfileName(readString(obj, "name"), profileId),
+          false,
+          readBindings(obj));
+    } catch (RuntimeException exception) {
+      throw invalidProfileData(exception);
+    }
+  }
+
+  private IllegalArgumentException invalidProfileData(RuntimeException exception) {
+    String message = exception.getMessage();
+    return new IllegalArgumentException(
+        "Invalid profile data" + (message == null || message.isEmpty() ? "" : ": " + message),
+        exception);
   }
 
   /** Reads the config file, returning a starter document when the file does not exist yet. */
@@ -82,6 +155,7 @@ public final class KeysetProfilesJson {
             parent == null ? path.toAbsolutePath().getParent() : parent,
             path.getFileName().toString(),
             ".tmp");
+    boolean moved = false;
     try {
       try (Writer writer = Files.newBufferedWriter(tempFile, StandardCharsets.UTF_8)) {
         writer.write(toJson(config));
@@ -93,8 +167,11 @@ public final class KeysetProfilesJson {
       } catch (AtomicMoveNotSupportedException ignored) {
         Files.move(tempFile, path, StandardCopyOption.REPLACE_EXISTING);
       }
+      moved = true; // reached only when a move succeeded
     } finally {
-      Files.deleteIfExists(tempFile);
+      if (!moved) {
+        Files.deleteIfExists(tempFile); // clean up only on write/move failure
+      }
     }
   }
 

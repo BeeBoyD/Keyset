@@ -20,6 +20,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
@@ -61,6 +62,8 @@ public final class KeysetNeoForgeClientMod {
       modBus.addListener(this::onRegisterKeyMappings);
       NeoForge.EVENT_BUS.addListener(this::onClientTick);
       NeoForge.EVENT_BUS.addListener(this::onScreenInit);
+      NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
+      NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedOut);
     }
 
     private void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
@@ -147,6 +150,17 @@ public final class KeysetNeoForgeClientMod {
           MinecraftClient::setScreen,
           parentScreen -> new KeysetScreen(parentScreen, SERVICE),
           ClientOnly::isKeysetScreen);
+    }
+
+    private void onPlayerLoggedIn(ClientPlayerNetworkEvent.LoggingIn event) {
+      MinecraftClient client = MinecraftClient.getInstance();
+      String address =
+          client.getCurrentServerEntry() != null ? client.getCurrentServerEntry().address : null;
+      SERVICE.handleServerJoin(client, address);
+    }
+
+    private void onPlayerLoggedOut(ClientPlayerNetworkEvent.LoggingOut event) {
+      SERVICE.handleServerDisconnect(MinecraftClient.getInstance());
     }
 
     private void onScreenInit(ScreenEvent.Init.Post event) {

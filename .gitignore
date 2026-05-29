@@ -12,6 +12,7 @@ build/
 
 # OS
 .DS_Store
+**/.DS_Store
 
 # Runtime
 run/
@@ -21,8 +22,9 @@ builtJars/**/.DS_Store
 
 # Misc
 out/
+bin/
 
-# AI / agent tooling
+# tools
 .claude/
 CLAUDE.md
 WORK-LOG.md
@@ -36,3 +38,34 @@ KEYSET-2.0-PLAN.md
 .codex
 .claudeignore
 .mcp.json
+AGENTS.MD
+.gitignore
+.serena/
+.settings/
+.editorconfig
+.rgignore
+.claude/
+.settings/
+graphify-out/
+opencode.json
+.claudeignore
+.codex
+.editorconfig
+.repowise/
+.gitattributes
+.project
+.python-version
+.rgignore
+.mcp.json
+.gitignore
+AGENTS.md
+builtJars/
+._*
+
+# other
+testResults/
+**/.classpath
+
+AGENTS.md
+builtJars/*
+**/builtJars/

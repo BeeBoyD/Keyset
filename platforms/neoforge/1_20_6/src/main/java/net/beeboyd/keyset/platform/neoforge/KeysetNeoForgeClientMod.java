@@ -21,6 +21,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
@@ -68,6 +69,8 @@ public final class KeysetNeoForgeClientMod {
       modBus.addListener(this::onRegisterKeyMappings);
       NeoForge.EVENT_BUS.addListener(this::onClientTick);
       NeoForge.EVENT_BUS.addListener(this::onScreenInit);
+      NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
+      NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedOut);
     }
 
     private void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
@@ -79,7 +82,8 @@ public final class KeysetNeoForgeClientMod {
       event.register(cycleNextKeyBinding);
       event.register(cyclePrevKeyBinding);
       for (int i = 0; i < 5; i++) {
-        slotKeyBindings[i] = createKeyBinding("keyset.key.activate_slot_" + (i + 1), KEYSET_CATEGORY_KEY);
+        slotKeyBindings[i] =
+            createKeyBinding("keyset.key.activate_slot_" + (i + 1), KEYSET_CATEGORY_KEY);
         event.register(slotKeyBindings[i]);
       }
     }
@@ -136,6 +140,17 @@ public final class KeysetNeoForgeClientMod {
           MinecraftClient::setScreen,
           parentScreen -> new KeysetScreen(parentScreen, SERVICE),
           ClientOnly::isKeysetScreen);
+    }
+
+    private void onPlayerLoggedIn(ClientPlayerNetworkEvent.LoggingIn event) {
+      MinecraftClient client = MinecraftClient.getInstance();
+      String address =
+          client.getCurrentServerEntry() != null ? client.getCurrentServerEntry().address : null;
+      SERVICE.handleServerJoin(client, address);
+    }
+
+    private void onPlayerLoggedOut(ClientPlayerNetworkEvent.LoggingOut event) {
+      SERVICE.handleServerDisconnect(MinecraftClient.getInstance());
     }
 
     private void onScreenInit(ScreenEvent.Init.Post event) {

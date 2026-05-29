@@ -20,6 +20,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
@@ -46,7 +47,8 @@ public final class KeysetNeoForgeClientMod {
     private static final KeysetFabricService SERVICE = new KeysetFabricService();
 
     private static final KeyMapping.Category KEYSET_CATEGORY =
-        new KeyMapping.Category(net.minecraft.resources.Identifier.fromNamespaceAndPath("keyset", "keyset"));
+        new KeyMapping.Category(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("keyset", "keyset"));
 
     private KeyMapping openScreenKeyMapping;
     private KeyMapping cycleNextKeyMapping;
@@ -63,25 +65,21 @@ public final class KeysetNeoForgeClientMod {
       modBus.addListener(this::onRegisterKeyMappings);
       NeoForge.EVENT_BUS.addListener(this::onClientTick);
       NeoForge.EVENT_BUS.addListener(this::onScreenInit);
+      NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
+      NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedOut);
     }
 
     private void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
       LOGGER.info("Registering Keyset NeoForge key mapping");
       openScreenKeyMapping =
           new KeyMapping(
-              "keyset.key.open_screen",
-              InputConstants.UNKNOWN.getValue(),
-              KEYSET_CATEGORY);
+              "keyset.key.open_screen", InputConstants.UNKNOWN.getValue(), KEYSET_CATEGORY);
       cycleNextKeyMapping =
           new KeyMapping(
-              "keyset.key.cycle_profile_next",
-              InputConstants.UNKNOWN.getValue(),
-              KEYSET_CATEGORY);
+              "keyset.key.cycle_profile_next", InputConstants.UNKNOWN.getValue(), KEYSET_CATEGORY);
       cyclePrevKeyMapping =
           new KeyMapping(
-              "keyset.key.cycle_profile_prev",
-              InputConstants.UNKNOWN.getValue(),
-              KEYSET_CATEGORY);
+              "keyset.key.cycle_profile_prev", InputConstants.UNKNOWN.getValue(), KEYSET_CATEGORY);
       event.register(openScreenKeyMapping);
       event.register(cycleNextKeyMapping);
       event.register(cyclePrevKeyMapping);
@@ -147,6 +145,16 @@ public final class KeysetNeoForgeClientMod {
           Minecraft::setScreen,
           parentScreen -> new KeysetScreen(parentScreen, SERVICE),
           ClientOnly::isKeysetScreen);
+    }
+
+    private void onPlayerLoggedIn(ClientPlayerNetworkEvent.LoggingIn event) {
+      Minecraft client = Minecraft.getInstance();
+      String address = client.getCurrentServer() != null ? client.getCurrentServer().ip : null;
+      SERVICE.handleServerJoin(client, address);
+    }
+
+    private void onPlayerLoggedOut(ClientPlayerNetworkEvent.LoggingOut event) {
+      SERVICE.handleServerDisconnect(Minecraft.getInstance());
     }
 
     private void onScreenInit(ScreenEvent.Init.Post event) {
